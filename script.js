@@ -84,14 +84,14 @@ document.addEventListener('DOMContentLoaded', () => {
         {
             name: "Warrior",
             stats: {
-                hp: 1000,
-                maxHp: 1000,
-                physicalDamage: 30,
+                hp: 1000, //1000
+                maxHp: 1000, //1000
+                physicalDamage: 30, //30
                 attackSpeed: 1.30,
                 attackRange: 80, 
                 critChance: 5.0,
                 critMultiplier: 200,
-                armour: 45,
+                armour: 45, //45
                 evade: 0,
                 hpRegen: 10,
                 level: 1,
@@ -342,9 +342,14 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('game-container').appendChild(enemy);
 
         const enemyStatsCopy = Object.assign([], enemyStats);
-        enemyStatsCopy.hp = enemyStats.hp + enemyStats.hp * currentDifficultyLevel / 3 + enemyStats.hp * Math.pow(currentDifficultyLevel, 1.7) / 5;
-        enemyStatsCopy.physicalDamage = enemyStats.physicalDamage + enemyStats.physicalDamage * (currentDifficultyLevel) / 12 + enemyStats.physicalDamage * Math.pow(currentDifficultyLevel, 1.4) / 25;
-        enemyStatsCopy.exp = enemyStats.exp + enemyStats.exp * (currentDifficultyLevel) / 5 + enemyStats.exp * Math.pow(currentDifficultyLevel, 1.2) / 5;
+        //enemyStatsCopy.hp = enemyStats.hp + enemyStats.hp * currentDifficultyLevel / 3 + enemyStats.hp * Math.pow(currentDifficultyLevel, 1.7) / 5;
+        //enemyStatsCopy.physicalDamage = enemyStats.physicalDamage + enemyStats.physicalDamage * (currentDifficultyLevel) / 12 + enemyStats.physicalDamage * Math.pow(currentDifficultyLevel, 1.4) / 25;
+        //enemyStatsCopy.exp = enemyStats.exp + enemyStats.exp * (currentDifficultyLevel) / 5 + enemyStats.exp * Math.pow(currentDifficultyLevel, 1.2) / 5;
+        
+        enemyStatsCopy.hp = enemyStats.hp + enemyStats.hp * (1.15 + 0.22 * currentDifficultyLevel) * Math.pow(1.03, currentDifficultyLevel);
+        enemyStatsCopy.physicalDamage = enemyStats.physicalDamage + enemyStats.physicalDamage * (1.2 + 0.08 * currentDifficultyLevel) * Math.pow(1.02, currentDifficultyLevel);
+        enemyStatsCopy.exp = enemyStats.exp + enemyStats.exp * (1 + 0.10 * currentDifficultyLevel) * Math.pow(1.02, currentDifficultyLevel);
+        
         if(rarity == "boss"){
             enemy.className = 'boss';
             enemyStatsCopy.hp = enemyStatsCopy.hp * 10;
@@ -618,12 +623,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 const seconds = elapsedSeconds % 60;
                 timerDisplay.textContent = `Time: ${minutes}:${seconds.toString().padStart(2, '0')}`;
                 currentDifficultyLevel = Math.floor(elapsedSeconds / (difficultyIntervalTime / 1000));
+                const maxDifficultyLevelForSpawn = currentDifficultyLevel > 360 ? 360 : currentDifficultyLevel;
                 if(previousDifficultyLevel != currentDifficultyLevel){
                     previousDifficultyLevel = currentDifficultyLevel;
-                    normalSpawnInterval = 1000 * 60 / (50 + 4 * currentDifficultyLevel);
-                    rareEnemySpawnInterval = 1000 * 60 / (15 + 2 * currentDifficultyLevel);
-                    eliteSpawnIntervalTime = 1000 * 60 / (3 + currentDifficultyLevel / 1.5);
-                    bossSpawnIntervalTime = 1000 * 60 / (1 + currentDifficultyLevel / 25);
+                    normalSpawnInterval = 1000 * 60 / (50 + 4 * maxDifficultyLevelForSpawn);
+                    rareEnemySpawnInterval = 1000 * 60 / (15 + 2 * maxDifficultyLevelForSpawn);
+                    eliteSpawnIntervalTime = 1000 * 60 / (3 + maxDifficultyLevelForSpawn / 1.5);
+                    bossSpawnIntervalTime = 1000 * 60 / (1 + maxDifficultyLevelForSpawn / 25);
                 }
             }
 
@@ -766,6 +772,9 @@ document.addEventListener('DOMContentLoaded', () => {
         bullets.push(bulletData);
 
         setTimeout(function() {
+            if (bulletData.moveAnimationId) {
+                cancelAnimationFrame(bulletData.moveAnimationId);
+            }
             bullet.remove();
             bullets.splice(bullets.indexOf(bulletData), 1); 
         }, 5000);
@@ -776,7 +785,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.selectStat = function(stat) {
         statLevel = statsList[stat].level + 1;
         if(stat == "Uprade Damage"){
-            stats.physicalDamage += Math.floor(1 + originalStats.physicalDamage / 3 + statLevel);
+            stats.physicalDamage += Math.floor(1 + originalStats.physicalDamage / 4 + statLevel);
         }          
         else if (stat == "Uprade AoE"){
             stats.attackRange += 15;
@@ -849,6 +858,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (stats.exp >= stats.expThreshold) {
             levelUp();
         }
+        if (enemy.moveAnimationId) {
+            cancelAnimationFrame(enemy.moveAnimationId);
+        }
+        delete enemyAttackCooldown[enemy.id];
         enemy.element.remove();
         enemies.splice(enemies.indexOf(enemy), 1);
     }
@@ -921,24 +934,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function initVariable(){
-        enemies.length = 0;
-        bullets.length = 0;
-        originalEnemyStats = JSON.parse(JSON.stringify(enemyStats));
-        originalStatsList = JSON.parse(JSON.stringify(statsList));
-        originalAbilityList = JSON.parse(JSON.stringify(abilityList));
-
-        for(var i = 0; i < 25; i++){
-            abilityLevelThreshold.push(9 + 10 * i);
-        }
-    }
-
-    function restartGame() {
-        cancelAnimationFrame(gameLoopId);
-        gamePaused = false;
-        gameOver = false;
-        enemyStats = JSON.parse(JSON.stringify(originalEnemyStats));
-        statsList = JSON.parse(JSON.stringify(originalStatsList));
-        abilityList = JSON.parse(JSON.stringify(originalAbilityList));
         enemies.forEach(enemy => {
             enemy.element.remove();
         });
@@ -949,6 +944,7 @@ document.addEventListener('DOMContentLoaded', () => {
         bullets.length = 0;
         lastAttackTime = 0;
         timerStart = Date.now();
+        pauseTime = Date.now();
         healthRegenTime = Date.now();
         normalSpawnTime = Date.now();
         rareEnemySpawnTime = Date.now();
@@ -958,6 +954,26 @@ document.addEventListener('DOMContentLoaded', () => {
         elapsedSeconds = 0;
         currentDifficultyLevel = 0;
         levelUpPending = false;
+        timerDisplay.textContent = `Time: 0:00`;
+
+        enemies.length = 0;
+        bullets.length = 0;
+        originalEnemyStats = JSON.parse(JSON.stringify(enemyStats));
+        originalStatsList = JSON.parse(JSON.stringify(statsList));
+        originalAbilityList = JSON.parse(JSON.stringify(abilityList));
+
+        for(var i = 0; i < 30; i++){
+            abilityLevelThreshold.push(9 + 10 * i);
+        }
+    }
+
+    function restartGame() {
+        cancelAnimationFrame(gameLoopId);
+        gamePaused = false;
+        gameOver = false;        
+        enemyStats = JSON.parse(JSON.stringify(originalEnemyStats));
+        statsList = JSON.parse(JSON.stringify(originalStatsList));
+        abilityList = JSON.parse(JSON.stringify(originalAbilityList));
         showCharacterSelection();
     }
 
