@@ -188,7 +188,7 @@ body, html {
     transform: translate(-50%, -50%);
     color: white;
     font-weight: bold;
-    font-size: 2vw;
+    font-size: 1.5vw;
     text-shadow: 0.1vw 0.1vw 0.1vw rgba(0, 0, 0, 0.7);
 }
 
@@ -260,7 +260,6 @@ body, html {
 }
 
 .stats-button,
-.ability-button,
 .character-button {
     font-family: 'Orbitron', sans-serif;
     background: linear-gradient(135deg,#334155,#1e293b);
@@ -272,12 +271,27 @@ body, html {
 }
 
 .stats-button:hover,
-.ability-button:hover,
 .character-button:hover {
     background: #38bdf8;
     color: #020617;
     box-shadow:
         0 0 12px rgba(56,189,248,0.7);
+    transform: scale(1.04);
+}
+
+.ability-button {
+    font-family: 'Orbitron', sans-serif;
+    background: linear-gradient(135deg, #5c3d1f, #a16207); /* darker but warm gradient */
+    border: 1px solid #78350f; /* subtle border */
+    color: #fbbf24; /* muted bright text, not too shiny */
+    box-shadow: 0 0 4px rgba(171, 94, 0, 0.4); /* soft, subtle glow */
+    transition: all 0.25s ease;
+}
+
+.ability-button:hover {
+    background: #a16207; /* slightly brighter on hover */
+    color: #020617;
+    box-shadow: 0 0 8px rgba(171, 94, 0, 0.5); /* gentle hover glow */
     transform: scale(1.04);
 }
 
