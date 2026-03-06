@@ -190,7 +190,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let enemyStats = {
         hp: 14,
         maxHp: 14,
-        physicalDamage: 10,
+        physicalDamage: 8,
         attackSpeed: 1.4,
         attackRange: 50, 
         armour: 0,
@@ -341,14 +341,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         document.getElementById('game-container').appendChild(enemy);
 
+        //Enemy Config
         const enemyStatsCopy = Object.assign([], enemyStats);
         //enemyStatsCopy.hp = enemyStats.hp + enemyStats.hp * currentDifficultyLevel / 3 + enemyStats.hp * Math.pow(currentDifficultyLevel, 1.7) / 5;
         //enemyStatsCopy.physicalDamage = enemyStats.physicalDamage + enemyStats.physicalDamage * (currentDifficultyLevel) / 12 + enemyStats.physicalDamage * Math.pow(currentDifficultyLevel, 1.4) / 25;
         //enemyStatsCopy.exp = enemyStats.exp + enemyStats.exp * (currentDifficultyLevel) / 5 + enemyStats.exp * Math.pow(currentDifficultyLevel, 1.2) / 5;
         
-        enemyStatsCopy.hp = enemyStats.hp + enemyStats.hp * (1.10 + 0.21 * currentDifficultyLevel) * Math.pow(1.03, currentDifficultyLevel);
-        enemyStatsCopy.physicalDamage = enemyStats.physicalDamage + enemyStats.physicalDamage * (1.2 + 0.075 * currentDifficultyLevel) * Math.pow(1.015, currentDifficultyLevel);
-        enemyStatsCopy.exp = enemyStats.exp + enemyStats.exp * (1 + 0.105 * currentDifficultyLevel) * Math.pow(1.02, currentDifficultyLevel);
+        enemyStatsCopy.hp = enemyStats.hp + enemyStats.hp * (1 + 0.2 * currentDifficultyLevel) * Math.log(1 + currentDifficultyLevel + currentDifficultyLevel * Math.pow(1.7, currentDifficultyLevel));
+        enemyStatsCopy.physicalDamage = enemyStats.physicalDamage + enemyStats.physicalDamage * (1 + 0.1 * currentDifficultyLevel) * Math.log(1 + currentDifficultyLevel + currentDifficultyLevel * Math.pow(1.5, currentDifficultyLevel));
+        enemyStatsCopy.exp = enemyStats.exp + enemyStats.exp * (1 + 0.6 * currentDifficultyLevel) * Math.log(1 + currentDifficultyLevel + currentDifficultyLevel * Math.pow(1.3, currentDifficultyLevel));
         
         if(rarity == "boss"){
             enemy.className = 'boss';
@@ -566,7 +567,7 @@ document.addEventListener('DOMContentLoaded', () => {
             -0.1vw 0.1vw 0 rgba(128, 128, 128, 0.1)
         `;
         damageText.style.transform = 'translateY(-2vw)';
-        damageText.style.fontSize = '3.6vw';
+        damageText.style.fontSize = '1.6vw';
         damageText.style.transition = 'opacity 2.5s ease-out, transform 2.5s ease-out';
         document.body.appendChild(damageText);
 
