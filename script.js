@@ -188,8 +188,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let originalEnemyStats = {};
     let enemyStats = {
-        hp: 15,
-        maxHp: 15,
+        hp: 14,
+        maxHp: 14,
         physicalDamage: 10,
         attackSpeed: 1.4,
         attackRange: 50, 
@@ -346,9 +346,9 @@ document.addEventListener('DOMContentLoaded', () => {
         //enemyStatsCopy.physicalDamage = enemyStats.physicalDamage + enemyStats.physicalDamage * (currentDifficultyLevel) / 12 + enemyStats.physicalDamage * Math.pow(currentDifficultyLevel, 1.4) / 25;
         //enemyStatsCopy.exp = enemyStats.exp + enemyStats.exp * (currentDifficultyLevel) / 5 + enemyStats.exp * Math.pow(currentDifficultyLevel, 1.2) / 5;
         
-        enemyStatsCopy.hp = enemyStats.hp + enemyStats.hp * (1.15 + 0.22 * currentDifficultyLevel) * Math.pow(1.03, currentDifficultyLevel);
-        enemyStatsCopy.physicalDamage = enemyStats.physicalDamage + enemyStats.physicalDamage * (1.2 + 0.08 * currentDifficultyLevel) * Math.pow(1.02, currentDifficultyLevel);
-        enemyStatsCopy.exp = enemyStats.exp + enemyStats.exp * (1 + 0.10 * currentDifficultyLevel) * Math.pow(1.02, currentDifficultyLevel);
+        enemyStatsCopy.hp = enemyStats.hp + enemyStats.hp * (1.10 + 0.21 * currentDifficultyLevel) * Math.pow(1.03, currentDifficultyLevel);
+        enemyStatsCopy.physicalDamage = enemyStats.physicalDamage + enemyStats.physicalDamage * (1.2 + 0.075 * currentDifficultyLevel) * Math.pow(1.015, currentDifficultyLevel);
+        enemyStatsCopy.exp = enemyStats.exp + enemyStats.exp * (1 + 0.105 * currentDifficultyLevel) * Math.pow(1.02, currentDifficultyLevel);
         
         if(rarity == "boss"){
             enemy.className = 'boss';
@@ -831,7 +831,7 @@ document.addEventListener('DOMContentLoaded', () => {
         stats.level++;
         stats.physicalDamage += Math.floor(1 + stats.level / 3 + originalStats.physicalDamage / 5);
         stats.armour += Math.floor(1 + stats.level / 8 + originalStats.armour / 40);
-        stats.hpRegen += Math.floor(1 + stats.level / 15 + originalStats.hpRegen / 20);
+        stats.hpRegen += Math.floor(1 + stats.level / 15 + originalStats.hpRegen / 25);
         stats.hp += Math.floor(5 + stats.level + originalStats.hp / 150);
         stats.maxHp += Math.floor(5 + 1.5 * stats.level + originalStats.maxHp / 150);
         stats.exp -= stats.expThreshold;
