@@ -1,0 +1,6604 @@
+(() => {
+  // js/config/skills.js
+  var SKILL_IDS = (
+    /** @type {const} */
+    [
+      "fireball",
+      "iceNova",
+      "lightningArc",
+      "poisonBottle",
+      "healingWave",
+      "frostbolt",
+      "righteousFire",
+      "spark",
+      "illusion"
+    ]
+  );
+  function createDefaultSkillList() {
+    return {
+      fireball: { level: 0, maxLevel: 5 },
+      iceNova: { level: 0, maxLevel: 5 },
+      lightningArc: { level: 0, maxLevel: 5 },
+      poisonBottle: { level: 0, maxLevel: 5 },
+      healingWave: { level: 0, maxLevel: 5 },
+      frostbolt: { level: 0, maxLevel: 5 },
+      righteousFire: { level: 0, maxLevel: 5 },
+      spark: { level: 0, maxLevel: 5 },
+      illusion: { level: 0, maxLevel: 5 }
+    };
+  }
+  function createInitialPlayerSkills() {
+    return {
+      fireball: 0,
+      iceNova: 0,
+      lightningArc: 0,
+      poisonBottle: 0,
+      healingWave: 0,
+      frostbolt: 0,
+      righteousFire: 0,
+      spark: 0,
+      illusion: 0
+    };
+  }
+  function createSkillCooldowns() {
+    return {
+      fireball: 0,
+      iceNova: 0,
+      lightningArc: 0,
+      poisonBottle: 0,
+      healingWave: 0,
+      frostbolt: 0,
+      righteousFire: 0,
+      spark: 0,
+      illusion: 0
+    };
+  }
+  var SKILL_DEFINITIONS = {
+    fireball: {
+      id: "fireball",
+      name: "Fireball",
+      icon: "\u{1F525}",
+      element: "fire",
+      rangeType: "cast",
+      description: "Hurls an explosive fireball. Direct hit + AoE splash + burn DoT.",
+      formatText(level, nextLevel) {
+        const cfg = getFireballConfig(nextLevel);
+        return `Fireball Lv.${nextLevel}: ${Math.round(cfg.directDamageMult * 100)}% hit, ${Math.round(cfg.splashDamageMult * 100)}% splash, burn ${Math.round(cfg.burnTotalMult * 100)}%. Range ${cfg.castRange}px`;
+      }
+    },
+    iceNova: {
+      id: "iceNova",
+      name: "Ice Nova",
+      icon: "\u2744\uFE0F",
+      element: "cold",
+      rangeType: "area",
+      description: "Freezing wave around you. Damages all nearby enemies and slows them.",
+      formatText(level, nextLevel) {
+        const cfg = getIceNovaConfig(nextLevel);
+        const freeze = cfg.freezeDuration > 0 ? `, freeze ${cfg.freezeDuration / 1e3}s` : "";
+        return `Ice Nova Lv.${nextLevel}: ${Math.round(cfg.damageMult * 100)}% AoE, slow ${cfg.slowPercent}%${freeze}. Radius ${cfg.radius}px`;
+      }
+    },
+    lightningArc: {
+      id: "lightningArc",
+      name: "Lightning Arc",
+      icon: "\u26A1",
+      element: "lightning",
+      rangeType: "cast",
+      description: "Instant arc that chains through multiple enemies.",
+      formatText(level, nextLevel) {
+        const cfg = getLightningArcConfig(nextLevel);
+        return `Lightning Arc Lv.${nextLevel}: ${Math.round(cfg.damageMult * 100)}% dmg, ${cfg.chainCount} chains. Range ${cfg.castRange}px`;
+      }
+    },
+    poisonBottle: {
+      id: "poisonBottle",
+      name: "Poison Bottle",
+      icon: "\u{1F9EA}",
+      element: "poison",
+      rangeType: "cast",
+      description: "Throws a toxic bottle that shatters into a poison pool on the ground.",
+      formatText(level, nextLevel) {
+        const cfg = getPoisonBottleConfig(nextLevel);
+        return `Poison Bottle Lv.${nextLevel}: ${Math.round(cfg.directDamageMult * 100)}% impact, pool ${cfg.poolDuration / 1e3}s, ${Math.round(cfg.tickDamageMult * 100)}%/tick. Pool r${cfg.poolRadius}px`;
+      }
+    },
+    healingWave: {
+      id: "healingWave",
+      name: "Healing Wave",
+      icon: "\u{1F49A}",
+      element: "holy",
+      rangeType: "self",
+      description: "Restores a portion of your max HP. Auto-casts when injured.",
+      formatText(level, nextLevel) {
+        const cfg = getHealingWaveConfig(nextLevel);
+        return `Healing Wave Lv.${nextLevel}: restore ${cfg.healPercent}% max HP. Cooldown ${(cfg.cooldown / 1e3).toFixed(1)}s`;
+      }
+    },
+    frostbolt: {
+      id: "frostbolt",
+      name: "Frostbolt",
+      icon: "\u{1F9CA}",
+      element: "cold",
+      rangeType: "cast",
+      description: "Slow frost shard \u2014 pierces every enemy in its path (once each). Long cooldown.",
+      formatText(level, nextLevel) {
+        const cfg = getFrostboltConfig(nextLevel);
+        return `Frostbolt Lv.${nextLevel}: ${Math.round(cfg.damageMult * 100)}% cold, range ${cfg.castRange}px`;
+      }
+    },
+    righteousFire: {
+      id: "righteousFire",
+      name: "Righteous Fire",
+      icon: "\u{1F525}",
+      element: "fire",
+      rangeType: "aura",
+      description: "PoE-style burning aura \u2014 constant fire DoT around you while active.",
+      formatText(level, nextLevel) {
+        const cfg = getRighteousFireConfig(nextLevel);
+        return `Righteous Fire Lv.${nextLevel}: ${Math.round(cfg.tickDamageMult * 100)}%/tick, radius ${cfg.radius}px`;
+      }
+    },
+    spark: {
+      id: "spark",
+      name: "Spark",
+      icon: "\u2728",
+      element: "lightning",
+      rangeType: "cast",
+      description: "Slow magenta arc sparks \u2014 wander with random turns and zap on contact.",
+      formatText(level, nextLevel) {
+        const cfg = getSparkConfig(nextLevel);
+        return `Spark Lv.${nextLevel}: ${cfg.sparkCount} sparks, ${Math.round(cfg.damageMult * 100)}% dmg, ${cfg.duration / 1e3}s`;
+      }
+    },
+    illusion: {
+      id: "illusion",
+      name: "Illusion",
+      icon: "\u25C8",
+      element: "arcane",
+      rangeType: "self",
+      description: "Summons an invulnerable clone beside you. Mirrors your basic attacks at reduced damage with your passives.",
+      formatText(level, nextLevel) {
+        const cfg = getIllusionConfig(nextLevel);
+        return `Illusion Lv.${nextLevel}: ${cfg.damagePercent}% clone damage, ${(cfg.duration / 1e3).toFixed(1)}s duration, ${(cfg.cooldown / 1e3).toFixed(1)}s cooldown`;
+      }
+    }
+  };
+  function getFireballConfig(level) {
+    if (level <= 0) {
+      return { cooldown: Infinity, castRange: 0, directDamageMult: 0, splashRadius: 0, splashDamageMult: 0, burnTotalMult: 0, burnDuration: 0, projectileSpeed: 0 };
+    }
+    return {
+      cooldown: Math.max(1200, 2500 - level * 200),
+      castRange: 160 + level * 35,
+      directDamageMult: 0.75 + level * 0.1,
+      splashRadius: 85 + level * 15,
+      splashDamageMult: 0.32 + level * 0.06,
+      burnTotalMult: 0.12 + level * 0.05,
+      burnDuration: 3500,
+      projectileSpeed: 0.95 + level * 0.06
+    };
+  }
+  function getIceNovaConfig(level) {
+    if (level <= 0) {
+      return { cooldown: Infinity, radius: 0, damageMult: 0, slowPercent: 0, slowDuration: 0, freezeDuration: 0 };
+    }
+    return {
+      cooldown: Math.max(2e3, 4e3 - level * 300),
+      radius: 70 + level * 22,
+      damageMult: 0.48 + level * 0.11,
+      slowPercent: 18 + level * 6,
+      slowDuration: 2200 + level * 200,
+      freezeDuration: level >= 3 ? (level - 2) * 550 : 0
+    };
+  }
+  function getLightningArcConfig(level) {
+    if (level <= 0) {
+      return { cooldown: Infinity, castRange: 0, chainCount: 0, damageMult: 0, chainRange: 0 };
+    }
+    return {
+      cooldown: Math.max(900, 1800 - level * 150),
+      castRange: 200 + level * 30,
+      chainCount: level,
+      damageMult: 0.5 + level * 0.09,
+      chainRange: 190 + level * 28
+    };
+  }
+  function getPoisonBottleConfig(level) {
+    if (level <= 0) {
+      return { cooldown: Infinity, castRange: 0, directDamageMult: 0, poolRadius: 0, poolDuration: 0, tickInterval: 0, tickDamageMult: 0, projectileSpeed: 0 };
+    }
+    return {
+      cooldown: Math.max(2200, 3800 - level * 280),
+      castRange: 180 + level * 32,
+      directDamageMult: 0.35 + level * 0.08,
+      poolRadius: 55 + level * 14,
+      poolDuration: 4500 + level * 600,
+      tickInterval: Math.max(280, 450 - level * 30),
+      tickDamageMult: 0.07 + level * 0.035,
+      projectileSpeed: 0.75 + level * 0.05
+    };
+  }
+  function getHealingWaveConfig(level) {
+    if (level <= 0) {
+      return { cooldown: Infinity, healPercent: 0 };
+    }
+    return {
+      cooldown: Math.max(2800, 5500 - level * 380),
+      healPercent: 7 + level * 3.5
+    };
+  }
+  function getFrostboltConfig(level) {
+    if (level <= 0) {
+      return { cooldown: Infinity, castRange: 0, damageMult: 0, projectileSpeed: 0, maxTravel: 0 };
+    }
+    return {
+      cooldown: Math.max(2800, 4800 - level * 320),
+      castRange: 200 + level * 35,
+      damageMult: 0.55 + level * 0.1,
+      projectileSpeed: 0.32 + level * 0.04,
+      maxTravel: 420 + level * 55,
+      pierceAll: true
+    };
+  }
+  function getRighteousFireConfig(level) {
+    if (level <= 0) {
+      return { radius: 0, tickDamageMult: 0, tickInterval: 0 };
+    }
+    return {
+      radius: 55 + level * 18,
+      tickDamageMult: 0.06 + level * 0.025,
+      tickInterval: Math.max(400, 650 - level * 40)
+    };
+  }
+  function getSparkConfig(level) {
+    if (level <= 0) {
+      return { cooldown: Infinity, sparkCount: 0, damageMult: 0, duration: 0, speed: 0 };
+    }
+    return {
+      cooldown: Math.max(1600, 3e3 - level * 240),
+      sparkCount: 2 + level,
+      damageMult: 0.28 + level * 0.06,
+      duration: 2400 + level * 380,
+      speed: 0.55 + level * 0.06,
+      wanderChance: 0.28,
+      wanderTurn: 1.8
+    };
+  }
+  function getIllusionConfig(level) {
+    if (level <= 0) {
+      return { cooldown: Infinity, duration: 0, damagePercent: 0, offsetVw: 0 };
+    }
+    return {
+      cooldown: Math.max(8e3, 16e3 - level * 1400),
+      duration: 4500 + level * 900,
+      /** 30% at Lv.1 → 60% at Lv.5 */
+      damagePercent: 30 + (level - 1) * 7.5,
+      offsetVw: 4.5
+    };
+  }
+  function getSkillConfig(id, level) {
+    switch (id) {
+      case "fireball":
+        return getFireballConfig(level);
+      case "iceNova":
+        return getIceNovaConfig(level);
+      case "lightningArc":
+        return getLightningArcConfig(level);
+      case "poisonBottle":
+        return getPoisonBottleConfig(level);
+      case "healingWave":
+        return getHealingWaveConfig(level);
+      case "frostbolt":
+        return getFrostboltConfig(level);
+      case "righteousFire":
+        return getRighteousFireConfig(level);
+      case "spark":
+        return getSparkConfig(level);
+      case "illusion":
+        return getIllusionConfig(level);
+      default:
+        return {};
+    }
+  }
+  function getSkillDisplayRadius(id, level) {
+    const cfg = getSkillConfig(id, level);
+    if (id === "iceNova") return cfg.radius;
+    if (id === "righteousFire") return cfg.radius;
+    if (id === "healingWave") return 0;
+    if (id === "illusion") return 0;
+    if (id === "fireball" || id === "lightningArc" || id === "poisonBottle" || id === "frostbolt") return cfg.castRange;
+    return 0;
+  }
+  function findEnemiesInRadius(enemies, cx, cy, radiusPx, innerWidth, innerHeight, excludeId = null) {
+    return enemies.filter((e) => {
+      if (excludeId && e.id === excludeId) return false;
+      if (e.hp <= 0) return false;
+      const dx = Math.abs(e.x - cx) * innerWidth / 100;
+      const dy = Math.abs(e.y - cy) * innerHeight / 100;
+      return Math.hypot(dx, dy) <= radiusPx;
+    });
+  }
+  function findChainTargets(enemies, originX, originY, excludeId, maxCount, rangePx, innerWidth, innerHeight) {
+    return enemies.filter((e) => e.id !== excludeId && e.hp > 0).map((e) => {
+      const dx = Math.abs(e.x - originX) * innerWidth / 100;
+      const dy = Math.abs(e.y - originY) * innerHeight / 100;
+      return { ...e, dist: Math.hypot(dx, dy) };
+    }).filter((e) => e.dist <= rangePx).sort((a, b) => a.dist - b.dist).slice(0, maxCount);
+  }
+  function syncPlayerSkillLevels(skills, skillList) {
+    SKILL_IDS.forEach((id) => {
+      skills[id] = skillList[id]?.level || 0;
+    });
+  }
+  function computeSkillDamage(baseDamage, id, level) {
+    const cfg = getSkillConfig(id, level);
+    if (id === "fireball") return Math.floor(baseDamage * cfg.directDamageMult);
+    if (id === "iceNova") return Math.floor(baseDamage * cfg.damageMult);
+    if (id === "lightningArc") return Math.floor(baseDamage * cfg.damageMult);
+    if (id === "poisonBottle") return Math.floor(baseDamage * cfg.directDamageMult);
+    if (id === "frostbolt") return Math.floor(baseDamage * cfg.damageMult);
+    if (id === "spark") return Math.floor(baseDamage * cfg.damageMult);
+    if (id === "righteousFire") return Math.max(1, Math.floor(baseDamage * cfg.tickDamageMult));
+    return 0;
+  }
+  function computeSplashDamage(baseDamage, level) {
+    return Math.floor(baseDamage * getFireballConfig(level).splashDamageMult);
+  }
+  function computeBurnTotal(baseDamage, level) {
+    return Math.floor(baseDamage * getFireballConfig(level).burnTotalMult);
+  }
+  function computePoisonTickDamage(baseDamage, level) {
+    return Math.max(1, Math.floor(baseDamage * getPoisonBottleConfig(level).tickDamageMult));
+  }
+
+  // js/config/balance.js
+  var BALANCE = {
+    /** Seconds before difficulty tier increases — slower ramp for longer runs */
+    difficultyIntervalSec: 20,
+    /** Extended warmup — gentler first ~3 minutes */
+    warmupSeconds: 180,
+    warmupSpawnMultiplier: 0.3,
+    maxEnemiesOnScreen: 70,
+    /** Enemy damage reduced through early waves (0–11) */
+    earlyWaveCap: 12,
+    earlyWaveDamageMultiplier: 0.5,
+    /** Early-wave HP reduction (−30% through wave 11) */
+    earlyWaveHpMultiplier: 0.7,
+    /** Early-wave EXP bonus (+50% through wave 11) */
+    earlyWaveExpMultiplier: 1.5,
+    spawnsPerMinute: {
+      normal: 27.5,
+      rare: 10.5,
+      elite: 2.2,
+      boss: 0.65
+    },
+    spawnScaling: {
+      normal: 2.6,
+      rare: 1.2,
+      elite: 0.45,
+      boss: 0.035
+    },
+    maxDifficultyForSpawn: 300,
+    enemyHpScale: 0.6,
+    /** Tuned down for ~20 min average survival */
+    enemyDamageScale: 0.55,
+    /** +10% exp vs prior patch (0.842 × 1.1) */
+    enemyExpScale: 0.926,
+    playerPressure: {
+      moveSpeedPerTier: 8e-3,
+      moveSpeedCap: 1.28
+    }
+  };
+  function getSpawnIntervalMs(category, difficulty) {
+    const cap = Math.min(difficulty, BALANCE.maxDifficultyForSpawn);
+    const base = BALANCE.spawnsPerMinute[category];
+    const scale = BALANCE.spawnScaling[category];
+    const rate = base + scale * cap;
+    return 1e3 * 60 / rate;
+  }
+  function applyBalanceScale(stat, type) {
+    if (type === "hp") return Math.floor(stat * BALANCE.enemyHpScale);
+    if (type === "damage") return Math.floor(stat * BALANCE.enemyDamageScale);
+    return Math.floor(stat * BALANCE.enemyExpScale);
+  }
+  function applyEnemyMovePressure(baseMoveSpeed, difficulty) {
+    const bonus = Math.min(
+      BALANCE.playerPressure.moveSpeedCap,
+      1 + difficulty * BALANCE.playerPressure.moveSpeedPerTier
+    );
+    return baseMoveSpeed * bonus;
+  }
+  function applyEarlyWaveDamageReduction(damage, difficultyWave) {
+    if (difficultyWave >= BALANCE.earlyWaveCap) return damage;
+    return Math.max(1, Math.floor(damage * BALANCE.earlyWaveDamageMultiplier));
+  }
+  function applyEarlyWaveHpReduction(hp, difficultyWave) {
+    if (difficultyWave >= BALANCE.earlyWaveCap) return hp;
+    return Math.max(1, Math.floor(hp * BALANCE.earlyWaveHpMultiplier));
+  }
+  function applyEarlyWaveExpBonus(exp, difficultyWave) {
+    if (difficultyWave >= BALANCE.earlyWaveCap) return exp;
+    return Math.max(1, Math.floor(exp * BALANCE.earlyWaveExpMultiplier));
+  }
+
+  // js/config/expProgression.js
+  var EXP_CONFIG = {
+    baseThreshold: 14,
+    linearFactor: 0.55,
+    powerExponent: 1.85,
+    powerMultiplier: 1.5,
+    /**
+     * Kill EXP = enemy.stats.exp × grantRatio × playerExpGain × streak.
+     * 1.0 grants the full enemy exp stat (no hidden 10% tax).
+     */
+    enemyExpGrantRatio: 1,
+    /** Early-wave minimum kill EXP by enemy category (waves 1–12). */
+    earlyWaveKillExp: {
+      standard: 2,
+      swarm: 1
+    },
+    /** Additional reduction on swarm/split-fragment kill payout. */
+    swarmKillMultiplier: 0.55,
+    thresholdMultiplier: 1.2,
+    goldPerExp: 0.45,
+    streakBonusCap: 0.22,
+    streakBonusPerKill: 0.018
+  };
+  var enemyExpMultiplier = EXP_CONFIG.enemyExpGrantRatio;
+  function calculateExpThreshold(level, baseThreshold) {
+    const b = baseThreshold ?? EXP_CONFIG.baseThreshold;
+    const raw = b + Math.floor(
+      b * level * EXP_CONFIG.linearFactor + Math.pow(level, EXP_CONFIG.powerExponent) * EXP_CONFIG.powerMultiplier
+    );
+    return Math.floor(raw * EXP_CONFIG.thresholdMultiplier);
+  }
+  function calculateExpFromKill(enemyExp, expGain, streakBonus = 0, context = {}) {
+    const { waveIndex = 0, enemyType = "grunt" } = context;
+    const isSwarmLike = enemyType === "swarm" || enemyType === "splitFragment";
+    let gained = Math.floor(
+      enemyExp * EXP_CONFIG.enemyExpGrantRatio * expGain * (1 + streakBonus)
+    );
+    gained = Math.max(1, gained);
+    if (isSwarmLike) {
+      gained = Math.max(1, Math.floor(gained * EXP_CONFIG.swarmKillMultiplier));
+    }
+    if (waveIndex < BALANCE.earlyWaveCap) {
+      if (isSwarmLike) {
+        gained = Math.min(gained, EXP_CONFIG.earlyWaveKillExp.swarm);
+      } else {
+        gained = Math.max(EXP_CONFIG.earlyWaveKillExp.standard, gained);
+      }
+    }
+    return gained;
+  }
+  function finalizeEnemyExpStat(exp, enemyType, difficultyIndex) {
+    const value = Math.max(1, Math.floor(exp));
+    if (difficultyIndex >= BALANCE.earlyWaveCap) return value;
+    const isSwarmLike = enemyType === "swarm" || enemyType === "splitFragment";
+    if (isSwarmLike) {
+      return Math.max(1, Math.min(value, EXP_CONFIG.earlyWaveKillExp.swarm));
+    }
+    return Math.max(EXP_CONFIG.earlyWaveKillExp.standard, value);
+  }
+
+  // js/config/characters.js
+  var baseSkills = () => createInitialPlayerSkills();
+  var BASE_EXP = EXP_CONFIG.baseThreshold;
+  var CHARACTERS = [
+    {
+      name: "Adventurer",
+      role: "Balanced",
+      modelClass: "adventurer",
+      description: "Well-rounded \u2014 ideal for learning skills and survival.",
+      stats: {
+        hp: 580,
+        maxHp: 580,
+        physicalDamage: 32,
+        attackSpeed: 2,
+        attackRange: 150,
+        critChance: 6,
+        critMultiplier: 150,
+        armour: 28,
+        evade: 14,
+        hpRegen: 3,
+        level: 1,
+        exp: 0,
+        expGain: 1.2,
+        expThreshold: BASE_EXP,
+        buffList: {},
+        skills: baseSkills()
+      }
+    },
+    {
+      name: "Warrior",
+      role: "Tank",
+      modelClass: "warrior",
+      description: "Heavy armor and HP. Holds the line against swarms.",
+      stats: {
+        hp: 950,
+        maxHp: 950,
+        physicalDamage: 28,
+        attackSpeed: 1.25,
+        attackRange: 85,
+        critChance: 4,
+        critMultiplier: 185,
+        armour: 48,
+        evade: 2,
+        hpRegen: 8,
+        level: 1,
+        exp: 0,
+        expGain: 1,
+        expThreshold: BASE_EXP,
+        buffList: {},
+        skills: baseSkills()
+      }
+    },
+    {
+      name: "Ranger",
+      role: "Ranged",
+      modelClass: "ranger",
+      description: "Extreme range and attack speed. Stay at the edge of danger.",
+      stats: {
+        hp: 320,
+        maxHp: 320,
+        physicalDamage: 38,
+        attackSpeed: 2.6,
+        attackRange: 310,
+        critChance: 16,
+        critMultiplier: 130,
+        armour: 8,
+        evade: 28,
+        hpRegen: 1,
+        level: 1,
+        exp: 0,
+        expGain: 1,
+        expThreshold: BASE_EXP,
+        buffList: {},
+        skills: baseSkills()
+      }
+    },
+    {
+      name: "Assassin",
+      role: "Crit",
+      modelClass: "assassin",
+      description: "Lethal crits and evasion. Kill fast or die fast.",
+      stats: {
+        hp: 280,
+        maxHp: 280,
+        physicalDamage: 44,
+        attackSpeed: 2.2,
+        attackRange: 105,
+        critChance: 28,
+        critMultiplier: 260,
+        armour: 4,
+        evade: 52,
+        hpRegen: 1,
+        level: 1,
+        exp: 0,
+        expGain: 1,
+        expThreshold: BASE_EXP,
+        buffList: {},
+        skills: baseSkills()
+      }
+    },
+    {
+      name: "Healer",
+      role: "Support",
+      modelClass: "healer",
+      description: "Massive regen outlasts attrition. Lower damage output.",
+      stats: {
+        hp: 750,
+        maxHp: 750,
+        physicalDamage: 22,
+        attackSpeed: 1.7,
+        attackRange: 195,
+        critChance: 4,
+        critMultiplier: 140,
+        armour: 22,
+        evade: 8,
+        hpRegen: 130,
+        level: 1,
+        exp: 0,
+        expGain: 1,
+        expThreshold: BASE_EXP,
+        buffList: {},
+        skills: baseSkills()
+      }
+    },
+    {
+      name: "Necromancer",
+      role: "DoT",
+      modelClass: "necromancer",
+      description: "Master of poison and decay. Synergizes with Poison Bottle.",
+      stats: {
+        hp: 340,
+        maxHp: 340,
+        physicalDamage: 26,
+        attackSpeed: 1.9,
+        attackRange: 175,
+        critChance: 8,
+        critMultiplier: 160,
+        armour: 10,
+        evade: 12,
+        hpRegen: 2,
+        level: 1,
+        exp: 0,
+        expGain: 1.15,
+        expThreshold: BASE_EXP,
+        buffList: {},
+        skills: baseSkills()
+      }
+    },
+    {
+      name: "Paladin",
+      role: "Holy Tank",
+      modelClass: "paladin",
+      description: "Sacred armor and steady damage. Balanced frontline.",
+      stats: {
+        hp: 880,
+        maxHp: 880,
+        physicalDamage: 30,
+        attackSpeed: 1.45,
+        attackRange: 95,
+        critChance: 6,
+        critMultiplier: 175,
+        armour: 42,
+        evade: 6,
+        hpRegen: 12,
+        level: 1,
+        exp: 0,
+        expGain: 1,
+        expThreshold: BASE_EXP,
+        buffList: {},
+        skills: baseSkills()
+      }
+    },
+    {
+      name: "Berserker",
+      role: "Glass Cannon",
+      modelClass: "berserker",
+      description: "Raw power and speed. Almost no defense.",
+      stats: {
+        hp: 420,
+        maxHp: 420,
+        physicalDamage: 52,
+        attackSpeed: 2.4,
+        attackRange: 90,
+        critChance: 12,
+        critMultiplier: 220,
+        armour: 0,
+        evade: 8,
+        hpRegen: 1,
+        level: 1,
+        exp: 0,
+        expGain: 1,
+        expThreshold: BASE_EXP,
+        buffList: {},
+        skills: baseSkills()
+      }
+    },
+    {
+      name: "Elementalist",
+      role: "Mage",
+      modelClass: "elementalist",
+      description: "Arcane focus. Skills deal effectively higher damage.",
+      stats: {
+        hp: 300,
+        maxHp: 300,
+        physicalDamage: 20,
+        attackSpeed: 1.65,
+        attackRange: 240,
+        critChance: 10,
+        critMultiplier: 155,
+        armour: 6,
+        evade: 18,
+        hpRegen: 2,
+        level: 1,
+        exp: 0,
+        expGain: 1.1,
+        expThreshold: BASE_EXP,
+        buffList: {},
+        skills: baseSkills()
+      }
+    },
+    {
+      name: "Summoner",
+      role: "Summoner",
+      modelClass: "summoner",
+      description: "Commands spirits from afar. Strong skill synergy and range.",
+      stats: {
+        hp: 360,
+        maxHp: 360,
+        physicalDamage: 24,
+        attackSpeed: 1.85,
+        attackRange: 205,
+        critChance: 8,
+        critMultiplier: 165,
+        armour: 14,
+        evade: 14,
+        hpRegen: 2,
+        level: 1,
+        exp: 0,
+        expGain: 1.05,
+        expThreshold: BASE_EXP,
+        buffList: {},
+        skills: baseSkills()
+      }
+    },
+    {
+      name: "Capybara",
+      role: "Zen Tank",
+      modelClass: "capybara",
+      description: "Unbothered. Massive HP and regen, low damage, supreme DEF.",
+      stats: {
+        hp: 920,
+        maxHp: 920,
+        physicalDamage: 18,
+        attackSpeed: 1.3,
+        attackRange: 115,
+        critChance: 3,
+        critMultiplier: 130,
+        armour: 40,
+        evade: 5,
+        hpRegen: 28,
+        level: 1,
+        exp: 0,
+        expGain: 0.95,
+        expThreshold: BASE_EXP,
+        buffList: {},
+        skills: baseSkills()
+      }
+    }
+  ];
+
+  // js/config/enemies.js
+  var BASE_ENEMY_STATS = {
+    hp: 16,
+    maxHp: 16,
+    physicalDamage: 7,
+    attackSpeed: 1.4,
+    attackRange: 50,
+    armour: 0,
+    hpRegen: 0.5,
+    moveSpeed: 0.3,
+    exp: 3
+  };
+  var ENEMY_TYPES = {
+    grunt: {
+      type: "grunt",
+      cssClass: "enemy enemy-grunt",
+      size: 40,
+      hpMult: 1,
+      damageMult: 1,
+      expMult: 1,
+      moveSpeedMult: 1,
+      behavior: "chase",
+      label: "Grunt"
+    },
+    swarm: {
+      type: "swarm",
+      cssClass: "enemy enemy-swarm",
+      size: 28,
+      hpMult: 0.45,
+      damageMult: 0.6,
+      expMult: 0.28,
+      moveSpeedMult: 1.8,
+      behavior: "chase",
+      label: "Swarm"
+    },
+    tank: {
+      type: "tank",
+      cssClass: "enemy enemy-tank",
+      size: 58,
+      hpMult: 3.5,
+      damageMult: 1.2,
+      expMult: 2,
+      moveSpeedMult: 0.45,
+      behavior: "chase",
+      label: "Tank",
+      armourBonus: 8
+    },
+    archer: {
+      type: "archer",
+      cssClass: "enemy enemy-archer",
+      size: 42,
+      hpMult: 0.8,
+      damageMult: 0.9,
+      expMult: 1.5,
+      moveSpeedMult: 0.7,
+      behavior: "ranged",
+      label: "Archer",
+      rangedRange: 220
+    },
+    dasher: {
+      type: "dasher",
+      cssClass: "enemy enemy-dasher",
+      size: 44,
+      hpMult: 1.1,
+      damageMult: 1.3,
+      expMult: 1.8,
+      moveSpeedMult: 1,
+      behavior: "dash",
+      label: "Dasher",
+      dashCooldown: 3e3,
+      dashSpeed: 2.5
+    },
+    splitter: {
+      type: "splitter",
+      cssClass: "enemy enemy-splitter",
+      size: 48,
+      hpMult: 1.5,
+      damageMult: 0.8,
+      expMult: 2,
+      moveSpeedMult: 0.85,
+      behavior: "chase",
+      label: "Splitter",
+      splitCount: 3
+    },
+    bomber: {
+      type: "bomber",
+      cssClass: "enemy enemy-bomber",
+      size: 46,
+      hpMult: 0.9,
+      damageMult: 0.7,
+      expMult: 1.6,
+      moveSpeedMult: 1.1,
+      behavior: "chase",
+      label: "Bomber",
+      explosionRadius: 150,
+      explosionDamage: 28
+    },
+    penetrator: {
+      type: "penetrator",
+      cssClass: "enemy enemy-penetrator",
+      size: 44,
+      hpMult: 1.05,
+      damageMult: 1.15,
+      expMult: 1.4,
+      moveSpeedMult: 0.95,
+      behavior: "chase",
+      label: "Penetrator",
+      ignoreArmour: true
+    },
+    wraith: {
+      type: "wraith",
+      cssClass: "enemy enemy-wraith",
+      size: 40,
+      hpMult: 0.9,
+      damageMult: 0.85,
+      expMult: 1.5,
+      moveSpeedMult: 1.25,
+      behavior: "chase",
+      label: "Wraith",
+      evadeScaling: true
+    },
+    /** Spawned only when a splitter dies — not in pickEnemyType pool. */
+    splitFragment: {
+      type: "splitFragment",
+      cssClass: "enemy enemy-split-fragment",
+      size: 22,
+      hpMult: 0.28,
+      damageMult: 0.5,
+      expMult: 0.3,
+      moveSpeedMult: 2.4,
+      behavior: "chase",
+      label: "Fragment",
+      spawnable: false
+    }
+  };
+  var RARITY_CONFIG = {
+    normal: { key: "normal", cssSuffix: "", hpMult: 1, damageMult: 1, expMult: 1, spawnWeight: 50 },
+    rare: { key: "rare", cssSuffix: " rare-enemy", hpMult: 2, damageMult: 1.2, expMult: 2.5, spawnWeight: 15 },
+    elite: { key: "elite", cssSuffix: " elite", hpMult: 5, damageMult: 1.35, expMult: 5, spawnWeight: 3 },
+    boss: { key: "boss", cssSuffix: " boss", hpMult: 10, damageMult: 1.5, expMult: 12, spawnWeight: 1 }
+  };
+  function computeEnemyEvadeChance(difficulty) {
+    const wave = Math.max(0, difficulty);
+    const pct = 5 + wave * 0.45;
+    return Math.min(50, Math.max(5, pct));
+  }
+  function buildEnemyStats(enemyType, rarity, difficulty) {
+    const typeConfig = ENEMY_TYPES[enemyType] || ENEMY_TYPES.grunt;
+    const rarityConfig = RARITY_CONFIG[rarity] || RARITY_CONFIG.normal;
+    const base = { ...BASE_ENEMY_STATS };
+    const hp = scaleEnemyHp(base.hp, difficulty) * typeConfig.hpMult * rarityConfig.hpMult;
+    const damage = scaleEnemyDamage(base.physicalDamage, difficulty) * typeConfig.damageMult * rarityConfig.damageMult;
+    const exp = scaleEnemyExp(base.exp, difficulty) * typeConfig.expMult * rarityConfig.expMult;
+    const stats = {
+      ...base,
+      hp: applyEarlyWaveHpReduction(applyBalanceScale(Math.floor(hp), "hp"), difficulty),
+      maxHp: applyEarlyWaveHpReduction(applyBalanceScale(Math.floor(hp), "hp"), difficulty),
+      physicalDamage: applyEarlyWaveDamageReduction(
+        applyBalanceScale(Math.floor(damage), "damage"),
+        difficulty
+      ),
+      exp: finalizeEnemyExpStat(
+        applyEarlyWaveExpBonus(applyBalanceScale(Math.floor(exp), "exp"), difficulty),
+        typeConfig.type,
+        difficulty
+      ),
+      moveSpeed: applyEnemyMovePressure(base.moveSpeed * typeConfig.moveSpeedMult, difficulty),
+      armour: (typeConfig.armourBonus || 0) + (rarity === "elite" ? 4 : rarity === "boss" ? 8 : 0),
+      ignoreArmour: Boolean(typeConfig.ignoreArmour),
+      evadeChance: typeConfig.evadeScaling ? computeEnemyEvadeChance(difficulty) : 0
+    };
+    stats.maxHp = stats.hp;
+    if (typeConfig.behavior === "ranged") {
+      stats.attackRange = typeConfig.rangedRange || 180;
+    }
+    return { stats, typeConfig, rarityConfig };
+  }
+  function scaleEnemyHp(base, difficulty) {
+    const d = Math.min(difficulty, 80);
+    return base + base * (1 + 0.1 * d) * Math.log(1 + d + d * Math.pow(1.4, d * 0.75));
+  }
+  function scaleEnemyDamage(base, difficulty) {
+    const d = Math.min(difficulty, 300);
+    return base * (1 + d * 0.035);
+  }
+  function scaleEnemyExp(base, difficulty) {
+    const d = Math.min(difficulty, 200);
+    const early = base * (1 + d * 0.1);
+    if (d <= 50) return early;
+    const midCap = base * (1 + 50 * 0.1);
+    const lateExtra = base * (d - 50) * 0.035;
+    return midCap + lateExtra;
+  }
+  function pickEnemyType(difficulty) {
+    const pool = ["grunt", "grunt", "grunt"];
+    if (difficulty >= 2) pool.push("swarm", "swarm", "swarm");
+    if (difficulty >= 5) pool.push("tank", "archer");
+    if (difficulty >= 10) pool.push("dasher", "splitter");
+    if (difficulty >= 12) pool.push("wraith", "wraith");
+    if (difficulty >= 15) pool.push("penetrator");
+    if (difficulty >= 18) pool.push("bomber");
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+
+  // js/config/enemyColors.js
+  var ENEMY_TYPE_COLORS = {
+    grunt: "#dc2626",
+    swarm: "#f97316",
+    tank: "#64748b",
+    archer: "#16a34a",
+    dasher: "#7c3aed",
+    splitter: "#ca8a04",
+    bomber: "#450a0a",
+    penetrator: "#0891b2",
+    wraith: "#94a3b8",
+    splitFragment: "#fb923c"
+  };
+  function getEnemyTypeColor(type) {
+    return ENEMY_TYPE_COLORS[type] || "#94a3b8";
+  }
+
+  // js/utils/clone.js
+  function deepClone(value) {
+    return JSON.parse(JSON.stringify(value));
+  }
+
+  // js/config/progression.js
+  function createDefaultStatsList() {
+    return {
+      "Upgrade Damage": { level: 0, maxLevel: 1e3 },
+      "Upgrade AoE": { level: 0, maxLevel: 25 },
+      "Upgrade Attack Speed": { level: 0, maxLevel: 50 },
+      "Upgrade HP (Recover 20% Life)": { level: 0, maxLevel: 1e3 },
+      "Upgrade HP Regen": { level: 0, maxLevel: 1e3 },
+      "Upgrade Armour": { level: 0, maxLevel: 1e3 },
+      "Upgrade Crit Chance": { level: 0, maxLevel: 40 },
+      "Upgrade Crit Multiplier": { level: 0, maxLevel: 100 }
+    };
+  }
+  function createDefaultAbilityList() {
+    return {
+      Reflect: {
+        text: "Return ??%(25%) damage to the enemy",
+        progression: ["5", "10", "15", "20", "25"],
+        level: 0,
+        maxLevel: 5
+      },
+      Bounce: {
+        text: "Deal ??%(0%) less damage. Projectiles bounce ??(5) extra times",
+        progression: ["40", "30", "20", "10", "0", "1", "2", "3", "4", "5"],
+        level: 0,
+        maxLevel: 5
+      },
+      "Attack Speed Buff": {
+        text: "Grant ??%(80%) attack speed for 5s, cooldown 10s",
+        progression: ["16", "32", "48", "64", "80"],
+        level: 0,
+        maxLevel: 5
+      },
+      "Damage Reduction": {
+        text: "Grant ??%(60%) damage reduction",
+        progression: ["12", "24", "36", "48", "60"],
+        level: 0,
+        maxLevel: 5
+      },
+      Lifesteal: {
+        text: "Grant ??%(75%) lifesteal",
+        progression: ["15", "30", "45", "60", "75"],
+        level: 0,
+        maxLevel: 5
+      },
+      "HP To Damage": {
+        text: "Deal ??%(30%) of max HP as bonus damage",
+        progression: ["6", "12", "18", "24", "30"],
+        level: 0,
+        maxLevel: 5
+      },
+      "Regen To Damage": {
+        text: "Deal ??%(250%) of Regen as damage. ??%(100%) faster regen",
+        progression: ["50", "100", "150", "200", "250", "20", "40", "60", "80", "100"],
+        level: 0,
+        maxLevel: 5
+      }
+    };
+  }
+  function createAbilityLevelThresholds(count = 30) {
+    const thresholds = [];
+    for (let i = 0; i < count; i++) {
+      thresholds.push(9 + 10 * i);
+    }
+    return thresholds;
+  }
+
+  // js/game/gameState.js
+  var GameState = class {
+    constructor() {
+      this.reset();
+    }
+    reset() {
+      this.characterSelection = true;
+      this.gamePaused = false;
+      this.gameOver = false;
+      this.pendingUpgrades = [];
+      this.stats = null;
+      this.originalStats = null;
+      this.enemyStats = deepClone(BASE_ENEMY_STATS);
+      this.originalEnemyStats = deepClone(BASE_ENEMY_STATS);
+      this.statsList = createDefaultStatsList();
+      this.originalStatsList = createDefaultStatsList();
+      this.abilityList = createDefaultAbilityList();
+      this.originalAbilityList = createDefaultAbilityList();
+      this.skillList = createDefaultSkillList();
+      this.originalSkillList = createDefaultSkillList();
+      this.abilityLevelThreshold = createAbilityLevelThresholds();
+      this.skillCooldowns = createSkillCooldowns();
+      this.enemies = [];
+      this.bullets = [];
+      this.effects = [];
+      this.enemyAttackCooldown = {};
+      this.statusEffects = {};
+      this.pendingTimeouts = /* @__PURE__ */ new Set();
+      this.animationIds = /* @__PURE__ */ new Set();
+      this.gameLoopId = null;
+      this.lastAttackTime = 0;
+      this.elapsedSeconds = 0;
+      this.timerStart = 0;
+      this.pauseTime = 0;
+      this.currentDifficultyLevel = 0;
+      this.currentWave = 1;
+      this.previousDifficultyLevel = -1;
+      this.previousWave = 0;
+      this.nextEnemyId = 0;
+      this.killCount = 0;
+      this.itemsLooted = 0;
+      this.selectedCharacterName = "";
+      this.healthRegenTime = 0;
+      this.healthRegenInterval = 1e3;
+      this.normalSpawnTime = 0;
+      this.normalSpawnInterval = 1e3 * 60 / 50;
+      this.rareEnemySpawnTime = 0;
+      this.rareEnemySpawnInterval = 1e3 * 60 / 15;
+      this.eliteSpawnTime = 0;
+      this.eliteSpawnInterval = 1e3 * 60 / 3;
+      this.bossSpawnTime = 0;
+      this.bossSpawnInterval = 1e3 * 60 / 1;
+      this.difficultyIntervalTime = 1e4;
+      this.attackSpeedBuffTime = 0;
+      this.attackSpeedBuffInterval = 1e4;
+      this.attackSpeedBuffDuration = 5e3;
+    }
+    /** @param {object} characterStats */
+    initForCharacter(characterStats) {
+      this.reset();
+      this.characterSelection = false;
+      this.originalStats = deepClone(characterStats);
+      this.stats = deepClone(characterStats);
+      this.originalEnemyStats = deepClone(this.enemyStats);
+      this.originalStatsList = deepClone(this.statsList);
+      this.originalAbilityList = deepClone(this.abilityList);
+      this.originalSkillList = deepClone(this.skillList);
+      this.timerStart = Date.now();
+      this.pauseTime = Date.now();
+      this.healthRegenTime = Date.now();
+      this.normalSpawnTime = Date.now();
+      this.rareEnemySpawnTime = Date.now();
+      this.eliteSpawnTime = Date.now();
+      this.bossSpawnTime = Date.now();
+      this.attackSpeedBuffTime = Date.now();
+    }
+    trackTimeout(id) {
+      this.pendingTimeouts.add(id);
+      return id;
+    }
+    clearTimeout(id) {
+      clearTimeout(id);
+      this.pendingTimeouts.delete(id);
+    }
+    clearAllTimeouts() {
+      this.pendingTimeouts.forEach((id) => clearTimeout(id));
+      this.pendingTimeouts.clear();
+    }
+    trackAnimation(id) {
+      this.animationIds.add(id);
+      return id;
+    }
+    cancelAnimation(id) {
+      if (id) cancelAnimationFrame(id);
+      this.animationIds.delete(id);
+    }
+    cancelAllAnimations() {
+      this.animationIds.forEach((id) => cancelAnimationFrame(id));
+      this.animationIds.clear();
+      if (this.gameLoopId) {
+        cancelAnimationFrame(this.gameLoopId);
+        this.gameLoopId = null;
+      }
+    }
+    destroyEntities() {
+      this.enemies.forEach((enemy) => {
+        this.cancelAnimation(enemy.moveAnimationId);
+        enemy.element?.remove();
+      });
+      this.bullets.forEach((bullet) => {
+        this.cancelAnimation(bullet.moveAnimationId);
+        bullet.element?.remove();
+      });
+      this.effects.forEach((effect) => effect.element?.remove());
+      this.enemies.length = 0;
+      this.bullets.length = 0;
+      this.effects.length = 0;
+      this.enemyAttackCooldown = {};
+      this.statusEffects = {};
+    }
+    fullCleanup() {
+      this.cancelAllAnimations();
+      this.clearAllTimeouts();
+      this.destroyEntities();
+    }
+    restoreProgression() {
+      this.enemyStats = deepClone(this.originalEnemyStats);
+      this.statsList = deepClone(this.originalStatsList);
+      this.abilityList = deepClone(this.originalAbilityList);
+      this.skillList = deepClone(this.originalSkillList);
+      this.abilityLevelThreshold = createAbilityLevelThresholds();
+      this.skillCooldowns = createSkillCooldowns();
+      this.pendingUpgrades = [];
+    }
+  };
+
+  // js/utils/math.js
+  function distanceVw(x1, y1, x2, y2, innerWidth, innerHeight) {
+    const dx = Math.abs(x1 - x2) * innerWidth / 100;
+    const dy = Math.abs(y1 - y2) * innerHeight / 100;
+    return Math.hypot(dx, dy);
+  }
+  function rollChance(chancePercent) {
+    return Math.random() < chancePercent / 100;
+  }
+  function formatTime(seconds) {
+    const minutes = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${minutes}:${secs.toString().padStart(2, "0")}`;
+  }
+
+  // js/ui/svgSprites.js
+  var SVG_WRAP = (content, viewBox = "0 0 64 64") => `<svg class="entity-svg" viewBox="${viewBox}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${content}</svg>`;
+  var PLAYER_SVGS = {
+    adventurer: SVG_WRAP(`
+        <defs><linearGradient id="adv-body" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#93c5fd"/><stop offset="100%" stop-color="#1d4ed8"/></linearGradient></defs>
+        <ellipse cx="32" cy="38" rx="18" ry="20" fill="url(#adv-body)" stroke="#60a5fa" stroke-width="2"/>
+        <circle cx="32" cy="18" r="12" fill="#fde68a" stroke="#d97706" stroke-width="1.5"/>
+        <rect x="14" y="28" width="8" height="22" rx="2" fill="#64748b" stroke="#94a3b8"/>
+        <path d="M46 26 L58 18 L56 32 L48 36 Z" fill="#cbd5e1" stroke="#64748b"/>
+        <line x1="50" y1="20" x2="54" y2="42" stroke="#e2e8f0" stroke-width="3" stroke-linecap="round"/>
+    `),
+    warrior: SVG_WRAP(`
+        <defs><linearGradient id="war-armor" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#94a3b8"/><stop offset="100%" stop-color="#334155"/></linearGradient></defs>
+        <rect x="16" y="22" width="32" height="34" rx="8" fill="url(#war-armor)" stroke="#64748b" stroke-width="2"/>
+        <circle cx="32" cy="16" r="13" fill="#475569" stroke="#94a3b8" stroke-width="2"/>
+        <rect x="22" y="8" width="20" height="6" rx="2" fill="#64748b"/>
+        <rect x="10" y="30" width="10" height="24" rx="3" fill="#475569" stroke="#64748b"/>
+        <rect x="44" y="30" width="10" height="24" rx="3" fill="#475569" stroke="#64748b"/>
+        <path d="M8 36 L4 52 L12 50 Z" fill="#334155"/>
+    `),
+    ranger: SVG_WRAP(`
+        <ellipse cx="32" cy="40" rx="16" ry="18" fill="#16a34a" stroke="#4ade80" stroke-width="2"/>
+        <circle cx="32" cy="17" r="11" fill="#fde68a"/>
+        <path d="M18 8 L46 8 L32 22 Z" fill="#14532d"/>
+        <path d="M48 30 Q58 20 58 40 Q58 55 48 48" fill="none" stroke="#92400e" stroke-width="3"/>
+        <line x1="48" y1="30" x2="48" y2="50" stroke="#78350f" stroke-width="2"/>
+    `),
+    assassin: SVG_WRAP(`
+        <ellipse cx="32" cy="40" rx="15" ry="17" fill="#1f2937" stroke="#6b7280" stroke-width="2"/>
+        <circle cx="32" cy="18" r="10" fill="#374151"/>
+        <path d="M20 6 L44 6 L32 20 Z" fill="#0f172a"/>
+        <path d="M10 44 L20 36 M54 44 L44 36" stroke="#a78bfa" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="32" cy="18" r="4" fill="#8b5cf6" opacity="0.8"/>
+    `),
+    healer: SVG_WRAP(`
+        <ellipse cx="32" cy="40" rx="17" ry="19" fill="#d97706" stroke="#fbbf24" stroke-width="2"/>
+        <circle cx="32" cy="17" r="11" fill="#fde68a"/>
+        <rect x="28" y="4" width="8" height="8" rx="2" fill="#fef08a"/>
+        <line x1="46" y1="10" x2="46" y2="58" stroke="#78350f" stroke-width="3"/>
+        <line x1="40" y1="14" x2="52" y2="14" stroke="#fef08a" stroke-width="4"/>
+        <line x1="43" y1="11" x2="49" y2="17" stroke="#fef08a" stroke-width="3"/>
+        <line x1="49" y1="11" x2="43" y2="17" stroke="#fef08a" stroke-width="3"/>
+    `),
+    necromancer: SVG_WRAP(`
+        <ellipse cx="32" cy="42" rx="16" ry="18" fill="#4c1d95" stroke="#a78bfa" stroke-width="2"/>
+        <circle cx="32" cy="18" r="11" fill="#1e1b4b"/>
+        <ellipse cx="26" cy="17" rx="3" ry="4" fill="#22d3ee"/><ellipse cx="38" cy="17" rx="3" ry="4" fill="#22d3ee"/>
+        <path d="M20 6 L44 6 L38 18 L26 18 Z" fill="#2e1065"/>
+        <path d="M8 50 Q16 38 24 50" fill="none" stroke="#84cc16" stroke-width="2" opacity="0.8"/>
+        <circle cx="12" cy="48" r="3" fill="#84cc16" opacity="0.6"/>
+    `),
+    paladin: SVG_WRAP(`
+        <rect x="18" y="24" width="28" height="32" rx="6" fill="#e2e8f0" stroke="#fbbf24" stroke-width="2"/>
+        <circle cx="32" cy="16" r="12" fill="#fde68a" stroke="#d97706"/>
+        <rect x="8" y="28" width="12" height="28" rx="3" fill="#fbbf24" stroke="#d97706"/>
+        <path d="M12 32 L12 52 M8 36 L16 36" stroke="#92400e" stroke-width="2"/>
+        <circle cx="32" cy="38" r="8" fill="#fbbf24" opacity="0.5"/>
+    `),
+    berserker: SVG_WRAP(`
+        <ellipse cx="32" cy="40" rx="20" ry="22" fill="#b91c1c" stroke="#fca5a5" stroke-width="2"/>
+        <circle cx="32" cy="16" r="13" fill="#fde68a"/>
+        <path d="M18 10 L28 4 L32 14 L36 4 L46 10" fill="#7f1d1d"/>
+        <path d="M6 38 L18 32 M58 38 L46 32" stroke="#fbbf24" stroke-width="4" stroke-linecap="round"/>
+        <rect x="48" y="20" width="6" height="36" rx="2" fill="#78716c" transform="rotate(15 51 38)"/>
+    `),
+    elementalist: SVG_WRAP(`
+        <ellipse cx="32" cy="42" rx="15" ry="17" fill="#312e81" stroke="#818cf8" stroke-width="2"/>
+        <circle cx="32" cy="18" r="11" fill="#c4b5fd"/>
+        <path d="M32 2 L36 14 L48 14 L38 22 L42 34 L32 26 L22 34 L26 22 L16 14 L28 14 Z" fill="#fbbf24" opacity="0.9"/>
+        <circle cx="20" cy="50" r="5" fill="#f97316" opacity="0.7"/>
+        <circle cx="44" cy="48" r="4" fill="#38bdf8" opacity="0.7"/>
+        <circle cx="32" cy="54" r="4" fill="#a3e635" opacity="0.7"/>
+    `),
+    summoner: SVG_WRAP(`
+        <ellipse cx="32" cy="42" rx="14" ry="16" fill="#581c87" stroke="#c084fc" stroke-width="2"/>
+        <circle cx="32" cy="18" r="10" fill="#ede9fe"/>
+        <path d="M22 8 L42 8 L32 20 Z" fill="#3b0764"/>
+        <circle cx="48" cy="28" r="8" fill="#22d3ee" opacity="0.85"/>
+        <circle cx="48" cy="28" r="4" fill="#ffffff" opacity="0.6"/>
+        <path d="M38 30 Q44 28 48 28" stroke="#67e8f9" stroke-width="1.5" fill="none"/>
+        <circle cx="16" cy="48" r="5" fill="#a78bfa" opacity="0.7"/>
+    `),
+    capybara: SVG_WRAP(`
+        <ellipse cx="32" cy="40" rx="22" ry="16" fill="#92400e" stroke="#d97706" stroke-width="2"/>
+        <ellipse cx="32" cy="32" rx="18" ry="14" fill="#b45309"/>
+        <circle cx="32" cy="22" r="13" fill="#d97706" stroke="#92400e"/>
+        <circle cx="26" cy="20" rx="2.5" ry="3" fill="#1f2937"/>
+        <circle cx="38" cy="20" rx="2.5" ry="3" fill="#1f2937"/>
+        <ellipse cx="32" cy="26" rx="4" ry="2.5" fill="#78350f"/>
+        <ellipse cx="14" cy="38" rx="5" ry="3" fill="#92400e"/>
+        <ellipse cx="50" cy="38" rx="5" ry="3" fill="#92400e"/>
+    `)
+  };
+  var ENEMY_SVGS = {
+    grunt: SVG_WRAP(`
+        <ellipse cx="32" cy="52" rx="18" ry="6" fill="#000" opacity="0.3"/>
+        <ellipse cx="32" cy="38" rx="18" ry="20" fill="#dc2626" stroke="#991b1b" stroke-width="2"/>
+        <ellipse cx="32" cy="18" rx="11" ry="12" fill="#ef4444"/>
+        <path d="M20 8 L24 16 M44 8 L40 16" stroke="#991b1b" stroke-width="3" stroke-linecap="round"/>
+        <ellipse cx="26" cy="17" rx="3" ry="4" fill="#fef08a"/><ellipse cx="38" cy="17" rx="3" ry="4" fill="#fef08a"/>
+    `),
+    swarm: SVG_WRAP(`
+        <ellipse cx="32" cy="50" rx="12" ry="4" fill="#000" opacity="0.25"/>
+        <ellipse cx="32" cy="36" rx="14" ry="10" fill="#ea580c" stroke="#c2410c"/>
+        <ellipse cx="24" cy="34" rx="8" ry="6" fill="#fb923c" opacity="0.75"/>
+        <ellipse cx="40" cy="34" rx="8" ry="6" fill="#fb923c" opacity="0.75"/>
+        <circle cx="26" cy="35" r="2.5" fill="#fef08a"/><circle cx="38" cy="35" r="2.5" fill="#fef08a"/>
+    `),
+    tank: SVG_WRAP(`
+        <ellipse cx="32" cy="54" rx="22" ry="7" fill="#000" opacity="0.32"/>
+        <rect x="12" y="22" width="40" height="32" rx="10" fill="#475569" stroke="#64748b" stroke-width="2"/>
+        <rect x="18" y="28" width="28" height="18" rx="4" fill="#334155"/>
+        <ellipse cx="32" cy="16" rx="10" ry="11" fill="#64748b"/>
+        <rect x="6" y="30" width="8" height="20" rx="2" fill="#334155"/>
+        <rect x="50" y="30" width="8" height="20" rx="2" fill="#334155"/>
+    `),
+    archer: SVG_WRAP(`
+        <ellipse cx="32" cy="52" rx="16" ry="5" fill="#000" opacity="0.28"/>
+        <ellipse cx="32" cy="38" rx="15" ry="17" fill="#16a34a" stroke="#15803d"/>
+        <ellipse cx="32" cy="17" rx="9" ry="10" fill="#fde68a"/>
+        <path d="M20 6 L44 6 L32 18 Z" fill="#14532d"/>
+        <path d="M46 28 Q58 24 56 42" fill="none" stroke="#92400e" stroke-width="2.5"/>
+        <line x1="46" y1="28" x2="46" y2="46" stroke="#78350f" stroke-width="2"/>
+    `),
+    dasher: SVG_WRAP(`
+        <ellipse cx="32" cy="52" rx="17" ry="6" fill="#000" opacity="0.28"/>
+        <ellipse cx="32" cy="38" rx="16" ry="18" fill="#7c3aed" stroke="#a78bfa"/>
+        <ellipse cx="32" cy="17" rx="10" ry="11" fill="#c4b5fd"/>
+        <path d="M32 36 L38 48 L32 44 L26 48 Z" fill="#5b21b6"/>
+    `),
+    splitter: SVG_WRAP(`
+        <ellipse cx="32" cy="52" rx="19" ry="6" fill="#000" opacity="0.28"/>
+        <path d="M32 10 L48 26 L44 48 L20 48 L16 26 Z" fill="#ca8a04" stroke="#fde68a" stroke-width="2"/>
+        <path d="M32 18 L38 30 L32 42 L26 30 Z" fill="#fef08a" opacity="0.55"/>
+        <line x1="32" y1="10" x2="32" y2="48" stroke="#a16207" stroke-width="1.5"/>
+        <line x1="16" y1="26" x2="48" y2="26" stroke="#a16207" stroke-width="1.5"/>
+    `),
+    bomber: SVG_WRAP(`
+        <ellipse cx="32" cy="52" rx="20" ry="7" fill="#000" opacity="0.28"/>
+        <ellipse cx="32" cy="36" rx="20" ry="22" fill="#b91c1c" stroke="#ef4444" stroke-width="2"/>
+        <ellipse cx="32" cy="32" rx="14" ry="16" fill="#dc2626"/>
+        <path d="M22 16 L28 8 M42 16 L36 8 M32 10 L32 2" stroke="#fca5a5" stroke-width="3" stroke-linecap="round"/>
+        <circle cx="32" cy="32" r="9" fill="#fef08a" opacity="0.95"/>
+        <text x="32" y="36" text-anchor="middle" font-size="11" font-weight="bold" fill="#7f1d1d">!</text>
+    `),
+    penetrator: SVG_WRAP(`
+        <ellipse cx="32" cy="52" rx="18" ry="6" fill="#000" opacity="0.28"/>
+        <path d="M20 44 L32 14 L44 44 Z" fill="#0891b2" stroke="#22d3ee" stroke-width="2"/>
+        <path d="M26 38 L32 22 L38 38 Z" fill="#67e8f4" opacity="0.55"/>
+        <rect x="30" y="10" width="4" height="10" rx="1" fill="#0e7490"/>
+        <line x1="32" y1="20" x2="32" y2="44" stroke="#155e75" stroke-width="2"/>
+    `),
+    splitFragment: SVG_WRAP(`
+        <ellipse cx="32" cy="50" rx="11" ry="4" fill="#000" opacity="0.22"/>
+        <rect x="20" y="28" width="24" height="18" rx="4" fill="#fb923c" stroke="#f97316" stroke-width="2"/>
+        <rect x="24" y="32" width="16" height="10" rx="2" fill="#fdba74" opacity="0.7"/>
+    `),
+    wraith: SVG_WRAP(`
+        <defs><linearGradient id="wraith-grad" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#e2e8f0"/><stop offset="100%" stop-color="#64748b"/></linearGradient></defs>
+        <ellipse cx="32" cy="52" rx="16" ry="5" fill="#000" opacity="0.22"/>
+        <path d="M18 46 Q32 8 46 46 Q40 52 32 50 Q24 52 18 46 Z" fill="url(#wraith-grad)" opacity="0.92"/>
+        <ellipse cx="26" cy="28" rx="4" ry="5" fill="#0f172a" opacity="0.7"/>
+        <ellipse cx="38" cy="28" rx="4" ry="5" fill="#0f172a" opacity="0.7"/>
+        <path d="M28 38 Q32 42 36 38" fill="none" stroke="#94a3b8" stroke-width="1.5"/>
+    `)
+  };
+  var COMPANION_SVGS = {
+    zombie: SVG_WRAP(`
+        <ellipse cx="32" cy="56" rx="16" ry="5" fill="#000" opacity="0.32"/>
+        <ellipse cx="32" cy="40" rx="15" ry="16" fill="#3f6212" stroke="#84cc16" stroke-width="2"/>
+        <circle cx="32" cy="18" r="11" fill="#4d7c0f" stroke="#a3e635" stroke-width="1.5"/>
+        <ellipse cx="26" cy="17" rx="2.5" ry="3.5" fill="#22c55e"/>
+        <ellipse cx="38" cy="17" rx="2.5" ry="3.5" fill="#22c55e"/>
+        <path d="M24 24 Q32 28 40 24" fill="none" stroke="#14532d" stroke-width="2"/>
+        <path d="M14 36 L8 48 M50 36 L56 48" stroke="#65a30d" stroke-width="3" stroke-linecap="round"/>
+        <rect x="20" y="34" width="8" height="14" rx="2" fill="#365314" opacity="0.7"/>
+        <rect x="36" y="34" width="8" height="14" rx="2" fill="#365314" opacity="0.7"/>
+        <circle cx="20" cy="30" r="2" fill="#86efac" opacity="0.55"/>
+        <circle cx="44" cy="32" r="1.5" fill="#86efac" opacity="0.45"/>
+    `),
+    bear: SVG_WRAP(`
+        <ellipse cx="32" cy="56" rx="18" ry="5" fill="#000" opacity="0.3"/>
+        <ellipse cx="32" cy="38" rx="20" ry="18" fill="#92400e" stroke="#b45309" stroke-width="2"/>
+        <ellipse cx="18" cy="16" rx="7" ry="8" fill="#78350f" stroke="#a16207"/>
+        <ellipse cx="46" cy="16" rx="7" ry="8" fill="#78350f" stroke="#a16207"/>
+        <circle cx="32" cy="22" r="14" fill="#b45309" stroke="#f59e0b" stroke-width="1.5"/>
+        <ellipse cx="26" cy="20" rx="2.2" ry="3" fill="#1c1917"/>
+        <ellipse cx="38" cy="20" rx="2.2" ry="3" fill="#1c1917"/>
+        <ellipse cx="32" cy="26" rx="5" ry="3.5" fill="#78350f"/>
+        <circle cx="30" cy="25" r="1.2" fill="#fde68a"/><circle cx="34" cy="25" r="1.2" fill="#fde68a"/>
+        <ellipse cx="14" cy="42" rx="5" ry="7" fill="#78350f"/>
+        <ellipse cx="50" cy="42" rx="5" ry="7" fill="#78350f"/>
+    `),
+    illusion: SVG_WRAP(`
+        <defs>
+            <linearGradient id="illu-body" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#c4b5fd"/><stop offset="100%" stop-color="#6d28d9"/>
+            </linearGradient>
+            <linearGradient id="illu-glow" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="#e9d5ff" stop-opacity="0.9"/><stop offset="100%" stop-color="#7c3aed" stop-opacity="0.3"/>
+            </linearGradient>
+        </defs>
+        <ellipse cx="32" cy="56" rx="14" ry="4" fill="#7c3aed" opacity="0.35"/>
+        <ellipse cx="32" cy="40" rx="14" ry="16" fill="url(#illu-body)" stroke="#a78bfa" stroke-width="2" opacity="0.88"/>
+        <circle cx="32" cy="18" r="10" fill="url(#illu-glow)" stroke="#ddd6fe" stroke-width="1.5"/>
+        <path d="M20 8 L44 8 L32 20 Z" fill="#4c1d95" opacity="0.85"/>
+        <path d="M48 28 Q58 22 56 42" fill="none" stroke="#c4b5fd" stroke-width="2.5" opacity="0.8"/>
+        <circle cx="18" cy="36" r="3" fill="#e9d5ff" opacity="0.55"/>
+        <circle cx="46" cy="48" r="2.5" fill="#c4b5fd" opacity="0.5"/>
+        <path d="M22 50 Q32 58 42 50" fill="none" stroke="#ddd6fe" stroke-width="1.5" opacity="0.6"/>
+    `)
+  };
+  function getPlayerSvg(characterName) {
+    const key = characterName.toLowerCase();
+    return PLAYER_SVGS[key] || PLAYER_SVGS.adventurer;
+  }
+  function getEnemySvg(enemyType) {
+    return ENEMY_SVGS[enemyType] || ENEMY_SVGS.grunt;
+  }
+  function getCompanionSvg(type) {
+    return COMPANION_SVGS[type] || COMPANION_SVGS.illusion;
+  }
+  function getCharacterPreviewSvg(characterName) {
+    return getPlayerSvg(characterName).replace('class="entity-svg"', 'class="entity-svg entity-svg-preview"');
+  }
+
+  // js/ui/entityModels.js
+  var ENEMY_TYPE_BADGES = {
+    grunt: "Grunt",
+    swarm: "Swarm",
+    tank: "Tank",
+    archer: "Archer",
+    dasher: "Dasher",
+    splitter: "Splitter",
+    bomber: "Bomber",
+    penetrator: "Penetrator",
+    wraith: "Wraith",
+    splitFragment: "Fragment"
+  };
+  function buildEnemyModelHtml(typeConfig) {
+    const label = ENEMY_TYPE_BADGES[typeConfig.type] || typeConfig.label || typeConfig.type;
+    return `
+        <div class="enemy-model-25d enemy-type-${typeConfig.type}">
+            <div class="enemy-ground-shadow" aria-hidden="true"></div>
+            <div class="enemy-sprite enemy-sprite-${typeConfig.type}">${getEnemySvg(typeConfig.type)}</div>
+            <span class="enemy-type-badge enemy-type-cube" title="${label}" aria-label="${label}"></span>
+        </div>
+    `;
+  }
+  function applyPlayerModel(playerEl, characterName) {
+    const slug = characterName.toLowerCase();
+    playerEl.classList.add("player-model", `player-${slug}`);
+    playerEl.dataset.character = characterName;
+    let sprite = playerEl.querySelector(".player-sprite");
+    if (!sprite) {
+      sprite = document.createElement("div");
+      sprite.className = "player-sprite";
+      sprite.setAttribute("aria-hidden", "true");
+      playerEl.appendChild(sprite);
+    }
+    sprite.innerHTML = getPlayerSvg(characterName);
+  }
+  function resetPlayerModel(playerEl) {
+    playerEl.className = "";
+    playerEl.removeAttribute("data-character");
+    playerEl.querySelector(".player-sprite")?.remove();
+  }
+  function getCharacterPreviewHtml(name) {
+    return `<div class="char-preview-svg">${getCharacterPreviewSvg(name)}</div>`;
+  }
+  function buildCompanionModelHtml(type, opts = {}) {
+    const label = type === "bear" ? "Bear" : type === "zombie" ? "Zombie" : "Illusion";
+    const rangerClass = opts.ranger ? " companion-illusion-ranger" : "";
+    return `
+        <div class="companion-model companion-${type}${rangerClass}" aria-label="${label}" title="${label}">
+            <div class="companion-ground-shadow" aria-hidden="true"></div>
+            <div class="companion-sprite companion-sprite-${type}">${getCompanionSvg(type)}</div>
+        </div>
+    `;
+  }
+
+  // js/config/achievements.js
+  var ACHIEVEMENTS = [
+    {
+      id: "first_blood",
+      title: "First Blood",
+      description: "Defeat your first enemy.",
+      check: (ctx) => ctx.killCount >= 1
+    },
+    {
+      id: "slayer_100",
+      title: "Centurion",
+      description: "Defeat 100 enemies in one run.",
+      check: (ctx) => ctx.killCount >= 100
+    },
+    {
+      id: "slayer_500",
+      title: "Exterminator",
+      description: "Defeat 500 enemies in one run.",
+      check: (ctx) => ctx.killCount >= 500
+    },
+    {
+      id: "level_10",
+      title: "Rising Star",
+      description: "Reach level 10 in one run.",
+      check: (ctx) => ctx.level >= 10
+    },
+    {
+      id: "level_25",
+      title: "Veteran",
+      description: "Reach level 25 in one run.",
+      check: (ctx) => ctx.level >= 25
+    },
+    {
+      id: "level_50",
+      title: "Elite Hunter",
+      description: "Reach level 50 in one run.",
+      check: (ctx) => ctx.level >= 50
+    },
+    {
+      id: "survive_5m",
+      title: "Still Standing",
+      description: "Survive 5 minutes.",
+      check: (ctx) => ctx.elapsedSeconds >= 300
+    },
+    {
+      id: "survive_15m",
+      title: "Iron Will",
+      description: "Survive 15 minutes.",
+      check: (ctx) => ctx.elapsedSeconds >= 900
+    },
+    {
+      id: "streak_25",
+      title: "Unstoppable",
+      description: "Reach a 25 kill streak.",
+      check: (ctx) => ctx.bestStreak >= 25
+    },
+    {
+      id: "treasure_5",
+      title: "Treasure Hunter",
+      description: "Open 5 treasure chests in one run.",
+      check: (ctx) => ctx.treasuresOpened >= 5
+    },
+    {
+      id: "gear_rare",
+      title: "Well Equipped",
+      description: "Equip a rare item.",
+      check: (ctx) => ctx.equippedRareCount >= 1
+    },
+    {
+      id: "gear_full",
+      title: "Fully Loaded",
+      description: "Equip items in all 7 slots.",
+      check: (ctx) => ctx.equippedGearCount >= 7
+    },
+    {
+      id: "loot_20",
+      title: "Collector",
+      description: "Pick up 20 items in one run.",
+      check: (ctx) => ctx.itemsLooted >= 20
+    }
+  ];
+
+  // js/systems/metaProgress.js
+  var STORAGE_KEY = "survivor-arena-meta";
+  function createDefaultMeta() {
+    return {
+      bestRun: { level: 0, time: 0, kills: 0, wave: 0, character: "" },
+      characterRecords: {},
+      unlockedAchievements: []
+    };
+  }
+  function loadMetaProgress() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return createDefaultMeta();
+      const parsed = JSON.parse(raw);
+      const meta = { ...createDefaultMeta(), ...parsed };
+      if (!meta.characterRecords) meta.characterRecords = {};
+      if (parsed.totalGold !== void 0) delete meta.totalGold;
+      return meta;
+    } catch {
+      return createDefaultMeta();
+    }
+  }
+  function saveMetaProgress(meta) {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(meta));
+    } catch {
+    }
+  }
+  function getCharacterRecord(meta, characterName) {
+    return meta.characterRecords[characterName] || { level: 0, time: 0, kills: 0, wave: 0 };
+  }
+  function updateCharacterRecord(meta, run) {
+    if (!run.character) return;
+    const prev = getCharacterRecord(meta, run.character);
+    const better = run.level > prev.level || run.level === prev.level && run.kills > prev.kills || run.level === prev.level && run.kills === prev.kills && run.time > prev.time;
+    if (better) {
+      meta.characterRecords[run.character] = {
+        level: run.level,
+        time: run.time,
+        kills: run.kills,
+        wave: run.wave
+      };
+    }
+    const global = meta.bestRun;
+    const globalBetter = run.level > global.level || run.level === global.level && run.kills > global.kills;
+    if (globalBetter) {
+      meta.bestRun = { ...run };
+    }
+    saveMetaProgress(meta);
+  }
+  function evaluateAchievements(meta, ctx) {
+    const newlyUnlocked = [];
+    ACHIEVEMENTS.forEach((def) => {
+      if (meta.unlockedAchievements.includes(def.id)) return;
+      if (def.check(ctx)) {
+        meta.unlockedAchievements.push(def.id);
+        newlyUnlocked.push(def.id);
+      }
+    });
+    if (newlyUnlocked.length > 0) saveMetaProgress(meta);
+    return newlyUnlocked;
+  }
+  function getAchievementById(id) {
+    return ACHIEVEMENTS.find((a) => a.id === id);
+  }
+
+  // js/config/characterPassives.js
+  var CHARACTER_PASSIVES = {
+    Adventurer: {
+      id: "adventurer",
+      name: "Explorer's Quill",
+      icon: "\u{1F4DC}",
+      description: "Gains +50% all EXP from kills (stacks with base expGain).",
+      params: { expBonus: 0.5 }
+    },
+    Warrior: {
+      id: "warrior",
+      name: "War Cry Strike",
+      icon: "\u{1F4A5}",
+      description: "Basic attacks have 15% chance to explode in a small AoE.",
+      params: { chance: 15, radiusPx: 90, splashMult: 0.55 }
+    },
+    Ranger: {
+      id: "ranger",
+      name: "Evershadow Companion",
+      icon: "\u{1F3F9}",
+      description: "Always has a free-roaming illusion that deals 60% of your damage.",
+      params: { damagePercent: 60, roamRadiusFraction: 0.85 }
+    },
+    Assassin: {
+      id: "assassin",
+      name: "Crit Echo",
+      icon: "\u{1F5E1}\uFE0F",
+      description: "Critical hits have 30% chance to splash nearby foes.",
+      params: { chance: 30, radiusPx: 70, splashMult: 0.4 }
+    },
+    Healer: {
+      id: "healer",
+      name: "Sacred Pulse",
+      icon: "\u{1F49A}",
+      description: "Every few seconds pulses AoE damage based on HP regen.",
+      params: { intervalMs: 2500, radiusPx: 140, regenDamageMult: 0.35 }
+    },
+    Necromancer: {
+      id: "necromancer",
+      name: "Raise Zombie",
+      icon: "\u{1F9DF}",
+      description: "Raises a melee zombie that deals 100% of your damage for a duration.",
+      params: {
+        cooldownMs: 12e3,
+        durationMs: 8e3,
+        damagePercent: 100,
+        moveSpeed: 0.55,
+        attackIntervalMs: 900,
+        offsetVw: 3.5
+      }
+    },
+    Paladin: {
+      id: "paladin",
+      name: "Aegis of Faith",
+      icon: "\u{1F6E1}\uFE0F",
+      description: "Gain a shield equal to 10% max HP; fully repaired every 10s.",
+      params: { shieldPercent: 10, repairIntervalMs: 1e4 }
+    },
+    Berserker: {
+      id: "berserker",
+      name: "Blood Frenzy",
+      icon: "\u{1FA78}",
+      description: "Periodically gains +50% attack speed for several seconds.",
+      params: {
+        bonusPercent: 50,
+        durationMs: 5e3,
+        cooldownMs: 1e4
+      }
+    },
+    Elementalist: {
+      id: "elementalist",
+      name: "Elemental Attunement",
+      icon: "\u2728",
+      description: "Fire, cold, and lightning skill damage deal +50% more.",
+      params: { elementBonus: 0.5 }
+    },
+    Summoner: {
+      id: "summoner",
+      name: "Twin Bears",
+      icon: "\u{1F43B}",
+      description: "Commands two bears that each deal 30% of your damage.",
+      params: {
+        count: 2,
+        damagePercent: 30,
+        moveSpeed: 0.48,
+        attackIntervalMs: 1100,
+        orbitVw: 4.2
+      }
+    },
+    Capybara: {
+      id: "capybara",
+      name: "Snack & Soak",
+      icon: "\u{1F34A}",
+      description: "Every few seconds soaks foes in chill water and snacks for a heal.",
+      params: {
+        intervalMs: 4e3,
+        radiusPx: 120,
+        damageMult: 0.6,
+        healPercent: 3,
+        chillPercent: 25,
+        chillDurationMs: 1800
+      }
+    }
+  };
+  var ELEMENTALIST_ELEMENTS = /* @__PURE__ */ new Set(["fire", "cold", "lightning"]);
+  function getCharacterPassive(characterName) {
+    return CHARACTER_PASSIVES[characterName] || null;
+  }
+  function formatPassiveTooltipHtml(passive) {
+    if (!passive) return "";
+    return `
+        <strong class="passive-tip-name">${passive.name}</strong>
+        <span class="passive-tip-tag">Character Passive</span>
+        <p class="passive-tip-desc">${passive.description}</p>
+    `;
+  }
+
+  // js/ui/manager.js
+  var SKILL_ICON_HTML = {
+    illusion: '<span class="skill-icon-illusion" aria-hidden="true">IL</span>'
+  };
+  var UIManager = class {
+    constructor() {
+      this.els = {
+        characterSelection: document.getElementById("character-selection"),
+        characterList: document.getElementById("character-list"),
+        gameContainer: document.getElementById("game-container"),
+        gameUI: document.getElementById("game-ui"),
+        playerAnchor: document.getElementById("player-anchor"),
+        player: document.getElementById("player"),
+        attackRange: document.getElementById("attack-range"),
+        timer: document.getElementById("timer"),
+        level: document.getElementById("level"),
+        hpBarFill: document.getElementById("hp-bar-fill"),
+        hpValue: document.getElementById("hp-value"),
+        expBarFill: document.getElementById("exp-bar-fill"),
+        expValue: document.getElementById("exp-value"),
+        damage: document.getElementById("damage"),
+        aoe: document.getElementById("aoe"),
+        attackSpeed: document.getElementById("attack-speed"),
+        hpRegen: document.getElementById("hp-regen"),
+        defence: document.getElementById("defence"),
+        evade: document.getElementById("evade"),
+        critChance: document.getElementById("crit-chance"),
+        critMultiplier: document.getElementById("crit-multiplier"),
+        kills: document.getElementById("kill-count"),
+        difficulty: document.getElementById("difficulty-level"),
+        streak: document.getElementById("streak-count"),
+        skillBar: document.getElementById("skill-bar"),
+        pauseOverlay: document.getElementById("pause-overlay"),
+        gameOverOverlay: document.getElementById("game-over-overlay"),
+        gameOverStats: document.getElementById("game-over-stats"),
+        achievementToast: document.getElementById("achievement-toast"),
+        waveToast: document.getElementById("wave-toast"),
+        gearLootToast: document.getElementById("gear-loot-toast"),
+        characterPassiveBtn: document.getElementById("character-passive-btn"),
+        characterPassiveIcon: document.getElementById("character-passive-icon"),
+        characterPassiveTip: document.getElementById("character-passive-tip"),
+        shieldRow: document.getElementById("shield-row"),
+        shieldBarFill: document.getElementById("shield-bar-fill"),
+        shieldValue: document.getElementById("shield-value"),
+        buffBar: document.getElementById("buff-bar")
+      };
+      this._achievementTimer = null;
+      this._waveTimer = null;
+      this._gearLootTimer = null;
+      this._lastStreak = 0;
+      this._initPauseMenu();
+    }
+    _initPauseMenu() {
+      this.els.pauseResume = document.getElementById("pause-resume");
+      this.els.pauseRestart = document.getElementById("pause-restart");
+      this.els.pauseCharacter = document.getElementById("pause-character");
+    }
+    /** @param {{ resume: () => void, restart: () => void, characterSelect: () => void }} handlers */
+    bindPauseMenu(handlers) {
+      this.els.pauseResume?.addEventListener("click", handlers.resume);
+      this.els.pauseRestart?.addEventListener("click", handlers.restart);
+      this.els.pauseCharacter?.addEventListener("click", handlers.characterSelect);
+    }
+    showCharacterSelection(onSelect, meta = null) {
+      this.els.characterSelection.style.display = "grid";
+      this.els.gameOverOverlay.style.display = "none";
+      this.els.gameUI.style.display = "none";
+      this.els.gameContainer.style.display = "none";
+      this.els.characterList.innerHTML = "";
+      CHARACTERS.forEach((char, index) => {
+        const record = meta ? getCharacterRecord(meta, char.name) : null;
+        const hasRecord = record && record.level > 0;
+        const bestText = hasRecord ? `Best: Lv.${record.level} \xB7 Wave ${record.wave} \xB7 ${record.kills} kills \xB7 ${formatTime(record.time)}` : "No record yet";
+        const passive = getCharacterPassive(char.name);
+        const passiveChip = passive ? `<span class="character-passive-chip" title="${passive.name}">
+                        <span aria-hidden="true">${passive.icon}</span>
+                        <span>${passive.name}</span>
+                        <span class="chip-tip"><strong>${passive.name}</strong><br>${passive.description}</span>
+                   </span>` : "";
+        const card = document.createElement("button");
+        card.className = "character-card";
+        card.dataset.character = char.name;
+        const keyHint = index < 9 ? index + 1 : index === 9 ? "0" : "-";
+        card.innerHTML = `
+                <span class="character-index">${keyHint}</span>
+                ${getCharacterPreviewHtml(char.name)}
+                <div class="character-card-body">
+                    <h3>${char.name}</h3>
+                    <span class="character-role">${char.role}</span>
+                    <p class="character-desc">${char.description}</p>
+                    ${passiveChip}
+                    <div class="character-stats-line">
+                        <span class="char-stat" title="Hit Points"><span class="char-stat-ico char-stat-hp">\u2665</span>${char.stats.maxHp}</span>
+                        <span class="char-stat-sep">\xB7</span>
+                        <span class="char-stat" title="Damage"><span class="char-stat-ico char-stat-dmg">\u2694</span>${char.stats.physicalDamage}</span>
+                        <span class="char-stat-sep">\xB7</span>
+                        <span class="char-stat" title="Attack Range"><span class="char-stat-ico char-stat-aoe">\u25CE</span>${char.stats.attackRange}</span>
+                        <span class="char-stat-sep">\xB7</span>
+                        <span class="char-stat" title="Defence"><span class="char-stat-ico char-stat-def">\u{1F6E1}</span>${char.stats.armour}</span>
+                    </div>
+                    <span class="character-best-run ${hasRecord ? "has-record" : ""}">${bestText}</span>
+                </div>
+            `;
+        card.addEventListener("click", () => onSelect(char.name));
+        this.els.characterList.appendChild(card);
+      });
+    }
+    showGame() {
+      this.els.characterSelection.style.display = "none";
+      this.els.gameUI.style.display = "flex";
+      this.els.gameContainer.style.display = "flex";
+    }
+    updateAttackRange(range) {
+      const size = range * 2;
+      this.els.attackRange.style.width = `${size}px`;
+      this.els.attackRange.style.height = `${size}px`;
+    }
+    updateStats(stats, skillList) {
+      if (stats.hp > stats.maxHp) stats.hp = stats.maxHp;
+      const fmt = (n, dec = 2) => Number(n).toFixed(dec).replace(/\.?0+$/, "");
+      this.els.hpBarFill.style.width = `${stats.hp / stats.maxHp * 100}%`;
+      this.els.hpValue.textContent = `${Math.max(0, Math.floor(stats.hp))} / ${stats.maxHp}`;
+      this.els.expBarFill.style.width = `${stats.exp / stats.expThreshold * 100}%`;
+      this.els.expValue.textContent = `${stats.exp} / ${stats.expThreshold}`;
+      this.els.level.textContent = `Lv. ${stats.level}`;
+      this.els.damage.textContent = String(stats.physicalDamage);
+      this.els.aoe.textContent = String(stats.attackRange);
+      this.els.attackSpeed.textContent = fmt(stats.attackSpeed);
+      this.els.hpRegen.textContent = String(stats.hpRegen);
+      this.els.defence.textContent = String(stats.armour);
+      this.els.evade.textContent = `${fmt(stats.evade)}%`;
+      this.els.critChance.textContent = `${fmt(stats.critChance)}%`;
+      this.els.critMultiplier.textContent = `${stats.critMultiplier}%`;
+      syncPlayerSkillLevels(stats.skills, skillList);
+      this.updateSkillBar(stats.skills, skillList);
+    }
+    /** @param {import('../config/characterPassives.js').CharacterPassiveDef|null} passive */
+    setCharacterPassive(passive) {
+      const btn = this.els.characterPassiveBtn;
+      const icon = this.els.characterPassiveIcon;
+      const tip = this.els.characterPassiveTip;
+      if (!btn || !icon || !tip) return;
+      if (!passive) {
+        btn.hidden = true;
+        tip.innerHTML = "";
+        btn.classList.remove("passive-tip-open");
+        return;
+      }
+      btn.hidden = false;
+      icon.textContent = passive.icon || "\u2605";
+      btn.setAttribute("aria-label", `Passive: ${passive.name}`);
+      tip.innerHTML = formatPassiveTooltipHtml(passive);
+      if (!btn.dataset.passiveBound) {
+        btn.dataset.passiveBound = "1";
+        const open = () => btn.classList.add("passive-tip-open");
+        const close = () => btn.classList.remove("passive-tip-open");
+        btn.addEventListener("mouseenter", open);
+        btn.addEventListener("mouseleave", close);
+        btn.addEventListener("focus", open);
+        btn.addEventListener("blur", close);
+      }
+    }
+    clearCharacterPassive() {
+      this.setCharacterPassive(null);
+      if (this.els.shieldRow) this.els.shieldRow.hidden = true;
+      if (this.els.shieldBarFill) this.els.shieldBarFill.style.width = "0%";
+      if (this.els.shieldValue) this.els.shieldValue.textContent = "0 / 0";
+    }
+    /** @param {{ shield?: number, shieldMax?: number, frenzyActive?: boolean }} state */
+    updatePassiveHud(state = {}) {
+      const max = state.shieldMax || 0;
+      const cur = Math.max(0, Math.floor(state.shield || 0));
+      if (this.els.shieldRow) {
+        this.els.shieldRow.hidden = max <= 0;
+      }
+      if (this.els.shieldBarFill && max > 0) {
+        this.els.shieldBarFill.style.width = `${Math.min(100, cur / max * 100)}%`;
+      }
+      if (this.els.shieldValue && max > 0) {
+        this.els.shieldValue.textContent = `${cur} / ${max}`;
+      }
+      this.els.characterPassiveBtn?.classList.toggle("passive-frenzy-active", Boolean(state.frenzyActive));
+    }
+    /**
+     * PoE-style buff icons — depleting dark overlay from top as duration expires.
+     * Updates in place so hover tooltips aren't destroyed every frame.
+     * @param {Array<{ id: string, name: string, icon: string, description: string, remainingMs: number, remainingRatio: number }>} buffs
+     */
+    updateBuffBar(buffs = []) {
+      const bar = this.els.buffBar;
+      if (!bar) return;
+      const nextIds = new Set(buffs.map((b) => b.id));
+      [...bar.querySelectorAll(".buff-icon")].forEach((el) => {
+        if (!nextIds.has(el.dataset.buffId)) el.remove();
+      });
+      buffs.forEach((b) => {
+        let el = bar.querySelector(`.buff-icon[data-buff-id="${b.id}"]`);
+        const secs = Number.isFinite(b.remainingMs) ? (b.remainingMs / 1e3).toFixed(1) : "\u221E";
+        const cover = Math.max(0, Math.min(100, (1 - b.remainingRatio) * 100));
+        if (!el) {
+          el = document.createElement("div");
+          el.className = "buff-icon";
+          el.dataset.buffId = b.id;
+          el.innerHTML = `
+                    <span class="buff-icon-timer"></span>
+                    <span class="buff-icon-glyph"></span>
+                    <div class="buff-icon-tip">
+                        <strong class="buff-tip-name"></strong>
+                        <p class="buff-tip-desc"></p>
+                        <span class="buff-tip-time"></span>
+                    </div>
+                `;
+          el.querySelector(".buff-icon-glyph").textContent = b.icon;
+          el.querySelector(".buff-tip-name").textContent = b.name;
+          el.querySelector(".buff-tip-desc").textContent = b.description;
+          bar.appendChild(el);
+        }
+        const timer = el.querySelector(".buff-icon-timer");
+        if (timer) timer.style.height = `${cover}%`;
+        const tipTime = el.querySelector(".buff-tip-time");
+        if (tipTime) tipTime.textContent = `${secs}s remaining`;
+        const tipDesc = el.querySelector(".buff-tip-desc");
+        if (tipDesc && tipDesc.textContent !== b.description) {
+          tipDesc.textContent = b.description;
+        }
+      });
+    }
+    updateSkillBar(skills, skillList) {
+      this.els.skillBar.innerHTML = SKILL_IDS.map((id) => {
+        const def = SKILL_DEFINITIONS[id];
+        const level = skills[id] || 0;
+        const maxed = skillList[id]?.level >= skillList[id]?.maxLevel;
+        const levelBadge = level > 0 ? `<span class="skill-level-badge">${level}</span>` : "";
+        const iconHtml = SKILL_ICON_HTML[id] || `<span class="skill-icon">${def.icon}</span>`;
+        return `
+                <div class="skill-slot skill-${def.element} ${level > 0 ? "skill-active" : "skill-locked"} ${maxed ? "skill-maxed" : ""}"
+                     title="${def.name}: ${def.description}">
+                    ${iconHtml}
+                    ${levelBadge}
+                </div>
+            `;
+      }).join("");
+    }
+    updateTimer(seconds) {
+      this.els.timer.textContent = formatTime(seconds);
+    }
+    updateMeta(kills, difficulty, streak) {
+      this.els.kills.textContent = String(kills);
+      this.els.difficulty.textContent = String(difficulty);
+      if (this.els.streak) {
+        this.els.streak.textContent = streak > 1 ? `\xD7${streak}` : "\u2014";
+        this.els.streak.classList.toggle("streak-active", streak > 4);
+        if (streak > this._lastStreak && streak > 1) {
+          this.els.streak.classList.remove("kill-streak-pop");
+          void this.els.streak.offsetWidth;
+          this.els.streak.classList.add("kill-streak-pop");
+        }
+        this._lastStreak = streak;
+      }
+    }
+    showPause(show) {
+      this.els.pauseOverlay.style.display = show ? "flex" : "none";
+      this.els.gameContainer.classList.toggle("game-paused", show);
+    }
+    showGameOver(stats, elapsedSeconds, kills, wave) {
+      this.els.gameOverStats.innerHTML = `
+            <p>Survived: <strong>${formatTime(elapsedSeconds)}</strong></p>
+            <p>Level reached: <strong>${stats.level}</strong></p>
+            <p>Wave reached: <strong>${wave}</strong></p>
+            <p>Enemies defeated: <strong>${kills}</strong></p>
+        `;
+      this.els.gameOverOverlay.style.display = "flex";
+    }
+    hideGameOver() {
+      this.els.gameOverOverlay.style.display = "none";
+    }
+    getCharacterButtons() {
+      return this.els.characterList.querySelectorAll(".character-card");
+    }
+    getPlayerPosition() {
+      const anchor = this.els.playerAnchor;
+      return {
+        x: parseFloat(anchor?.style.left) || 50,
+        y: parseFloat(anchor?.style.top) || 50
+      };
+    }
+    /** @param {string} achievementId */
+    showAchievementUnlock(achievementId) {
+      const def = getAchievementById(achievementId);
+      if (!def || !this.els.achievementToast) return;
+      this.els.achievementToast.innerHTML = `\u{1F3C6} <strong>${def.title}</strong> \u2014 ${def.description}`;
+      this.els.achievementToast.classList.add("toast-visible");
+      clearTimeout(this._achievementTimer);
+      this._achievementTimer = setTimeout(() => {
+        this.els.achievementToast.classList.remove("toast-visible");
+      }, 3200);
+    }
+    /** @param {number} wave */
+    showWaveAnnouncement(wave) {
+      if (!this.els.waveToast || wave <= 0) return;
+      this.els.waveToast.textContent = `Wave ${wave} \u2014 Difficulty rising!`;
+      this.els.waveToast.classList.add("toast-visible");
+      clearTimeout(this._waveTimer);
+      this._waveTimer = setTimeout(() => {
+        this.els.waveToast.classList.remove("toast-visible");
+      }, 2200);
+    }
+    showTreasureHint() {
+      if (!this.els.waveToast) return;
+      this.els.waveToast.textContent = "\u2728 Treasure chest appeared!";
+      this.els.waveToast.classList.add("toast-visible");
+      clearTimeout(this._waveTimer);
+      this._waveTimer = setTimeout(() => {
+        this.els.waveToast.classList.remove("toast-visible");
+      }, 2800);
+    }
+    /** Brief HUD flash when HP or EXP changes. @param {'hp'|'exp'} type */
+    flashHudBar(type) {
+      const panel = this.els.gameUI?.querySelector(".stats-panel");
+      if (!panel) return;
+      const cls = type === "hp" ? "hud-flash-hp" : "hud-flash-exp";
+      panel.classList.remove("hud-flash-hp", "hud-flash-exp");
+      void panel.offsetWidth;
+      panel.classList.add(cls);
+      setTimeout(() => panel.classList.remove(cls), 500);
+    }
+    /** @param {string} itemName @param {string} rarityClass */
+    showGearLoot(itemName, rarityClass) {
+      if (!this.els.gearLootToast) return;
+      this.els.gearLootToast.textContent = `Loot: ${itemName}`;
+      this.els.gearLootToast.className = `gear-loot-toast toast-visible ${rarityClass}`;
+      clearTimeout(this._gearLootTimer);
+      this._gearLootTimer = setTimeout(() => {
+        this.els.gearLootToast.classList.remove("toast-visible");
+      }, 2200);
+    }
+  };
+
+  // js/systems/effects.js
+  var EffectManager = class {
+    /** @param {HTMLElement} container */
+    constructor(container) {
+      this.container = container;
+      this.activeEffects = [];
+      this.maxEffects = 120;
+    }
+    _trimEffects() {
+      while (this.activeEffects.length > this.maxEffects) {
+        const old = this.activeEffects.shift();
+        if (old) {
+          clearTimeout(old.id);
+          old.el?.remove();
+        }
+      }
+    }
+    /** @param {number} x @param {number} y @param {string} type */
+    spawnHitEffect(x, y, type = "physical") {
+      const el = document.createElement("div");
+      el.className = `hit-effect hit-effect-${type} particle-25d`;
+      el.innerHTML = '<span class="particle-25d-face"></span><span class="particle-25d-shadow"></span>';
+      el.style.left = `${x}vw`;
+      el.style.top = `${y}vh`;
+      this.container.appendChild(el);
+      this._trimEffects();
+      const id = setTimeout(() => {
+        el.remove();
+        this.activeEffects = this.activeEffects.filter((e) => e.el !== el);
+      }, 600);
+      this.activeEffects.push({ el, id });
+      return el;
+    }
+    /** @param {number} x1 @param {number} y1 @param {number} x2 @param {number} y2 @param {boolean} [enhanced] */
+    spawnLightningBolt(x1, y1, x2, y2, enhanced = false) {
+      const el = document.createElement("div");
+      el.className = enhanced ? "lightning-bolt lightning-bolt-enhanced" : "lightning-bolt";
+      const dx = (x2 - x1) * window.innerWidth / 100;
+      const dy = (y2 - y1) * window.innerHeight / 100;
+      const length = Math.hypot(dx, dy);
+      const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+      el.style.left = `${x1}vw`;
+      el.style.top = `${y1}vh`;
+      el.style.width = `${length}px`;
+      el.style.transform = `rotate(${angle}deg)`;
+      this.container.appendChild(el);
+      this._trimEffects();
+      const id = setTimeout(() => {
+        el.remove();
+        this.activeEffects = this.activeEffects.filter((e) => e.el !== el);
+      }, enhanced ? 450 : 300);
+      this.activeEffects.push({ el, id });
+      return el;
+    }
+    /** @param {HTMLElement} enemyEl */
+    applyBurnAura(enemyEl) {
+      if (!enemyEl.querySelector(".status-burn")) {
+        const aura = document.createElement("div");
+        aura.className = "status-burn";
+        enemyEl.appendChild(aura);
+      }
+    }
+    removeBurnAura(enemyEl) {
+      enemyEl.querySelector(".status-burn")?.remove();
+    }
+    /** @param {HTMLElement} enemyEl */
+    applyFrostAura(enemyEl) {
+      enemyEl.classList.add("status-frozen");
+      const aura = enemyEl.querySelector(".status-frost") || document.createElement("div");
+      aura.className = "status-frost";
+      if (!aura.parentElement) enemyEl.appendChild(aura);
+    }
+    removeFrostAura(enemyEl) {
+      enemyEl.classList.remove("status-frozen");
+      enemyEl.querySelector(".status-frost")?.remove();
+    }
+    /** @param {HTMLElement} playerEl */
+    triggerAttackAnimation(playerEl) {
+      const sprite = playerEl.querySelector(".player-sprite") || playerEl;
+      sprite.classList.remove("player-attacking");
+      void sprite.offsetWidth;
+      sprite.classList.add("player-attacking");
+      setTimeout(() => sprite.classList.remove("player-attacking"), 220);
+    }
+    /** @param {HTMLElement} enemyEl */
+    triggerEnemyHitAnimation(enemyEl) {
+      enemyEl.classList.remove("enemy-hit");
+      void enemyEl.offsetWidth;
+      enemyEl.classList.add("enemy-hit");
+    }
+    /** @param {HTMLElement} enemyEl @param {number} [targetX] @param {number} [targetY] */
+    triggerEnemyAttackAnimation(enemyEl, targetX, targetY) {
+      const ex = parseFloat(enemyEl.style.left);
+      const ey = parseFloat(enemyEl.style.top);
+      const tx = targetX ?? ex;
+      const ty = targetY ?? ey;
+      const dx = (tx - ex) * window.innerWidth / 100;
+      const dy = (ty - ey) * window.innerHeight / 100;
+      const len = Math.hypot(dx, dy) || 1;
+      const lungePx = 10;
+      enemyEl.style.setProperty("--lunge-x", `${dx / len * lungePx}px`);
+      enemyEl.style.setProperty("--lunge-y", `${dy / len * lungePx}px`);
+      enemyEl.classList.remove("enemy-attacking");
+      void enemyEl.offsetWidth;
+      enemyEl.classList.add("enemy-attacking");
+      setTimeout(() => enemyEl.classList.remove("enemy-attacking"), 360);
+    }
+    spawnDeathExplosion(x, y, type = "normal") {
+      const el = document.createElement("div");
+      el.className = `death-explosion death-explosion-${type}`;
+      el.style.left = `${x}vw`;
+      el.style.top = `${y}vh`;
+      this.container.appendChild(el);
+      const id = setTimeout(() => el.remove(), 700);
+      this.activeEffects.push({ el, id });
+    }
+    spawnMegaExplosion(x, y, type) {
+      const el = document.createElement("div");
+      el.className = `mega-explosion mega-explosion-${type}`;
+      el.style.left = `${x}vw`;
+      el.style.top = `${y}vh`;
+      this.container.appendChild(el);
+      const id = setTimeout(() => el.remove(), 900);
+      this.activeEffects.push({ el, id });
+    }
+    spawnCastFlash(x, y, type) {
+      const el = document.createElement("div");
+      el.className = `cast-flash cast-flash-${type}`;
+      el.style.left = `${x}vw`;
+      el.style.top = `${y}vh`;
+      this.container.appendChild(el);
+      const id = setTimeout(() => el.remove(), 500);
+      this.activeEffects.push({ el, id });
+    }
+    spawnDamageNumber(x, y, damage, isCrit, element = null) {
+      const el = document.createElement("div");
+      let className = "damage-number";
+      if (isCrit) className += " damage-crit";
+      if (element) className += ` damage-${element}`;
+      el.className = className;
+      el.textContent = String(damage);
+      el.style.left = `${x}vw`;
+      el.style.top = `${y}vh`;
+      this.container.appendChild(el);
+      this._trimEffects();
+      requestAnimationFrame(() => {
+        el.classList.add("damage-float");
+      });
+      const id = setTimeout(() => {
+        el.remove();
+        this.activeEffects = this.activeEffects.filter((e) => e.el !== el);
+      }, 1200);
+      this.activeEffects.push({ el, id });
+      return el;
+    }
+    /** @param {number} x @param {number} y */
+    spawnLootBurst(x, y) {
+      const el = document.createElement("div");
+      el.className = "world-loot-burst";
+      el.style.left = `${x}vw`;
+      el.style.top = `${y}vh`;
+      this.container.appendChild(el);
+      const id = setTimeout(() => el.remove(), 700);
+      this.activeEffects.push({ el, id });
+    }
+    /** @param {number} x @param {number} y @param {number} [count] */
+    spawnExpOrbs(x, y, count = 3) {
+      for (let i = 0; i < count; i++) {
+        const el = document.createElement("div");
+        el.className = "world-exp-orb particle-25d";
+        el.innerHTML = '<span class="particle-25d-face"></span><span class="particle-25d-shadow"></span>';
+        const ox = (Math.random() - 0.5) * 4;
+        el.style.left = `${x + ox}vw`;
+        el.style.top = `${y}vh`;
+        el.style.animationDelay = `${i * 0.08}s`;
+        this.container.appendChild(el);
+        const id = setTimeout(() => el.remove(), 800);
+        this.activeEffects.push({ el, id });
+      }
+    }
+    /** @param {HTMLElement} enemyEl */
+    playEnemySpawn(enemyEl) {
+      enemyEl.classList.add("enemy-spawn-in");
+      setTimeout(() => enemyEl.classList.remove("enemy-spawn-in"), 500);
+    }
+    /** @param {HTMLElement} rangeEl */
+    flashAttackRange(rangeEl) {
+      if (!rangeEl) return;
+      rangeEl.classList.remove("player-attacking-range");
+      void rangeEl.offsetWidth;
+      rangeEl.classList.add("player-attacking-range");
+    }
+    cleanup() {
+      this.activeEffects.forEach(({ el, id }) => {
+        clearTimeout(id);
+        el.remove();
+      });
+      this.activeEffects = [];
+    }
+  };
+
+  // js/ui/playerVisuals.js
+  function getPlayerSprite(playerEl) {
+    return playerEl.querySelector(".player-sprite") || playerEl;
+  }
+  function flashPlayerSprite(playerEl, className, durationMs) {
+    const sprite = getPlayerSprite(playerEl);
+    sprite.classList.add(className);
+    setTimeout(() => sprite.classList.remove(className), durationMs);
+  }
+  function shakePlayerAnchor(anchorEl) {
+    if (!anchorEl) return;
+    anchorEl.classList.remove("player-damage-shake");
+    void anchorEl.offsetWidth;
+    anchorEl.classList.add("player-damage-shake");
+  }
+
+  // js/utils/projectileCollision.js
+  function getEnemyHitRadiusVw(enemy, innerWidth) {
+    const sizePx = enemy.typeConfig?.size || enemy.element?.offsetWidth || 40;
+    return sizePx / Math.max(innerWidth, 1) * 100 * 0.55;
+  }
+  function projectilePointHitsEnemy(px, py, enemy, innerWidth, innerHeight, extraRadiusVw = 0) {
+    const ex = parseFloat(enemy.element.style.left);
+    const ey = parseFloat(enemy.element.style.top);
+    const r = getEnemyHitRadiusVw(enemy, innerWidth) + extraRadiusVw;
+    const dx = (px - ex) * innerWidth / 100;
+    const dy = (py - ey) * innerHeight / 100;
+    return Math.hypot(dx, dy) <= r * innerWidth / 100;
+  }
+  function projectileSegmentHitsEnemy(x0, y0, x1, y1, enemy, innerWidth, innerHeight, extraRadiusVw = 1.2) {
+    const ex = parseFloat(enemy.element.style.left);
+    const ey = parseFloat(enemy.element.style.top);
+    const r = getEnemyHitRadiusVw(enemy, innerWidth) + extraRadiusVw;
+    const ax = x0 * innerWidth / 100;
+    const ay = y0 * innerHeight / 100;
+    const bx = x1 * innerWidth / 100;
+    const by = y1 * innerHeight / 100;
+    const cx = ex * innerWidth / 100;
+    const cy = ey * innerHeight / 100;
+    const radiusPx = r * innerWidth / 100;
+    const dx = bx - ax;
+    const dy = by - ay;
+    const lenSq = dx * dx + dy * dy;
+    if (lenSq <= 1e-4) {
+      return Math.hypot(cx - ax, cy - ay) <= radiusPx;
+    }
+    const t = Math.max(0, Math.min(1, ((cx - ax) * dx + (cy - ay) * dy) / lenSq));
+    const closestX = ax + t * dx;
+    const closestY = ay + t * dy;
+    return Math.hypot(cx - closestX, cy - closestY) <= radiusPx;
+  }
+
+  // js/systems/skillExecutor.js
+  var SkillExecutor = class {
+    /** @param {import('../game/game.js').Game} game */
+    constructor(game) {
+      this.game = game;
+      this._rfLastTick = 0;
+      this._activeSparks = [];
+    }
+    /** @param {number} now */
+    tick(now) {
+      const s = this.game.state;
+      if (s.gamePaused || s.gameOver) return;
+      const rfLevel = s.skillList.righteousFire?.level || 0;
+      if (rfLevel > 0) this._tickRighteousFire(now, rfLevel);
+      this._tickSparks(now);
+      const illusionLevel = s.skillList.illusion?.level || 0;
+      if (illusionLevel > 0) {
+        this.game.illusionClone?.trySummon(illusionLevel, now);
+      }
+      SKILL_IDS.forEach((skillId) => {
+        const level = s.skillList[skillId]?.level || 0;
+        if (level <= 0) return;
+        if (skillId === "righteousFire" || skillId === "illusion") return;
+        const cfg = getSkillConfigFor(skillId, level);
+        const lastCast = s.skillCooldowns[skillId] || 0;
+        if (now - lastCast < cfg.cooldown) return;
+        const { x: px, y: py } = this.game.ui.getPlayerPosition();
+        const hasTarget = s.enemies.some((e) => e.stats.hp > 0);
+        if (skillId === "iceNova") {
+          s.skillCooldowns[skillId] = now;
+          this.castIceNova(px, py, level);
+        } else if (skillId === "healingWave") {
+          if (s.stats.hp < s.stats.maxHp * 0.92) {
+            s.skillCooldowns[skillId] = now;
+            this.castHealingWave(px, py, level);
+          }
+        } else if (skillId === "spark") {
+          s.skillCooldowns[skillId] = now;
+          this.castSpark(px, py, level);
+        } else if (hasTarget) {
+          s.skillCooldowns[skillId] = now;
+          if (skillId === "fireball") this.castFireball(px, py, level);
+          else if (skillId === "lightningArc") this.castLightningArc(px, py, level);
+          else if (skillId === "poisonBottle") this.castPoisonBottle(px, py, level);
+          else if (skillId === "frostbolt") this.castFrostbolt(px, py, level);
+        }
+      });
+    }
+    castFireball(px, py, level) {
+      const s = this.game.state;
+      const cfg = getFireballConfig(level);
+      const nearest = this._findNearestEnemy(px, py, cfg.castRange);
+      if (!nearest) return;
+      this.game.skillRanges?.flash("fireball");
+      this.game.effects.spawnCastFlash(px, py, "fire");
+      const el = document.createElement("div");
+      el.className = "skill-projectile skill-fireball";
+      el.innerHTML = '<div class="skill-fireball-core"></div><div class="skill-fireball-trail"></div>';
+      el.style.left = `${px}vw`;
+      el.style.top = `${py}vh`;
+      this.game.ui.els.gameContainer.appendChild(el);
+      const tx = parseFloat(nearest.element.style.left);
+      const ty = parseFloat(nearest.element.style.top);
+      const angle = Math.atan2(ty - py, tx - px);
+      let bx = px, by = py;
+      let animId = null;
+      const animate = () => {
+        if (s.gamePaused || s.gameOver) {
+          el.remove();
+          return;
+        }
+        bx += Math.cos(angle) * cfg.projectileSpeed;
+        by += Math.sin(angle) * cfg.projectileSpeed;
+        el.style.left = `${bx}vw`;
+        el.style.top = `${by}vh`;
+        let hit = null;
+        for (const enemy of s.enemies) {
+          if (enemy.stats.hp <= 0) continue;
+          const ex = parseFloat(enemy.element.style.left);
+          const ey = parseFloat(enemy.element.style.top);
+          const ew = enemy.element.offsetWidth * 100 / window.innerWidth;
+          const eh = enemy.element.offsetHeight * 100 / window.innerHeight;
+          if (Math.abs(bx - ex) < ew / 2 && Math.abs(by - ey) < eh / 2) {
+            hit = enemy;
+            break;
+          }
+        }
+        if (hit || distanceVw(bx, by, tx, ty, window.innerWidth, window.innerHeight) < 15) {
+          if (animId) s.cancelAnimation(animId);
+          el.remove();
+          this._fireballExplode(bx, by, level, hit);
+          return;
+        }
+        animId = requestAnimationFrame(animate);
+        s.trackAnimation(animId);
+      };
+      animate();
+    }
+    _fireballExplode(bx, by, level, directHit) {
+      const s = this.game.state;
+      const base = s.stats.physicalDamage;
+      const cfg = getFireballConfig(level);
+      const directDmg = computeSkillDamage(base, "fireball", level);
+      const splashDmg = computeSplashDamage(base, level);
+      const burnTotal = computeBurnTotal(base, level);
+      this.game.skillRanges?.showImpactArea(bx, by, cfg.splashRadius, "fire", 800);
+      this.game.effects.spawnMegaExplosion(bx, by, "fire");
+      this.game.effects.spawnHitEffect(bx, by, "fire");
+      const hitSet = /* @__PURE__ */ new Set();
+      if (directHit?.stats.hp > 0) {
+        this.game._dealSkillDamageToEnemy(directHit, directDmg, "fire", false);
+        this.game._applyBurn(directHit, burnTotal, cfg.burnDuration);
+        hitSet.add(directHit.id);
+      }
+      findEnemiesInRadius(
+        s.enemies.map((e) => ({
+          id: e.id,
+          x: parseFloat(e.element.style.left),
+          y: parseFloat(e.element.style.top),
+          hp: e.stats.hp,
+          ref: e
+        })),
+        bx,
+        by,
+        cfg.splashRadius,
+        window.innerWidth,
+        window.innerHeight
+      ).forEach((t) => {
+        if (hitSet.has(t.id) || !t.ref) return;
+        this.game._dealSkillDamageToEnemy(t.ref, splashDmg, "fire", false);
+        this.game._applyBurn(t.ref, Math.floor(burnTotal * 0.5), cfg.burnDuration);
+      });
+    }
+    castIceNova(px, py, level) {
+      const s = this.game.state;
+      const cfg = getIceNovaConfig(level);
+      const damage = computeSkillDamage(s.stats.physicalDamage, "iceNova", level);
+      this.game.skillRanges?.flash("iceNova");
+      this.game.skillRanges?.showImpactArea(px, py, cfg.radius, "cold", 900);
+      const ring = document.createElement("div");
+      ring.className = "skill-ice-nova skill-ice-nova-enhanced";
+      ring.style.left = `${px}vw`;
+      ring.style.top = `${py}vh`;
+      ring.style.width = `${cfg.radius * 2}px`;
+      ring.style.height = `${cfg.radius * 2}px`;
+      this.game.ui.els.gameContainer.appendChild(ring);
+      s.trackTimeout(setTimeout(() => ring.remove(), 900));
+      for (let i = 0; i < 8; i++) {
+        const shard = document.createElement("div");
+        shard.className = "ice-nova-shard";
+        const a = i / 8 * Math.PI * 2;
+        shard.style.left = `${px + Math.cos(a) * cfg.radius / window.innerWidth * 100 * 0.8}vw`;
+        shard.style.top = `${py + Math.sin(a) * cfg.radius / window.innerHeight * 100 * 0.8}vh`;
+        this.game.ui.els.gameContainer.appendChild(shard);
+        s.trackTimeout(setTimeout(() => shard.remove(), 700));
+      }
+      this.game.effects.spawnCastFlash(px, py, "cold");
+      flashPlayerSprite(this.game.ui.els.player, "player-casting-nova", 450);
+      s.enemies.forEach((enemy) => {
+        if (enemy.stats.hp <= 0) return;
+        const ex = parseFloat(enemy.element.style.left);
+        const ey = parseFloat(enemy.element.style.top);
+        if (distanceVw(px, py, ex, ey, window.innerWidth, window.innerHeight) > cfg.radius) return;
+        this.game._dealSkillDamageToEnemy(enemy, damage, "cold", false);
+        this.game._applySlow(enemy, cfg.slowPercent, cfg.slowDuration);
+        if (cfg.freezeDuration > 0) this.game._applyFreeze(enemy, cfg.freezeDuration);
+      });
+    }
+    castLightningArc(px, py, level) {
+      const s = this.game.state;
+      const cfg = getLightningArcConfig(level);
+      const damage = computeSkillDamage(s.stats.physicalDamage, "lightningArc", level);
+      const enemyData = s.enemies.map((e) => ({
+        id: e.id,
+        x: parseFloat(e.element.style.left),
+        y: parseFloat(e.element.style.top),
+        hp: e.stats.hp,
+        ref: e
+      }));
+      const first = findChainTargets(enemyData, px, py, null, 1, cfg.castRange, window.innerWidth, window.innerHeight);
+      if (first.length === 0) return;
+      this.game.skillRanges?.flash("lightningArc");
+      this.game.effects.spawnCastFlash(px, py, "lightning");
+      let prevX = px, prevY = py, excludeId = null;
+      const chain = [];
+      for (let i = 0; i <= cfg.chainCount; i++) {
+        const targets = findChainTargets(enemyData, prevX, prevY, excludeId, 1, cfg.chainRange, window.innerWidth, window.innerHeight);
+        if (!targets.length) break;
+        const t = targets[0];
+        chain.push(t);
+        this.game.effects.spawnLightningBolt(prevX, prevY, t.x, t.y, true);
+        prevX = t.x;
+        prevY = t.y;
+        excludeId = t.id;
+      }
+      chain.forEach((t) => {
+        if (t.ref) this.game._dealSkillDamageToEnemy(t.ref, damage, "lightning", false);
+      });
+      if (chain.length) this.game.effects.spawnMegaExplosion(chain[0].x, chain[0].y, "lightning");
+    }
+    castPoisonBottle(px, py, level) {
+      const s = this.game.state;
+      const cfg = getPoisonBottleConfig(level);
+      const nearest = this._findNearestEnemy(px, py, cfg.castRange);
+      if (!nearest) return;
+      this.game.skillRanges?.flash("poisonBottle");
+      this.game.effects.spawnCastFlash(px, py, "poison");
+      const el = document.createElement("div");
+      el.className = "skill-projectile skill-poison-bottle";
+      el.innerHTML = '<div class="poison-bottle-icon"></div>';
+      el.style.left = `${px}vw`;
+      el.style.top = `${py}vh`;
+      this.game.ui.els.gameContainer.appendChild(el);
+      const tx = parseFloat(nearest.element.style.left);
+      const ty = parseFloat(nearest.element.style.top);
+      const angle = Math.atan2(ty - py, tx - px);
+      let bx = px, by = py;
+      let animId = null;
+      const animate = () => {
+        if (s.gamePaused || s.gameOver) {
+          el.remove();
+          return;
+        }
+        bx += Math.cos(angle) * cfg.projectileSpeed;
+        by += Math.sin(angle) * cfg.projectileSpeed;
+        el.style.left = `${bx}vw`;
+        el.style.top = `${by}vh`;
+        el.style.transform = `translate(-50%, -50%) rotate(${Date.now() / 8 % 360}deg)`;
+        let hit = null;
+        for (const enemy of s.enemies) {
+          if (enemy.stats.hp <= 0) continue;
+          const ex = parseFloat(enemy.element.style.left);
+          const ey = parseFloat(enemy.element.style.top);
+          const ew = enemy.element.offsetWidth * 100 / window.innerWidth;
+          const eh = enemy.element.offsetHeight * 100 / window.innerHeight;
+          if (Math.abs(bx - ex) < ew / 2 && Math.abs(by - ey) < eh / 2) {
+            hit = enemy;
+            break;
+          }
+        }
+        if (hit || distanceVw(bx, by, tx, ty, window.innerWidth, window.innerHeight) < 12) {
+          if (animId) s.cancelAnimation(animId);
+          el.remove();
+          this._poisonShatter(bx, by, level, hit);
+          return;
+        }
+        animId = requestAnimationFrame(animate);
+        s.trackAnimation(animId);
+      };
+      animate();
+    }
+    _poisonShatter(bx, by, level, directHit) {
+      const s = this.game.state;
+      const cfg = getPoisonBottleConfig(level);
+      const impactDmg = computeSkillDamage(s.stats.physicalDamage, "poisonBottle", level);
+      this.game.effects.spawnMegaExplosion(bx, by, "poison");
+      if (directHit?.stats.hp > 0) {
+        this.game._dealSkillDamageToEnemy(directHit, impactDmg, "poison", false);
+      }
+      this.game.poisonPools.createPool(bx, by, level, s.stats.physicalDamage);
+    }
+    castHealingWave(px, py, level) {
+      const s = this.game.state;
+      const cfg = getHealingWaveConfig(level);
+      const heal = Math.max(1, Math.floor(s.stats.maxHp * cfg.healPercent / 100));
+      s.stats.hp = Math.min(s.stats.maxHp, s.stats.hp + heal);
+      this.game.effects.spawnCastFlash(px, py, "heal");
+      this.game.effects.spawnDamageNumber(px, py, heal, false, "heal");
+      flashPlayerSprite(this.game.ui.els.player, "buff");
+    }
+    castFrostbolt(px, py, level) {
+      const s = this.game.state;
+      const cfg = getFrostboltConfig(level);
+      const nearest = this._findNearestEnemy(px, py, cfg.castRange);
+      if (!nearest) return;
+      this.game.skillRanges?.flash("frostbolt");
+      this.game.effects.spawnCastFlash(px, py, "cold");
+      const el = document.createElement("div");
+      el.className = "skill-projectile skill-frostbolt particle-25d";
+      el.innerHTML = '<span class="particle-25d-face"></span><span class="particle-25d-shadow"></span>';
+      el.style.left = `${px}vw`;
+      el.style.top = `${py}vh`;
+      this.game.ui.els.gameContainer.appendChild(el);
+      const tx = parseFloat(nearest.element.style.left);
+      const ty = parseFloat(nearest.element.style.top);
+      const angle = Math.atan2(ty - py, tx - px);
+      let bx = px;
+      let by = py;
+      let prevBx = px;
+      let prevBy = py;
+      let traveled = 0;
+      const hitIds = /* @__PURE__ */ new Set();
+      let animId = null;
+      const innerWidth = window.innerWidth;
+      const innerHeight = window.innerHeight;
+      const damage = computeSkillDamage(s.stats.physicalDamage, "frostbolt", level);
+      const pierceRadius = 1.8 + level * 0.15;
+      const animate = () => {
+        if (s.gamePaused || s.gameOver) {
+          el.remove();
+          return;
+        }
+        prevBx = bx;
+        prevBy = by;
+        bx += Math.cos(angle) * cfg.projectileSpeed;
+        by += Math.sin(angle) * cfg.projectileSpeed;
+        traveled += cfg.projectileSpeed;
+        el.style.left = `${bx}vw`;
+        el.style.top = `${by}vh`;
+        for (const enemy of s.enemies) {
+          if (enemy.stats.hp <= 0 || hitIds.has(enemy.id)) continue;
+          const hit = projectileSegmentHitsEnemy(
+            prevBx,
+            prevBy,
+            bx,
+            by,
+            enemy,
+            innerWidth,
+            innerHeight,
+            pierceRadius
+          ) || projectilePointHitsEnemy(bx, by, enemy, innerWidth, innerHeight, pierceRadius);
+          if (hit) {
+            hitIds.add(enemy.id);
+            this.game._dealSkillDamageToEnemy(enemy, damage, "cold", false);
+            this.game._applySlow(enemy, 12 + level * 3, 1500);
+          }
+        }
+        if (traveled >= cfg.maxTravel) {
+          if (animId) s.cancelAnimation(animId);
+          el.remove();
+          return;
+        }
+        animId = requestAnimationFrame(animate);
+        s.trackAnimation(animId);
+      };
+      animate();
+    }
+    _tickRighteousFire(now, level) {
+      const s = this.game.state;
+      const cfg = getRighteousFireConfig(level);
+      if (now - this._rfLastTick < cfg.tickInterval) return;
+      this._rfLastTick = now;
+      const { x: px, y: py } = this.game.ui.getPlayerPosition();
+      const damage = computeSkillDamage(s.stats.physicalDamage, "righteousFire", level);
+      this.game.skillRanges?.flash("righteousFire");
+      this.game.effects.spawnCastFlash(px, py, "fire");
+      const aura = document.createElement("div");
+      aura.className = "skill-righteous-fire-aura";
+      aura.style.left = `${px}vw`;
+      aura.style.top = `${py}vh`;
+      aura.style.width = `${cfg.radius * 2}px`;
+      aura.style.height = `${cfg.radius * 2}px`;
+      this.game.ui.els.gameContainer.appendChild(aura);
+      s.trackTimeout(setTimeout(() => aura.remove(), cfg.tickInterval));
+      s.enemies.forEach((enemy) => {
+        if (enemy.stats.hp <= 0) return;
+        const ex = parseFloat(enemy.element.style.left);
+        const ey = parseFloat(enemy.element.style.top);
+        if (distanceVw(px, py, ex, ey, window.innerWidth, window.innerHeight) <= cfg.radius) {
+          this.game._dealSkillDamageToEnemy(enemy, damage, "fire", false);
+          this.game._applyBurn(enemy, Math.floor(damage * 0.4), 2e3);
+        }
+      });
+    }
+    castSpark(px, py, level) {
+      const s = this.game.state;
+      const cfg = getSparkConfig(level);
+      const damage = computeSkillDamage(s.stats.physicalDamage, "spark", level);
+      this.game.skillRanges?.flash("spark");
+      this.game.effects.spawnCastFlash(px, py, "spark");
+      for (let i = 0; i < cfg.sparkCount; i++) {
+        const el = document.createElement("div");
+        el.className = "skill-spark skill-spark-arc particle-25d";
+        el.innerHTML = '<span class="particle-25d-face"></span>';
+        el.style.left = `${px}vw`;
+        el.style.top = `${py}vh`;
+        this.game.ui.els.gameContainer.appendChild(el);
+        const moveAngle = Math.random() * Math.PI * 2;
+        const spark = {
+          el,
+          bx: px,
+          by: py,
+          vx: Math.cos(moveAngle) * cfg.speed,
+          vy: Math.sin(moveAngle) * cfg.speed,
+          expires: Date.now() + cfg.duration,
+          hitIds: /* @__PURE__ */ new Set(),
+          damage,
+          wanderChance: cfg.wanderChance ?? 0.28,
+          wanderTurn: cfg.wanderTurn ?? 1.8,
+          animId: null
+        };
+        this._activeSparks.push(spark);
+      }
+    }
+    _tickSparks(now) {
+      const s = this.game.state;
+      this._activeSparks = this._activeSparks.filter((spark) => {
+        if (now >= spark.expires || s.gamePaused || s.gameOver) {
+          spark.el.remove();
+          if (spark.animId) s.cancelAnimation(spark.animId);
+          return false;
+        }
+        if (Math.random() < spark.wanderChance) {
+          const turn = (Math.random() - 0.5) * spark.wanderTurn;
+          const speed = Math.hypot(spark.vx, spark.vy) || 0.42;
+          const angle = Math.atan2(spark.vy, spark.vx) + turn;
+          spark.vx = Math.cos(angle) * speed;
+          spark.vy = Math.sin(angle) * speed;
+        }
+        spark.bx += spark.vx;
+        spark.by += spark.vy;
+        spark.el.style.left = `${spark.bx}vw`;
+        spark.el.style.top = `${spark.by}vh`;
+        const innerWidth = window.innerWidth;
+        const innerHeight = window.innerHeight;
+        for (const enemy of s.enemies) {
+          if (enemy.stats.hp <= 0 || spark.hitIds.has(enemy.id)) continue;
+          if (projectilePointHitsEnemy(spark.bx, spark.by, enemy, innerWidth, innerHeight, 1.4)) {
+            spark.hitIds.add(enemy.id);
+            this.game._dealSkillDamageToEnemy(enemy, spark.damage, "spark", false);
+          }
+        }
+        return true;
+      });
+    }
+    cleanup() {
+      this._activeSparks.forEach((spark) => spark.el.remove());
+      this._activeSparks = [];
+      this._rfLastTick = 0;
+    }
+    _findNearestEnemy(fromX, fromY, range) {
+      const s = this.game.state;
+      let nearest = null;
+      let minDist = range;
+      s.enemies.forEach((enemy) => {
+        const ex = parseFloat(enemy.element.style.left);
+        const ey = parseFloat(enemy.element.style.top);
+        const dist = distanceVw(fromX, fromY, ex, ey, window.innerWidth, window.innerHeight);
+        if (dist <= range && dist < minDist) {
+          minDist = dist;
+          nearest = enemy;
+        }
+      });
+      return nearest;
+    }
+  };
+  function getSkillConfigFor(id, level) {
+    switch (id) {
+      case "fireball":
+        return getFireballConfig(level);
+      case "iceNova":
+        return getIceNovaConfig(level);
+      case "lightningArc":
+        return getLightningArcConfig(level);
+      case "poisonBottle":
+        return getPoisonBottleConfig(level);
+      case "healingWave":
+        return getHealingWaveConfig(level);
+      case "frostbolt":
+        return getFrostboltConfig(level);
+      case "righteousFire":
+        return getRighteousFireConfig(level);
+      case "spark":
+        return getSparkConfig(level);
+      default:
+        return { cooldown: Infinity };
+    }
+  }
+
+  // js/systems/progression.js
+  function getLevelUpType(currentLevel, abilityThresholds) {
+    const nextLevel = currentLevel + 1;
+    if (nextLevel > 0 && nextLevel % 5 === 0) return "skill";
+    if (abilityThresholds.includes(nextLevel)) return "ability";
+    return "stat";
+  }
+
+  // js/systems/combat.js
+  var ARMOUR_MITIGATION_K = 40;
+  var ARMOUR_MITIGATION_CAP = 0.75;
+  function calculateArmourMitigation(playerArmour, rawDamage) {
+    if (playerArmour <= 0) return 0;
+    const k = ARMOUR_MITIGATION_K + rawDamage * 0.35;
+    const reduction = playerArmour / (playerArmour + k);
+    return Math.min(reduction, ARMOUR_MITIGATION_CAP);
+  }
+  function calculatePlayerDamage(params) {
+    const {
+      physicalDamage,
+      targetArmour,
+      maxHp,
+      hpRegen,
+      isReflect = false,
+      isBounce = false,
+      critChance,
+      critMultiplier,
+      abilities
+    } = params;
+    let damage = physicalDamage - targetArmour;
+    if (abilities.hpToDamageLevel > 0) {
+      damage += maxHp * abilities.hpToDamageLevel * 6 / 100;
+    }
+    if (abilities.regenToDamageLevel > 0) {
+      damage += hpRegen * abilities.regenToDamageLevel * 50 / 100;
+    }
+    if (isReflect && abilities.reflectLevel > 0) {
+      damage = abilities.reflectLevel * 5 / 100 * damage;
+    }
+    if (isBounce && abilities.bounceLevel > 0) {
+      damage = (60 + 10 * (abilities.bounceLevel - 1)) / 100 * damage;
+    }
+    const isCritical = rollChance(critChance);
+    if (isCritical) {
+      damage *= critMultiplier / 100;
+    }
+    return { damage: Math.floor(Math.max(1, damage)), isCritical };
+  }
+  function calculatePlayerIncomingDamage(params) {
+    const { enemyDamage, playerArmour, damageReductionLevel, ignoreArmour = false } = params;
+    const mitigation = ignoreArmour ? 0 : calculateArmourMitigation(playerArmour, enemyDamage);
+    let damage = enemyDamage * (1 - mitigation);
+    if (damageReductionLevel > 0) {
+      damage *= 1 - damageReductionLevel * 0.04;
+    }
+    return Math.max(1, Math.floor(damage));
+  }
+  function rollEnemyEvade(evadeChance) {
+    if (!evadeChance || evadeChance <= 0) return false;
+    return rollChance(evadeChance);
+  }
+  function calculateLifesteal(params) {
+    const { damage, lifestealLevel } = params;
+    if (lifestealLevel <= 0) return 0;
+    return Math.floor(damage * lifestealLevel * 5 / 100);
+  }
+  function applyStatUpgrade(statName, stats, originalStats, statsList) {
+    const statLevel = statsList[statName].level + 1;
+    switch (statName) {
+      case "Upgrade Damage":
+        stats.physicalDamage += Math.floor(1 + originalStats.physicalDamage / 4 + statLevel);
+        break;
+      case "Upgrade AoE":
+        stats.attackRange += 15;
+        break;
+      case "Upgrade Attack Speed":
+        stats.attackSpeed += 0.05 + originalStats.attackSpeed / 60;
+        break;
+      case "Upgrade HP (Recover 20% Life)": {
+        const hpGain = Math.floor(5 + originalStats.hp / 100 * statLevel + statLevel * Math.log(statLevel * 1.5 + 1));
+        stats.hp += hpGain;
+        stats.maxHp += hpGain;
+        stats.hp += Math.floor(stats.maxHp * 20 / 100);
+        break;
+      }
+      case "Upgrade HP Regen":
+        stats.hpRegen += Math.floor(2 + statLevel * 2 + originalStats.hpRegen / 20);
+        break;
+      case "Upgrade Armour":
+        stats.armour += Math.floor(1 + statLevel / 2 + originalStats.armour / 40);
+        break;
+      case "Upgrade Crit Chance":
+        stats.critChance += 2.5;
+        break;
+      case "Upgrade Crit Multiplier":
+        stats.critMultiplier += 12.5;
+        break;
+      default:
+        break;
+    }
+    statsList[statName].level += 1;
+  }
+  function applyLevelUpBonuses(stats, originalStats) {
+    stats.level += 1;
+    stats.physicalDamage += Math.floor(1 + stats.level / 3 + originalStats.physicalDamage / 5);
+    stats.armour += Math.floor(1 + stats.level / 8 + originalStats.armour / 40);
+    stats.hpRegen += Math.floor(1 + stats.level / 15 + originalStats.hpRegen / 25);
+    stats.hp += Math.floor(5 + stats.level + originalStats.hp / 150);
+    stats.maxHp += Math.floor(5 + 1.5 * stats.level + originalStats.maxHp / 150);
+  }
+
+  // js/systems/levelUp.js
+  function completeLevelCycle(stats, originalStats) {
+    applyLevelUpBonuses(stats, originalStats);
+    stats.exp -= stats.expThreshold;
+    stats.expThreshold = calculateExpThreshold(stats.level, originalStats.expThreshold);
+  }
+  function bankExpLevelUps(state) {
+    if (!state.pendingUpgrades) state.pendingUpgrades = [];
+    let banked = 0;
+    while (state.stats.exp >= state.stats.expThreshold) {
+      const type = getLevelUpType(state.stats.level, state.abilityLevelThreshold);
+      state.pendingUpgrades.push(
+        /** @type {PendingUpgrade} */
+        { type }
+      );
+      completeLevelCycle(state.stats, state.originalStats);
+      banked++;
+    }
+    return { banked, pendingCount: state.pendingUpgrades.length };
+  }
+  function consumePendingUpgradeByType(state, type) {
+    if (!state.pendingUpgrades) return null;
+    const idx = state.pendingUpgrades.findIndex((u) => u.type === type);
+    if (idx === -1) return null;
+    return state.pendingUpgrades.splice(idx, 1)[0];
+  }
+  function buildStatUpgradeOptions(statsList, count = 3) {
+    const available = Object.keys(statsList).filter(
+      (k) => statsList[k].level < statsList[k].maxLevel
+    );
+    if (available.length === 0) return [];
+    const picked = [...available].sort(() => Math.random() - 0.5).slice(0, count);
+    picked.sort((a, b) => available.indexOf(a) - available.indexOf(b));
+    return picked.map((key) => ({
+      key,
+      label: key,
+      level: statsList[key].level
+    }));
+  }
+  function buildStatUpgradeOptionsFromKeys(statsList, cachedKeys) {
+    if (!cachedKeys?.length) return buildStatUpgradeOptions(statsList);
+    return cachedKeys.filter((k) => statsList[k] && statsList[k].level < statsList[k].maxLevel).map((key) => ({
+      key,
+      label: key,
+      level: statsList[key].level
+    }));
+  }
+  function rollStatUpgradeKeys(statsList, count = 3) {
+    return buildStatUpgradeOptions(statsList, count).map((o) => o.key);
+  }
+  function buildSkillUpgradeOptions(skillList, count = 3) {
+    const available = SKILL_IDS.filter((id) => skillList[id] && skillList[id].level < skillList[id].maxLevel).map((id) => ({
+      key: id,
+      level: skillList[id].level,
+      label: SKILL_DEFINITIONS[id].formatText(
+        skillList[id].level,
+        skillList[id].level + 1
+      )
+    }));
+    return pickRandomOptions(available, count);
+  }
+  function buildSkillUpgradeOptionsFromKeys(skillList, cachedKeys) {
+    if (!cachedKeys?.length) return buildSkillUpgradeOptions(skillList);
+    return cachedKeys.filter((k) => skillList[k] && skillList[k].level < skillList[k].maxLevel).map((key) => ({
+      key,
+      level: skillList[key].level,
+      label: SKILL_DEFINITIONS[key].formatText(
+        skillList[key].level,
+        skillList[key].level + 1
+      )
+    }));
+  }
+  function rollSkillUpgradeKeys(skillList, count = 3) {
+    return buildSkillUpgradeOptions(skillList, count).map((o) => o.key);
+  }
+  function buildAbilityUpgradeOptions(abilityList, formatAbilityText) {
+    return Object.keys(abilityList).filter((k) => abilityList[k].level < abilityList[k].maxLevel).map((k) => ({
+      key: k,
+      level: abilityList[k].level,
+      label: formatAbilityText(k)
+    }));
+  }
+  function pickRandomOptions(available, count) {
+    if (available.length === 0) return [];
+    const picked = [...available].sort(() => Math.random() - 0.5).slice(0, count);
+    return picked.sort((a, b) => available.indexOf(a) - available.indexOf(b));
+  }
+  function summarizeUpgradeQueue(pendingUpgrades) {
+    const counts = { stat: 0, skill: 0, ability: 0 };
+    (pendingUpgrades || []).forEach((u) => {
+      counts[u.type]++;
+    });
+    return counts;
+  }
+  function formatAbilityDescription(ability) {
+    let i = 0;
+    return ability.text.replace(/\?\?/g, () => {
+      const idx = ability.level + i * ability.maxLevel;
+      i++;
+      return ability.progression[idx] ?? "??";
+    });
+  }
+
+  // js/systems/skillRangeDisplay.js
+  var SkillRangeDisplay = class {
+    /** @param {HTMLElement} container @param {HTMLElement} layer */
+    constructor(container, layer) {
+      this.container = container;
+      this.layer = layer;
+      this.rings = {};
+    }
+    /** @param {object} skillList */
+    update(skillList) {
+      if (!this.layer) return;
+      SKILL_IDS.forEach((id) => {
+        const level = skillList[id]?.level || 0;
+        const def = SKILL_DEFINITIONS[id];
+        let ring = this.rings[id];
+        if (level <= 0) {
+          ring?.remove();
+          delete this.rings[id];
+          return;
+        }
+        const diameterPx = getSkillDisplayRadius(id, level) * 2;
+        if (!ring) {
+          ring = document.createElement("div");
+          ring.className = `skill-range-ring skill-range-${def.element}`;
+          ring.dataset.skill = id;
+          const label = document.createElement("span");
+          label.className = "skill-range-label";
+          label.textContent = def.name;
+          ring.appendChild(label);
+          this.layer.appendChild(ring);
+          this.rings[id] = ring;
+        }
+        ring.style.width = `${diameterPx}px`;
+        ring.style.height = `${diameterPx}px`;
+      });
+    }
+    flash(skillId) {
+      const ring = this.rings[skillId];
+      if (!ring) return;
+      ring.classList.remove("skill-range-cast");
+      void ring.offsetWidth;
+      ring.classList.add("skill-range-cast");
+    }
+    showImpactArea(px, py, radiusPx, element, durationMs = 700) {
+      const el = document.createElement("div");
+      el.className = `skill-impact-area skill-impact-${element}`;
+      el.style.left = `${px}vw`;
+      el.style.top = `${py}vh`;
+      el.style.width = `${radiusPx * 2}px`;
+      el.style.height = `${radiusPx * 2}px`;
+      this.container.appendChild(el);
+      requestAnimationFrame(() => el.classList.add("skill-impact-active"));
+      setTimeout(() => el.remove(), durationMs);
+    }
+    clear() {
+      Object.values(this.rings).forEach((r) => r.remove());
+      this.rings = {};
+      this.layer?.replaceChildren();
+    }
+  };
+
+  // js/systems/poisonPools.js
+  var nextPoolId = 0;
+  var PoisonPoolManager = class {
+    /** @param {import('../game/game.js').Game} game */
+    constructor(game) {
+      this.game = game;
+      this.pools = [];
+    }
+    /** @param {number} x @param {number} y @param {number} level @param {number} baseDamage */
+    createPool(x, y, level, baseDamage) {
+      const cfg = getPoisonBottleConfig(level);
+      const el = document.createElement("div");
+      el.className = "poison-pool";
+      el.style.left = `${x}vw`;
+      el.style.top = `${y}vh`;
+      el.style.width = `${cfg.poolRadius * 2}px`;
+      el.style.height = `${cfg.poolRadius * 2}px`;
+      el.innerHTML = '<div class="poison-pool-inner"></div><div class="poison-pool-bubbles"></div>';
+      this.game.ui.els.gameContainer.appendChild(el);
+      const pool = {
+        id: `pool-${nextPoolId++}`,
+        element: el,
+        x,
+        y,
+        radius: cfg.poolRadius,
+        level,
+        tickDamage: computePoisonTickDamage(baseDamage, level),
+        tickInterval: cfg.tickInterval,
+        endTime: Date.now() + cfg.poolDuration,
+        lastTick: Date.now()
+      };
+      this.pools.push(pool);
+      this.game.skillRanges?.showImpactArea(x, y, cfg.poolRadius, "poison", cfg.poolDuration);
+      requestAnimationFrame(() => el.classList.add("poison-pool-active"));
+      return pool;
+    }
+    /** @param {number} now */
+    tick(now) {
+      const s = this.game.state;
+      if (s.gamePaused || s.gameOver) return;
+      this.pools = this.pools.filter((pool) => {
+        if (now >= pool.endTime) {
+          pool.element.classList.add("poison-pool-fade");
+          const t = setTimeout(() => pool.element.remove(), 500);
+          s.trackTimeout(t);
+          return false;
+        }
+        if (now - pool.lastTick >= pool.tickInterval) {
+          pool.lastTick = now;
+          this._damageEnemiesInPool(pool);
+        }
+        return true;
+      });
+    }
+    _damageEnemiesInPool(pool) {
+      const s = this.game.state;
+      const targets = findEnemiesInRadius(
+        s.enemies.map((e) => ({
+          id: e.id,
+          x: parseFloat(e.element.style.left),
+          y: parseFloat(e.element.style.top),
+          hp: e.stats.hp,
+          ref: e
+        })),
+        pool.x,
+        pool.y,
+        pool.radius,
+        window.innerWidth,
+        window.innerHeight
+      );
+      targets.forEach((t) => {
+        if (t.ref) {
+          this.game._dealSkillDamageToEnemy(t.ref, pool.tickDamage, "poison", false);
+          t.ref.element.classList.add("enemy-poisoned");
+          const tOut = setTimeout(() => t.ref.element.classList.remove("enemy-poisoned"), 300);
+          s.trackTimeout(tOut);
+        }
+      });
+      pool.element.querySelector(".poison-pool-inner")?.classList.add("poison-pool-tick");
+      const tickOut = setTimeout(() => {
+        pool.element.querySelector(".poison-pool-inner")?.classList.remove("poison-pool-tick");
+      }, 200);
+      s.trackTimeout(tickOut);
+    }
+    clear() {
+      this.pools.forEach((p) => p.element.remove());
+      this.pools = [];
+    }
+  };
+
+  // js/ui/upgradePanel.js
+  var UpgradePanel = class {
+    /**
+     * @param {(key: string) => void} onSelect
+     * @param {(type: 'stat'|'skill'|'ability') => void} [onCategorySelect]
+     * @param {() => void} [onToggle]
+     */
+    constructor(onSelect, onCategorySelect, onToggle) {
+      this.onSelect = onSelect;
+      this.onCategorySelect = onCategorySelect;
+      this.onToggle = onToggle;
+      this.expanded = true;
+      this._view = "categories";
+      this.els = {
+        panel: document.getElementById("upgrade-panel"),
+        toggle: document.getElementById("upgrade-panel-toggle"),
+        badge: document.getElementById("upgrade-panel-count"),
+        body: document.getElementById("upgrade-panel-body"),
+        title: document.getElementById("upgrade-panel-title"),
+        queue: document.getElementById("upgrade-panel-queue"),
+        wrapper: document.getElementById("upgrade-button-wrapper")
+      };
+      this.els.toggle?.addEventListener("click", () => this.toggle());
+      this._applyExpandedClasses();
+    }
+    _applyExpandedClasses() {
+      this.els.panel?.classList.toggle("upgrade-panel-expanded", this.expanded);
+      this.els.panel?.classList.toggle("upgrade-panel-collapsed", !this.expanded);
+      this.els.toggle?.setAttribute("aria-expanded", String(this.expanded));
+    }
+    toggle(forceExpanded) {
+      if (typeof forceExpanded === "boolean") {
+        this.expanded = forceExpanded;
+      } else {
+        this.expanded = !this.expanded;
+      }
+      this._applyExpandedClasses();
+      this.onToggle?.();
+    }
+    isExpanded() {
+      return this.expanded;
+    }
+    /** @param {number} count */
+    updateBadge(count) {
+      if (!this.els.badge) return;
+      this.els.badge.textContent = String(count);
+      this.els.badge.classList.toggle("upgrade-panel-badge-hidden", count <= 0);
+      this.els.panel?.classList.toggle("upgrade-panel-has-pending", count > 0);
+    }
+    /** @param {{ stat: number, skill: number, ability: number }} counts */
+    updateQueueSummary(counts, total) {
+      if (!this.els.queue) return;
+      if (total <= 0) {
+        this.els.queue.textContent = "No upgrades banked \u2014 keep fighting!";
+        return;
+      }
+      const parts = [];
+      if (counts.stat) parts.push(`${counts.stat} stat`);
+      if (counts.skill) parts.push(`${counts.skill} skill`);
+      if (counts.ability) parts.push(`${counts.ability} ability`);
+      this.els.queue.textContent = `${total} banked (${parts.join(", ")})`;
+    }
+    /**
+     * Step 1: pick which upgrade type to spend.
+     * @param {{ stat: number, skill: number, ability: number }} counts
+     */
+    renderCategoryMenu(counts) {
+      if (!this.els.wrapper) return;
+      this._view = "categories";
+      if (this.els.title) {
+        this.els.title.textContent = "Spend Level-Up";
+      }
+      const categories = [
+        { type: "stat", label: "Stat Upgrade", icon: "\u25C6", css: "upgrade-cat-stat", count: counts.stat },
+        { type: "skill", label: "Active Skill", icon: "\u2726", css: "upgrade-cat-skill", count: counts.skill },
+        { type: "ability", label: "Passive Ability", icon: "\u2605", css: "upgrade-cat-ability", count: counts.ability }
+      ].filter((c) => c.count > 0);
+      this.els.wrapper.innerHTML = '<div class="upgrade-category-grid"></div>';
+      const grid = this.els.wrapper.querySelector(".upgrade-category-grid");
+      if (!grid || categories.length === 0) {
+        this.showEmptyState();
+        return;
+      }
+      categories.forEach((cat, index) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = `upgrade-category-btn choice-card ${cat.css}`;
+        btn.innerHTML = `
+                <span class="upgrade-choice-key">${index + 1}</span>
+                <span class="upgrade-cat-icon">${cat.icon}</span>
+                <span class="upgrade-cat-label">${cat.label}</span>
+                <span class="upgrade-cat-count">${cat.count}</span>
+            `;
+        btn.addEventListener("click", () => this.onCategorySelect?.(cat.type));
+        grid.appendChild(btn);
+      });
+    }
+    /**
+     * Step 2: pick an option for the chosen type.
+     * @param {'stat' | 'skill' | 'ability'} choiceType
+     * @param {Array<{ key: string, label: string, level: number }>} options
+     * @param {() => void} [onBack]
+     * @param {number} [remaining]
+     */
+    renderChoices(choiceType, options, onBack, remaining = 0) {
+      if (!this.els.wrapper) return;
+      this._view = "choices";
+      const titles = {
+        stat: remaining > 0 ? `Pick a Stat (${remaining} left)` : "Pick a Stat",
+        ability: remaining > 0 ? `Pick a Passive (${remaining} left)` : "Pick a Passive Ability",
+        skill: remaining > 0 ? `Pick a Skill (${remaining} left)` : "Pick an Active Skill"
+      };
+      if (this.els.title) {
+        this.els.title.textContent = titles[choiceType] || "Choose Upgrade";
+      }
+      this.els.wrapper.innerHTML = "";
+      if (onBack) {
+        const back = document.createElement("button");
+        back.type = "button";
+        back.className = "upgrade-back-btn";
+        back.textContent = "\u2190 Back to categories";
+        back.addEventListener("click", onBack);
+        this.els.wrapper.appendChild(back);
+      }
+      if (options.length === 0) {
+        const empty = document.createElement("p");
+        empty.className = "upgrade-empty";
+        empty.textContent = "All options maxed for this type.";
+        this.els.wrapper.appendChild(empty);
+        return;
+      }
+      const choiceClass = `upgrade-choice-${choiceType}`;
+      options.forEach((opt, index) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = `upgrade-choice-btn choice-card ${choiceClass}`;
+        btn.innerHTML = `
+                <span class="upgrade-choice-key">${index + 1}</span>
+                <span class="upgrade-choice-text">${opt.label}</span>
+                <span class="upgrade-choice-level">${opt.level > 0 ? `Lv.${opt.level} \u2192 ${opt.level + 1}` : "Unlock"}</span>
+            `;
+        btn.addEventListener("click", () => this.onSelect(opt.key));
+        this.els.wrapper.appendChild(btn);
+      });
+    }
+    showEmptyState() {
+      this._view = "empty";
+      if (this.els.title) this.els.title.textContent = "Upgrades";
+      if (this.els.wrapper) {
+        this.els.wrapper.innerHTML = '<p class="upgrade-empty">No pending upgrades.</p>';
+      }
+    }
+    getChoiceButtons() {
+      return this.els.wrapper?.querySelectorAll(".choice-card") ?? [];
+    }
+    getCategoryButtons() {
+      if (this._view !== "categories") return [];
+      return this.els.wrapper?.querySelectorAll(".upgrade-category-btn") ?? [];
+    }
+    getView() {
+      return this._view;
+    }
+    reset() {
+      this.expanded = true;
+      this._view = "categories";
+      this._applyExpandedClasses();
+      this.els.panel?.classList.remove("upgrade-panel-has-pending");
+      this.updateBadge(0);
+      this.showEmptyState();
+      if (this.els.queue) this.els.queue.textContent = "";
+    }
+  };
+
+  // js/config/waveProgression.js
+  function getDifficultyIndex(elapsedSeconds) {
+    return Math.floor(elapsedSeconds / BALANCE.difficultyIntervalSec);
+  }
+  function getWaveNumber(elapsedSeconds) {
+    return getDifficultyIndex(elapsedSeconds) + 1;
+  }
+
+  // js/systems/killStreak.js
+  var KillStreakTracker = class {
+    constructor() {
+      this.streak = 0;
+      this.bestStreak = 0;
+      this.lastKillTime = 0;
+      this.windowMs = 2500;
+    }
+    reset() {
+      this.streak = 0;
+      this.bestStreak = 0;
+      this.lastKillTime = 0;
+    }
+    /** @param {number} now @param {number} bonusPerKill @param {number} cap */
+    recordKill(now, bonusPerKill, cap) {
+      if (this.lastKillTime && now - this.lastKillTime > this.windowMs) {
+        this.streak = 0;
+      }
+      this.streak += 1;
+      this.lastKillTime = now;
+      if (this.streak > this.bestStreak) this.bestStreak = this.streak;
+      return Math.min(cap, this.streak * bonusPerKill);
+    }
+    /** Decay streak when no kills within window (call from game tick). */
+    tick(now) {
+      if (this.streak > 0 && this.lastKillTime && now - this.lastKillTime > this.windowMs) {
+        this.streak = 0;
+      }
+    }
+  };
+
+  // js/systems/treasureEvents.js
+  var TreasureEventManager = class {
+    /** @param {import('../game/game.js').Game} game */
+    constructor(game) {
+      this.game = game;
+      this.intervalMs = 9e4;
+      this.lastSpawnTime = 0;
+      this.treasuresOpened = 0;
+    }
+    reset() {
+      this.lastSpawnTime = Date.now();
+      this.treasuresOpened = 0;
+    }
+    /** @param {number} now */
+    tick(now) {
+      const s = this.game.state;
+      if (s.gamePaused || s.gameOver) return;
+      if (now - this.lastSpawnTime < this.intervalMs) return;
+      this.lastSpawnTime = now;
+      this.game.spawnTreasureChest();
+    }
+    recordOpen() {
+      this.treasuresOpened += 1;
+    }
+  };
+
+  // js/config/gearSlots.js
+  var GEAR_SLOTS = (
+    /** @type {const} */
+    [
+      "weapon",
+      "helmet",
+      "bodyArmour",
+      "boot",
+      "ring",
+      "amulet",
+      "glove"
+    ]
+  );
+  var GEAR_BASES = {
+    weapon: { label: "Sword", stats: { physicalDamage: 14 } },
+    helmet: { label: "Helm", stats: { armour: 10 } },
+    bodyArmour: { label: "Chestplate", stats: { armour: 22, maxHp: 50 } },
+    boot: { label: "Boots", stats: { evade: 8 } },
+    ring: { label: "Ring", stats: { critChance: 5 } },
+    amulet: { label: "Amulet", stats: { hpRegen: 5 } },
+    glove: { label: "Gloves", stats: { attackSpeed: 0.12 } }
+  };
+  function getBaseForSlot(slot) {
+    return GEAR_BASES[slot] || GEAR_BASES.weapon;
+  }
+  function createEmptyEquipment() {
+    return Object.fromEntries(GEAR_SLOTS.map((s) => [s, null]));
+  }
+
+  // js/config/gearBalance.js
+  var GEAR_STAT_MULTIPLIER = 2.4;
+  var GEAR_BASE_ILVL = {
+    intercept: 0.72,
+    slope: 0.028
+  };
+  function gearIlvlMultiplier(ilvl) {
+    return GEAR_BASE_ILVL.intercept + ilvl * GEAR_BASE_ILVL.slope;
+  }
+  function boostGearStatValue(value, stat = "") {
+    const boosted = value * GEAR_STAT_MULTIPLIER;
+    if (stat === "attackSpeed") return Math.round(boosted * 100) / 100;
+    return Math.floor(boosted);
+  }
+
+  // js/config/gearAffixTiers.js
+  var TIER_MIN_ILVL = {
+    1: 64,
+    2: 56,
+    3: 48,
+    4: 40,
+    5: 32,
+    6: 24,
+    7: 16,
+    8: 1
+  };
+  var TIERED_PREFIXES = [
+    {
+      id: "heavy",
+      label: "Heavy",
+      stat: "physicalDamage",
+      slots: ["weapon", "glove"],
+      tiers: [
+        { tier: 8, min: 1, max: 4 },
+        { tier: 7, min: 2, max: 6 },
+        { tier: 6, min: 4, max: 9 },
+        { tier: 5, min: 6, max: 12 },
+        { tier: 4, min: 8, max: 15 },
+        { tier: 3, min: 11, max: 18 },
+        { tier: 2, min: 14, max: 22 },
+        { tier: 1, min: 18, max: 28 }
+      ]
+    },
+    {
+      id: "robust",
+      label: "Robust",
+      stat: "maxHp",
+      slots: ["helmet", "bodyArmour", "amulet"],
+      tiers: [
+        { tier: 8, min: 6, max: 14 },
+        { tier: 7, min: 10, max: 20 },
+        { tier: 6, min: 14, max: 28 },
+        { tier: 5, min: 20, max: 36 },
+        { tier: 4, min: 26, max: 44 },
+        { tier: 3, min: 32, max: 52 },
+        { tier: 2, min: 38, max: 62 },
+        { tier: 1, min: 46, max: 72 }
+      ]
+    },
+    {
+      id: "reinforced",
+      label: "Reinforced",
+      stat: "armour",
+      slots: ["helmet", "bodyArmour", "glove"],
+      tiers: [
+        { tier: 8, min: 1, max: 4 },
+        { tier: 7, min: 2, max: 6 },
+        { tier: 6, min: 4, max: 9 },
+        { tier: 5, min: 6, max: 12 },
+        { tier: 4, min: 8, max: 15 },
+        { tier: 3, min: 11, max: 18 },
+        { tier: 2, min: 14, max: 22 },
+        { tier: 1, min: 18, max: 28 }
+      ]
+    },
+    {
+      id: "quick",
+      label: "Quick",
+      stat: "attackSpeed",
+      slots: ["weapon", "glove", "boot"],
+      tiers: [
+        { tier: 8, min: 0.01, max: 0.03 },
+        { tier: 7, min: 0.02, max: 0.05 },
+        { tier: 6, min: 0.04, max: 0.08 },
+        { tier: 5, min: 0.06, max: 0.11 },
+        { tier: 4, min: 0.08, max: 0.14 },
+        { tier: 3, min: 0.11, max: 0.17 },
+        { tier: 2, min: 0.14, max: 0.22 },
+        { tier: 1, min: 0.18, max: 0.28 }
+      ]
+    },
+    {
+      id: "long",
+      label: "Long",
+      stat: "attackRange",
+      slots: ["weapon"],
+      tiers: [
+        { tier: 8, min: 3, max: 8 },
+        { tier: 7, min: 5, max: 12 },
+        { tier: 6, min: 7, max: 15 },
+        { tier: 5, min: 9, max: 18 },
+        { tier: 4, min: 11, max: 22 },
+        { tier: 3, min: 14, max: 26 },
+        { tier: 2, min: 17, max: 30 },
+        { tier: 1, min: 20, max: 36 }
+      ]
+    },
+    {
+      id: "deadly",
+      label: "Deadly",
+      stat: "critChance",
+      slots: ["weapon", "ring", "glove"],
+      tiers: [
+        { tier: 8, min: 1, max: 2 },
+        { tier: 7, min: 1, max: 3 },
+        { tier: 6, min: 2, max: 4 },
+        { tier: 5, min: 2, max: 5 },
+        { tier: 4, min: 3, max: 6 },
+        { tier: 3, min: 3, max: 7 },
+        { tier: 2, min: 4, max: 8 },
+        { tier: 1, min: 5, max: 10 }
+      ]
+    },
+    {
+      id: "regenerating",
+      label: "Regenerating",
+      stat: "hpRegen",
+      slots: ["amulet", "bodyArmour", "ring"],
+      tiers: [
+        { tier: 8, min: 1, max: 3 },
+        { tier: 7, min: 2, max: 4 },
+        { tier: 6, min: 2, max: 6 },
+        { tier: 5, min: 3, max: 7 },
+        { tier: 4, min: 4, max: 9 },
+        { tier: 3, min: 5, max: 11 },
+        { tier: 2, min: 6, max: 13 },
+        { tier: 1, min: 8, max: 16 }
+      ]
+    }
+  ];
+  var TIERED_SUFFIXES = [
+    {
+      id: "of_the_bear",
+      label: "of the Bear",
+      stat: "maxHp",
+      slots: ["helmet", "bodyArmour", "ring"],
+      tiers: [
+        { tier: 8, min: 6, max: 14 },
+        { tier: 7, min: 10, max: 20 },
+        { tier: 6, min: 14, max: 28 },
+        { tier: 5, min: 18, max: 34 },
+        { tier: 4, min: 22, max: 40 },
+        { tier: 3, min: 26, max: 46 },
+        { tier: 2, min: 30, max: 52 },
+        { tier: 1, min: 36, max: 60 }
+      ]
+    },
+    {
+      id: "of_the_armadillo",
+      label: "of the Armadillo",
+      stat: "armour",
+      slots: ["helmet", "bodyArmour", "boot"],
+      tiers: [
+        { tier: 8, min: 2, max: 5 },
+        { tier: 7, min: 3, max: 8 },
+        { tier: 6, min: 5, max: 11 },
+        { tier: 5, min: 6, max: 14 },
+        { tier: 4, min: 8, max: 17 },
+        { tier: 3, min: 10, max: 20 },
+        { tier: 2, min: 12, max: 24 },
+        { tier: 1, min: 15, max: 28 }
+      ]
+    },
+    {
+      id: "of_slaying",
+      label: "of Slaying",
+      stat: "physicalDamage",
+      slots: ["weapon", "glove", "ring"],
+      tiers: [
+        { tier: 8, min: 1, max: 4 },
+        { tier: 7, min: 2, max: 6 },
+        { tier: 6, min: 3, max: 8 },
+        { tier: 5, min: 4, max: 10 },
+        { tier: 4, min: 5, max: 12 },
+        { tier: 3, min: 6, max: 14 },
+        { tier: 2, min: 8, max: 16 },
+        { tier: 1, min: 10, max: 20 }
+      ]
+    },
+    {
+      id: "of_alacrity",
+      label: "of Alacrity",
+      stat: "attackSpeed",
+      slots: ["glove", "boot", "weapon"],
+      tiers: [
+        { tier: 8, min: 0.01, max: 0.03 },
+        { tier: 7, min: 0.02, max: 0.05 },
+        { tier: 6, min: 0.04, max: 0.08 },
+        { tier: 5, min: 0.06, max: 0.11 },
+        { tier: 4, min: 0.08, max: 0.14 },
+        { tier: 3, min: 0.11, max: 0.17 },
+        { tier: 2, min: 0.14, max: 0.22 },
+        { tier: 1, min: 0.18, max: 0.28 }
+      ]
+    },
+    {
+      id: "of_reach",
+      label: "of Reach",
+      stat: "attackRange",
+      slots: ["weapon", "boot"],
+      tiers: [
+        { tier: 8, min: 2, max: 6 },
+        { tier: 7, min: 4, max: 10 },
+        { tier: 6, min: 6, max: 13 },
+        { tier: 5, min: 8, max: 16 },
+        { tier: 4, min: 10, max: 19 },
+        { tier: 3, min: 12, max: 22 },
+        { tier: 2, min: 14, max: 26 },
+        { tier: 1, min: 18, max: 32 }
+      ]
+    },
+    {
+      id: "of_precision",
+      label: "of Precision",
+      stat: "critChance",
+      slots: ["weapon", "ring", "glove"],
+      tiers: [
+        { tier: 8, min: 1, max: 2 },
+        { tier: 7, min: 1, max: 3 },
+        { tier: 6, min: 2, max: 4 },
+        { tier: 5, min: 2, max: 5 },
+        { tier: 4, min: 3, max: 6 },
+        { tier: 3, min: 3, max: 7 },
+        { tier: 2, min: 4, max: 8 },
+        { tier: 1, min: 5, max: 9 }
+      ]
+    },
+    {
+      id: "of_the_ghost",
+      label: "of the Ghost",
+      stat: "evade",
+      slots: ["boot", "helmet", "glove"],
+      tiers: [
+        { tier: 8, min: 1, max: 3 },
+        { tier: 7, min: 2, max: 5 },
+        { tier: 6, min: 3, max: 7 },
+        { tier: 5, min: 4, max: 8 },
+        { tier: 4, min: 5, max: 10 },
+        { tier: 3, min: 6, max: 12 },
+        { tier: 2, min: 7, max: 14 },
+        { tier: 1, min: 9, max: 17 }
+      ]
+    },
+    {
+      id: "of_regeneration",
+      label: "of Regeneration",
+      stat: "hpRegen",
+      slots: ["amulet", "ring", "bodyArmour"],
+      tiers: [
+        { tier: 8, min: 1, max: 3 },
+        { tier: 7, min: 2, max: 5 },
+        { tier: 6, min: 3, max: 7 },
+        { tier: 5, min: 4, max: 9 },
+        { tier: 4, min: 5, max: 11 },
+        { tier: 3, min: 6, max: 13 },
+        { tier: 2, min: 7, max: 15 },
+        { tier: 1, min: 9, max: 18 }
+      ]
+    }
+  ];
+  var BASE_STAT_TIER_DEF = {
+    physicalDamage: "heavy",
+    maxHp: "robust",
+    armour: "reinforced",
+    attackSpeed: "quick",
+    attackRange: "long",
+    critChance: "deadly",
+    hpRegen: "regenerating",
+    evade: "of_the_ghost"
+  };
+  function getLegalAffixTierBands(def, ilvl) {
+    return def.tiers.filter((t) => ilvl >= TIER_MIN_ILVL[t.tier]).sort((a, b) => b.tier - a.tier);
+  }
+  function rollRandomAffixTierBand(def, ilvl) {
+    const legal = getLegalAffixTierBands(def, ilvl);
+    if (legal.length === 0) return def.tiers[def.tiers.length - 1];
+    return legal[Math.floor(Math.random() * legal.length)];
+  }
+  function rollValueInTierBand(band, stat) {
+    const raw = band.min + Math.random() * (band.max - band.min);
+    return boostGearStatValue(raw, stat);
+  }
+  function rollTieredAffixValue(def, slot, ilvl) {
+    if (def.slots && !def.slots.includes(slot)) return null;
+    const band = rollRandomAffixTierBand(def, ilvl);
+    const value = rollValueInTierBand(band, def.stat);
+    return {
+      id: def.id,
+      label: def.label,
+      stat: def.stat,
+      value,
+      tier: band.tier
+    };
+  }
+  function pickTieredAffix(pool, slot, usedIds, ilvl) {
+    const candidates = pool.filter((a) => (!a.slots || a.slots.includes(slot)) && !usedIds.has(a.id));
+    if (candidates.length === 0) return null;
+    const def = candidates[Math.floor(Math.random() * candidates.length)];
+    const rolled = rollTieredAffixValue(def, slot, ilvl);
+    if (!rolled) return null;
+    usedIds.add(def.id);
+    return rolled;
+  }
+  function getTierDefForBaseStat(stat) {
+    const prefixId = BASE_STAT_TIER_DEF[stat];
+    if (!prefixId) return null;
+    return TIERED_PREFIXES.find((p) => p.id === prefixId) || TIERED_SUFFIXES.find((s) => s.id === prefixId) || null;
+  }
+  function rollBaseStatsWithTiers(templateStats, ilvl) {
+    const stats = {};
+    const rolls = [];
+    Object.entries(templateStats).forEach(([stat, templateVal]) => {
+      const def = getTierDefForBaseStat(stat);
+      if (def) {
+        const band = rollRandomAffixTierBand(def, ilvl);
+        const value = rollValueInTierBand(band, stat);
+        stats[stat] = value;
+        rolls.push({ stat, value, tier: band.tier });
+      } else {
+        const value = Math.max(1, boostGearStatValue(templateVal * gearIlvlMultiplier(ilvl), stat));
+        stats[stat] = value;
+        rolls.push({ stat, value, tier: 8 });
+      }
+    });
+    return { stats, rolls };
+  }
+
+  // js/config/gearUniques.js
+  var UNIQUE_ITEMS = [
+    {
+      id: "survivors_blade",
+      name: "Survivor's Blade",
+      slot: "weapon",
+      stats: { physicalDamage: 22, critChance: 6, attackSpeed: 0.1 }
+    },
+    {
+      id: "capybara_shell",
+      name: "Capybara's Shell",
+      slot: "bodyArmour",
+      stats: { maxHp: 90, armour: 28, hpRegen: 5 }
+    },
+    {
+      id: "summoner_focus",
+      name: "Summoning Focus",
+      slot: "amulet",
+      stats: { attackRange: 40, physicalDamage: 8, hpRegen: 4 }
+    },
+    {
+      id: "ring_of_endurance",
+      name: "Ring of Endurance",
+      slot: "ring",
+      stats: { maxHp: 45, hpRegen: 8, evade: 5 }
+    },
+    {
+      id: "windwalker_boots",
+      name: "Windwalker Boots",
+      slot: "boot",
+      stats: { evade: 15, attackSpeed: 0.12, attackRange: 15 }
+    },
+    {
+      id: "iron_crown",
+      name: "Iron Crown",
+      slot: "helmet",
+      stats: { armour: 25, maxHp: 40, physicalDamage: 5 }
+    },
+    {
+      id: "berserker_grip",
+      name: "Berserker's Grip",
+      slot: "glove",
+      stats: { physicalDamage: 12, attackSpeed: 0.15, critMultiplier: 20 }
+    }
+  ];
+  function getUniqueById(id) {
+    return UNIQUE_ITEMS.find((u) => u.id === id);
+  }
+
+  // js/config/gearRarity.js
+  var RARITY_CONFIG2 = {
+    normal: {
+      key: "normal",
+      label: "Normal",
+      cssClass: "gear-normal",
+      color: "#e2e8f0"
+    },
+    magic: {
+      key: "magic",
+      label: "Magic",
+      cssClass: "gear-magic",
+      color: "#60a5fa"
+    },
+    rare: {
+      key: "rare",
+      label: "Rare",
+      cssClass: "gear-rare",
+      color: "#facc15"
+    },
+    unique: {
+      key: "unique",
+      label: "Unique",
+      cssClass: "gear-unique",
+      color: "#ea580c"
+    }
+  };
+  var BASE_DROP_CHANCE = {
+    normal: 0.06,
+    rare: 0.12,
+    elite: 0.22,
+    boss: 0.45,
+    treasure: 0.65
+  };
+  var DROP_RATE_MULTIPLIER = 0.36;
+  var DROP_CHANCE = Object.fromEntries(
+    Object.entries(BASE_DROP_CHANCE).map(([k, v]) => [k, v * DROP_RATE_MULTIPLIER])
+  );
+  var AFFIX_COUNT_WEIGHTS = {
+    normal: [62, 26, 9, 2, 1, 0, 0, 0, 0],
+    rare: [38, 30, 18, 9, 4, 1, 0, 0, 0],
+    elite: [20, 24, 22, 16, 10, 5, 2, 1, 0],
+    boss: [10, 14, 18, 20, 16, 12, 6, 3, 1],
+    treasure: [12, 18, 22, 20, 14, 8, 4, 1, 1]
+  };
+  function rarityFromAffixCount(affixCount) {
+    if (affixCount >= 7) return "unique";
+    if (affixCount >= 3) return "rare";
+    if (affixCount >= 1) return "magic";
+    return "normal";
+  }
+  function getAdjustedAffixWeights(enemyRarity) {
+    return [...AFFIX_COUNT_WEIGHTS[enemyRarity] || AFFIX_COUNT_WEIGHTS.normal];
+  }
+  function rollAffixCount(enemyRarity) {
+    const weights = getAdjustedAffixWeights(enemyRarity);
+    const total = weights.reduce((a, b) => a + b, 0);
+    if (total <= 0) return 0;
+    let roll = Math.random() * total;
+    for (let i = 0; i < weights.length; i++) {
+      roll -= weights[i];
+      if (roll <= 0) return i;
+    }
+    return 0;
+  }
+  function shouldDropGear(enemyRarity) {
+    return Math.random() < (DROP_CHANCE[enemyRarity] || DROP_CHANCE.normal);
+  }
+
+  // js/systems/gearGenerator.js
+  var _itemCounter = 0;
+  function nextItemId() {
+    _itemCounter += 1;
+    return `item-${Date.now()}-${_itemCounter}`;
+  }
+  function computeDropIlvl(playerLevel, difficulty = 0) {
+    return Math.max(1, Math.min(80, Math.floor(playerLevel + difficulty * 0.4)));
+  }
+  function rollAffixesForItem(slot, ilvl, affixCount) {
+    const prefixes = [];
+    const suffixes = [];
+    const used = /* @__PURE__ */ new Set();
+    let remaining = Math.min(8, Math.max(0, affixCount));
+    const maxPerSide = 4;
+    while (remaining > 0 && (prefixes.length < maxPerSide || suffixes.length < maxPerSide)) {
+      const canPre = prefixes.length < maxPerSide;
+      const canSuf = suffixes.length < maxPerSide;
+      if (!canPre && !canSuf) break;
+      const tryPrefix = canPre && (canSuf ? Math.random() < 0.5 : true);
+      if (tryPrefix) {
+        const a = pickTieredAffix(TIERED_PREFIXES, slot, used, ilvl);
+        if (a) {
+          prefixes.push(a);
+          remaining--;
+          continue;
+        }
+      }
+      if (canSuf) {
+        const a = pickTieredAffix(TIERED_SUFFIXES, slot, used, ilvl);
+        if (a) {
+          suffixes.push(a);
+          remaining--;
+          continue;
+        }
+      }
+      break;
+    }
+    return { prefixes, suffixes };
+  }
+  function generateGearItem(slot, ilvl = 1, options = {}) {
+    const base = getBaseForSlot(slot);
+    const affixCount = options.affixCount ?? 0;
+    const { prefixes, suffixes } = rollAffixesForItem(slot, ilvl, affixCount);
+    const totalAffixes = prefixes.length + suffixes.length;
+    const { stats: baseStats, rolls: baseStatRolls } = rollBaseStatsWithTiers(base.stats, ilvl);
+    const item = {
+      id: nextItemId(),
+      slot,
+      ilvl,
+      rarity: rarityFromAffixCount(totalAffixes),
+      baseLabel: base.label,
+      baseStats,
+      baseStatRolls,
+      prefixes,
+      suffixes,
+      uniqueId: null,
+      name: base.label
+    };
+    if (options.uniqueId) {
+      const unique = getUniqueById(options.uniqueId);
+      if (unique) {
+        item.uniqueId = unique.id;
+        item.name = unique.name;
+        item.rarity = "unique";
+        const rolled = rollBaseStatsWithTiers(unique.stats, ilvl);
+        item.baseStats = rolled.stats;
+        item.baseStatRolls = rolled.rolls;
+        item.slot = unique.slot;
+        item.prefixes = [];
+        item.suffixes = [];
+        return item;
+      }
+    }
+    if (item.rarity === "unique" && totalAffixes >= 7) {
+      item.name = buildUniqueStyleName(item);
+    } else {
+      item.name = buildItemName(item);
+    }
+    return item;
+  }
+  function buildItemName(item) {
+    const pre = item.prefixes[0]?.label || "";
+    const suf = item.suffixes[0]?.label || "";
+    const base = item.baseLabel;
+    if (pre && suf) return `${pre} ${base} ${suf}`;
+    if (pre) return `${pre} ${base}`;
+    if (suf) return `${base} ${suf}`;
+    return base;
+  }
+  function buildUniqueStyleName(item) {
+    const pre = item.prefixes[0]?.label || "Exalted";
+    return `${pre} ${item.baseLabel}`;
+  }
+  function rollLootDrop(enemyRarity, ilvl = 1) {
+    const slot = GEAR_SLOTS[Math.floor(Math.random() * GEAR_SLOTS.length)];
+    const affixCount = rollAffixCount(enemyRarity);
+    return generateGearItem(slot, ilvl, { affixCount });
+  }
+  function getItemStatTotals(item) {
+    const totals = { ...item.baseStats };
+    [...item.prefixes || [], ...item.suffixes || []].forEach((affix) => {
+      totals[affix.stat] = (totals[affix.stat] || 0) + affix.value;
+    });
+    return totals;
+  }
+  function buildItemTooltipHtml(item, options = {}) {
+    const { title = null, showHeader = true } = options;
+    const r = RARITY_CONFIG2[item.rarity] || RARITY_CONFIG2.normal;
+    const tierByStat = new Map((item.baseStatRolls || []).map((roll) => [roll.stat, roll.tier]));
+    const baseLines = Object.entries(item.baseStats || {}).map(([k, v]) => {
+      const tier = tierByStat.get(k);
+      const tierTag = tier ? ` <span class="gear-tip-tier">T${tier}</span>` : "";
+      return `<div class="gear-tip-line">+${formatStat(k, v)} ${formatStatLabel(k)}${tierTag}</div>`;
+    });
+    const affixes = [...item.prefixes || [], ...item.suffixes || []];
+    const affixLines = affixes.map((a) => {
+      const tierTag = a.tier ? ` <span class="gear-tip-tier">T${a.tier}</span>` : "";
+      return `<div class="gear-tip-line">+${formatStat(a.stat, a.value)} ${formatStatLabel(a.stat)}${tierTag}</div>`;
+    });
+    let statsHtml = "";
+    if (baseLines.length > 0) {
+      statsHtml += `
+            <div class="gear-tip-section">
+                <div class="gear-tip-section-title">Base Stats</div>
+                ${baseLines.join("")}
+            </div>`;
+    }
+    if (affixLines.length > 0) {
+      statsHtml += `
+            <div class="gear-tip-section">
+                <div class="gear-tip-section-title">Affixes (${affixLines.length})</div>
+                ${affixLines.join("")}
+            </div>`;
+    }
+    if (!statsHtml) {
+      statsHtml = '<div class="gear-tip-line gear-tip-muted">No modifiers</div>';
+    }
+    const headerHtml = showHeader ? `
+            <div class="gear-tip-header">
+                <span class="gear-tip-name" style="color:${r.color}">${title || item.name}</span>
+                <span class="gear-tip-ilvl">Item Level ${item.ilvl}</span>
+            </div>
+            <div class="gear-tip-divider"></div>` : "";
+    return `
+        <div class="gear-tip-inner ${r.cssClass}" style="--tip-rarity:${r.color}">
+            ${headerHtml}
+            <div class="gear-tip-body">${statsHtml}</div>
+        </div>
+    `;
+  }
+  function buildGearCompareTooltipHtml(hoveredItem, equippedItem, opts = {}) {
+    const hoveredIsEquipped = Boolean(
+      opts.hoveredIsEquipped || equippedItem && hoveredItem?.id === equippedItem.id
+    );
+    const hoverTitle = hoveredIsEquipped ? `${hoveredItem.name} \u2014 Equipped` : hoveredItem.name;
+    const hoverCol = buildItemTooltipHtml(hoveredItem, { title: hoverTitle, showHeader: true });
+    if (hoveredIsEquipped) {
+      return `<div class="gear-tip-compare gear-tip-compare-single">${hoverCol}</div>`;
+    }
+    const equippedCol = equippedItem ? buildItemTooltipHtml(equippedItem, { title: `Equipped \u2014 ${equippedItem.name}`, showHeader: true }) : `<div class="gear-tip-inner gear-tip-empty-slot">
+            <div class="gear-tip-header">
+                <span class="gear-tip-name">Equipped</span>
+            </div>
+            <div class="gear-tip-divider"></div>
+            <div class="gear-tip-body"><div class="gear-tip-line gear-tip-muted">Empty slot</div></div>
+           </div>`;
+    return `
+        <div class="gear-tip-compare">
+            <div class="gear-tip-compare-col">${hoverCol}</div>
+            <div class="gear-tip-compare-col gear-tip-compare-equipped">${equippedCol}</div>
+        </div>
+    `;
+  }
+  function formatStatLabel(stat) {
+    const labels = {
+      physicalDamage: "Damage",
+      armour: "DEF",
+      maxHp: "HP",
+      hpRegen: "Regen",
+      attackSpeed: "ATK SPD",
+      attackRange: "AOE",
+      critChance: "Crit",
+      critMultiplier: "Crit Mult",
+      evade: "Evade"
+    };
+    return labels[stat] || stat;
+  }
+  function formatStat(stat, val) {
+    if (stat === "attackSpeed") return Number(val).toFixed(2);
+    if (stat === "critChance" || stat === "critMultiplier" || stat === "evade") return val;
+    return Math.floor(val);
+  }
+
+  // js/systems/gearInventory.js
+  var GearInventory = class {
+    /** @param {number} maxSize */
+    constructor(maxSize = 28) {
+      this.maxSize = maxSize;
+      this.items = [];
+      this.equipped = createEmptyEquipment();
+      this._appliedTotals = {};
+    }
+    reset() {
+      this.items = [];
+      this.equipped = createEmptyEquipment();
+      this._appliedTotals = {};
+    }
+    /** @param {object} item @returns {boolean} */
+    addItem(item) {
+      if (this.items.length >= this.maxSize) return false;
+      this.items.push(item);
+      return true;
+    }
+    /** @param {string} itemId */
+    removeItem(itemId) {
+      const idx = this.items.findIndex((i) => i.id === itemId);
+      if (idx === -1) return null;
+      return this.items.splice(idx, 1)[0];
+    }
+    /** @param {string[]} rarities @returns {number} count removed */
+    removeByRarities(rarities) {
+      const before = this.items.length;
+      this.items = this.items.filter((i) => !rarities.includes(i.rarity));
+      return before - this.items.length;
+    }
+    /** @param {string} itemId @param {object} stats — mutable player stats */
+    equip(itemId, stats) {
+      const idx = this.items.findIndex((i) => i.id === itemId);
+      if (idx === -1) return false;
+      const item = this.items[idx];
+      const slot = item.slot;
+      if (this.equipped[slot]) {
+        this.unequip(slot, stats);
+      }
+      this.items.splice(idx, 1);
+      this.equipped[slot] = item;
+      this._applyItemStats(item, stats, 1);
+      return true;
+    }
+    /** @param {string} slot @param {object} stats */
+    unequip(slot, stats) {
+      const item = this.equipped[slot];
+      if (!item) return null;
+      this._applyItemStats(item, stats, -1);
+      this.equipped[slot] = null;
+      this.addItem(item);
+      return item;
+    }
+    /** @param {object} item @param {object} stats @param {1|-1} dir */
+    _applyItemStats(item, stats, dir) {
+      const totals = getItemStatTotals(item);
+      Object.entries(totals).forEach(([key, val]) => {
+        if (stats[key] === void 0) return;
+        stats[key] += val * dir;
+        if (key === "maxHp" && dir === 1) stats.hp += val;
+        if (key === "maxHp" && dir === -1) {
+          stats.hp = Math.min(stats.hp, stats.maxHp);
+        }
+      });
+    }
+    /** Total stats from all equipped gear (read-only). */
+    getEquippedTotals() {
+      const totals = {};
+      GEAR_SLOTS.forEach((slot) => {
+        const item = this.equipped[slot];
+        if (!item) return;
+        const itemTotals = getItemStatTotals(item);
+        Object.entries(itemTotals).forEach(([k, v]) => {
+          totals[k] = (totals[k] || 0) + v;
+        });
+      });
+      return totals;
+    }
+    getEquippedCount() {
+      return GEAR_SLOTS.filter((s) => this.equipped[s]).length;
+    }
+  };
+
+  // js/ui/gearIcons.js
+  var HELMET_SVG = `<svg class="gear-slot-svg gear-icon-helmet" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path fill="currentColor" d="M12 2C8.5 2 5.8 4.1 5 7.1V9H4v3h1.1c.4 3.5 2.8 6.4 6.2 7.4V22h3.4v-2.6c3.4-1 5.8-3.9 6.2-7.4H22V9h-1V7.1C20.2 4.1 17.5 2 14 2h-2zm0 2h2c2.2 0 4 1.5 4.4 3.5H7.6C8 5.5 9.8 4 12 4z"/>
+</svg>`;
+  var SLOT_ICON_DATA = {
+    weapon: { emoji: "\u2694\uFE0F", className: "gear-icon-weapon" },
+    helmet: { svg: HELMET_SVG, className: "gear-icon-helmet" },
+    bodyArmour: { emoji: "\u{1F455}", className: "gear-icon-body" },
+    boot: { emoji: "\u{1F462}", className: "gear-icon-boot" },
+    ring: { emoji: "\u{1F48D}", className: "gear-icon-ring" },
+    amulet: { emoji: "\u{1F4FF}", className: "gear-icon-amulet" },
+    glove: { emoji: "\u{1F9E4}", className: "gear-icon-glove" }
+  };
+  function getSlotIconHtml(slot) {
+    const data = SLOT_ICON_DATA[slot] || { emoji: "\u{1F4E6}", className: "gear-icon-default" };
+    if (data.svg) return data.svg;
+    return `<span class="gear-emoji ${data.className}" aria-hidden="true">${data.emoji}</span>`;
+  }
+  function getSlotShortLabel(slot) {
+    const labels = {
+      weapon: "Weapon",
+      helmet: "Helm",
+      bodyArmour: "Body",
+      boot: "Boots",
+      ring: "Ring",
+      amulet: "Amulet",
+      glove: "Gloves"
+    };
+    return labels[slot] || slot;
+  }
+  var GEAR_DOLL_LAYOUT = [
+    { slot: null, area: "pad-tl" },
+    { slot: "helmet", area: "top" },
+    { slot: "amulet", area: "top-right" },
+    { slot: "weapon", area: "mid-left" },
+    { slot: "bodyArmour", area: "mid" },
+    { slot: null, area: "pad-mr" },
+    { slot: "glove", area: "bot-left" },
+    { slot: "boot", area: "bot" },
+    { slot: "ring", area: "bot-right" }
+  ];
+
+  // js/ui/gearTooltip.js
+  var GearTooltip = class {
+    constructor() {
+      this.el = document.createElement("div");
+      this.el.id = "gear-tooltip";
+      this.el.className = "gear-tooltip";
+      this.el.setAttribute("role", "tooltip");
+      this.el.hidden = true;
+      document.body.appendChild(this.el);
+      this._anchor = null;
+      this._onMove = this._onMove.bind(this);
+    }
+    /**
+     * @param {object} item
+     * @param {HTMLElement} anchor
+     * @param {object|null} [equippedItem]
+     */
+    show(item, anchor, equippedItem = null) {
+      this._anchor = anchor;
+      const hoveredIsEquipped = Boolean(equippedItem && item?.id === equippedItem.id);
+      this.el.innerHTML = buildGearCompareTooltipHtml(item, equippedItem, { hoveredIsEquipped });
+      this.el.hidden = false;
+      this._position();
+      document.addEventListener("mousemove", this._onMove);
+    }
+    hide() {
+      this.el.hidden = true;
+      this.el.innerHTML = "";
+      this._anchor = null;
+      document.removeEventListener("mousemove", this._onMove);
+    }
+    _onMove() {
+      if (this._anchor) this._position();
+    }
+    _position() {
+      if (!this._anchor) return;
+      const rect = this._anchor.getBoundingClientRect();
+      const tipRect = this.el.getBoundingClientRect();
+      const margin = 10;
+      let left = rect.right + margin;
+      let top = rect.top;
+      if (left + tipRect.width > window.innerWidth - 8) {
+        left = rect.left - tipRect.width - margin;
+      }
+      if (top + tipRect.height > window.innerHeight - 8) {
+        top = window.innerHeight - tipRect.height - 8;
+      }
+      if (top < 8) top = 8;
+      if (left < 8) left = 8;
+      this.el.style.left = `${left}px`;
+      this.el.style.top = `${top}px`;
+    }
+    /**
+     * @param {HTMLElement} el
+     * @param {object|null} item
+     * @param {() => object|null} [getEquipped]
+     */
+    bind(el, item, getEquipped) {
+      if (!item) return;
+      el.addEventListener("mouseenter", () => {
+        const equipped = getEquipped?.() ?? null;
+        this.show(item, el, equipped);
+      });
+      el.addEventListener("mouseleave", () => this.hide());
+      el.addEventListener("mousedown", () => this.hide());
+    }
+  };
+
+  // js/systems/gearLootFilter.js
+  var FILTERABLE_RARITIES = (
+    /** @type {const} */
+    ["normal", "magic", "rare"]
+  );
+  var GearLootFilter = class {
+    constructor() {
+      this.autoDelete = { normal: false, magic: false, rare: false };
+    }
+    reset() {
+      this.autoDelete = { normal: false, magic: false, rare: false };
+    }
+    /** @param {AutoDeleteRarity} rarity */
+    toggle(rarity) {
+      if (!FILTERABLE_RARITIES.includes(rarity)) return false;
+      this.autoDelete[rarity] = !this.autoDelete[rarity];
+      return this.autoDelete[rarity];
+    }
+    /** @param {string} rarity */
+    shouldAutoDelete(rarity) {
+      return Boolean(this.autoDelete[rarity]);
+    }
+    /** @param {AutoDeleteRarity} rarity */
+    isActive(rarity) {
+      return Boolean(this.autoDelete[rarity]);
+    }
+  };
+
+  // js/ui/gearPanel.js
+  var BULK_DELETE_LABELS = {
+    normal: "Normal (white)",
+    magic: "Magic (blue)",
+    rare: "Rare (yellow)"
+  };
+  var GearPanel = class {
+    /**
+     * @param {import('../systems/gearInventory.js').GearInventory} inventory
+     * @param {(itemId: string) => void} onEquip
+     * @param {(slot: string) => void} onUnequip
+     * @param {(itemId: string) => void} [onDelete]
+     * @param {(rarity: string) => void} [onBulkDelete]
+     * @param {import('../systems/gearLootFilter.js').GearLootFilter} [lootFilter]
+     */
+    constructor(inventory, onEquip, onUnequip, onDelete, onBulkDelete, lootFilter) {
+      this.inventory = inventory;
+      this.lootFilter = lootFilter;
+      this.onEquip = onEquip;
+      this.onUnequip = onUnequip;
+      this.onDelete = onDelete;
+      this.onBulkDelete = onBulkDelete;
+      this.expanded = true;
+      this.tooltip = new GearTooltip();
+      this._pendingBulkRarity = null;
+      this.els = {
+        panel: document.getElementById("gear-panel"),
+        toggle: document.getElementById("gear-panel-toggle"),
+        badge: document.getElementById("gear-panel-count"),
+        slots: document.getElementById("gear-slots"),
+        toolbar: document.getElementById("gear-inv-toolbar"),
+        list: document.getElementById("gear-inventory-list"),
+        bulkConfirm: document.getElementById("gear-bulk-confirm"),
+        bulkConfirmText: document.getElementById("gear-bulk-confirm-text"),
+        bulkConfirmYes: document.getElementById("gear-bulk-confirm-yes"),
+        bulkConfirmNo: document.getElementById("gear-bulk-confirm-no"),
+        filterBar: document.getElementById("gear-filter-bar")
+      };
+      this.els.toggle?.addEventListener("click", () => this.toggle());
+      this._bindToolbar();
+      this._bindFilterBar();
+      this._bindBulkConfirm();
+      this._applyExpandedClasses();
+      if (this.expanded) this.refresh();
+    }
+    _bindToolbar() {
+      this.els.toolbar?.querySelectorAll("[data-bulk-rarity]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          this._requestBulkDelete(btn.dataset.bulkRarity);
+        });
+      });
+    }
+    _bindFilterBar() {
+      this.els.filterBar?.querySelectorAll("[data-filter-rarity]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const rarity = btn.dataset.filterRarity;
+          if (!this.lootFilter || !FILTERABLE_RARITIES.includes(rarity)) return;
+          const active = this.lootFilter.toggle(rarity);
+          btn.classList.toggle("gear-filter-active", active);
+          btn.setAttribute("aria-pressed", String(active));
+        });
+      });
+    }
+    _bindBulkConfirm() {
+      this.els.bulkConfirmYes?.addEventListener("click", () => {
+        const rarity = this._pendingBulkRarity;
+        this._hideBulkConfirm();
+        if (rarity) this.onBulkDelete?.(rarity);
+      });
+      this.els.bulkConfirmNo?.addEventListener("click", () => this._hideBulkConfirm());
+    }
+    _requestBulkDelete(rarity) {
+      const count = this.inventory.items.filter((i) => i.rarity === rarity).length;
+      if (count <= 0) return;
+      const label = BULK_DELETE_LABELS[rarity] || rarity;
+      this._pendingBulkRarity = rarity;
+      if (this.els.bulkConfirmText) {
+        this.els.bulkConfirmText.textContent = `Delete all ${count} ${label} item${count > 1 ? "s" : ""}?`;
+      }
+      this.els.bulkConfirm?.classList.add("gear-bulk-confirm-visible");
+    }
+    _hideBulkConfirm() {
+      this._pendingBulkRarity = null;
+      this.els.bulkConfirm?.classList.remove("gear-bulk-confirm-visible");
+    }
+    _applyExpandedClasses() {
+      this.els.panel?.classList.toggle("gear-panel-expanded", this.expanded);
+      this.els.panel?.classList.toggle("gear-panel-collapsed", !this.expanded);
+    }
+    toggle(forceExpanded) {
+      this.expanded = typeof forceExpanded === "boolean" ? forceExpanded : !this.expanded;
+      this._applyExpandedClasses();
+      if (!this.expanded) {
+        this.tooltip.hide();
+        this._hideBulkConfirm();
+      }
+      if (this.expanded) this.refresh();
+    }
+    isExpanded() {
+      return this.expanded;
+    }
+    updateBadge(count) {
+      if (!this.els.badge) return;
+      this.els.badge.textContent = String(count);
+      this.els.badge.classList.toggle("gear-panel-badge-hidden", count <= 0);
+    }
+    refresh() {
+      this.updateBadge(this.inventory.items.length);
+      this._renderDoll();
+      this._renderInventory();
+    }
+    _renderDoll() {
+      if (!this.els.slots) return;
+      this.els.slots.innerHTML = GEAR_DOLL_LAYOUT.map((cell) => {
+        if (!cell.slot) {
+          return `<div class="gear-doll-cell gear-doll-empty" data-area="${cell.area}"></div>`;
+        }
+        const slot = cell.slot;
+        const item = this.inventory.equipped[slot];
+        const rarity = item ? RARITY_CONFIG2[item.rarity] : null;
+        const icon = getSlotIconHtml(slot);
+        const label = getSlotShortLabel(slot);
+        if (!item) {
+          return `
+                    <div class="gear-doll-cell gear-slot gear-slot-empty" data-area="${cell.area}" data-slot="${slot}">
+                        <span class="gear-slot-icon">${icon}</span>
+                        <span class="gear-slot-label">${label}</span>
+                    </div>
+                `;
+        }
+        return `
+                <div class="gear-doll-cell gear-slot gear-slot-filled ${rarity.cssClass}" data-area="${cell.area}" data-slot="${slot}"
+                    style="--gear-rarity-color:${rarity.color}">
+                    <span class="gear-slot-icon">${icon}</span>
+                    <button type="button" class="gear-unequip-btn" data-slot="${slot}" aria-label="Unequip ${label}">\xD7</button>
+                </div>
+            `;
+      }).join("");
+      this.els.slots.querySelectorAll(".gear-slot-filled").forEach((el) => {
+        const slot = el.dataset.slot;
+        const item = this.inventory.equipped[slot];
+        this.tooltip.bind(el, item, () => this.inventory.equipped[slot]);
+      });
+      this.els.slots.querySelectorAll(".gear-unequip-btn").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          this.tooltip.hide();
+          this.onUnequip(btn.dataset.slot);
+        });
+      });
+    }
+    _renderInventory() {
+      if (!this.els.list) return;
+      if (this.inventory.items.length === 0) {
+        this.els.list.innerHTML = '<p class="gear-empty">No items yet</p>';
+        return;
+      }
+      this.els.list.innerHTML = this.inventory.items.map((item) => {
+        const r = RARITY_CONFIG2[item.rarity];
+        const icon = getSlotIconHtml(item.slot);
+        return `
+                <button type="button" class="gear-inv-item ${r.cssClass}" data-id="${item.id}"
+                    style="--gear-rarity-color:${r.color}">
+                    <span class="gear-inv-icon">${icon}</span>
+                </button>
+            `;
+      }).join("");
+      this.els.list.querySelectorAll(".gear-inv-item").forEach((btn) => {
+        const item = this.inventory.items.find((i) => i.id === btn.dataset.id);
+        this.tooltip.bind(btn, item, () => this.inventory.equipped[item.slot]);
+        btn.addEventListener("click", (e) => {
+          if (e.shiftKey) {
+            this.tooltip.hide();
+            this.onDelete?.(btn.dataset.id);
+            return;
+          }
+          this.tooltip.hide();
+          this.onEquip(btn.dataset.id);
+        });
+      });
+    }
+    reset() {
+      this.expanded = true;
+      this.tooltip.hide();
+      this._hideBulkConfirm();
+      this.lootFilter?.reset();
+      this.els.filterBar?.querySelectorAll("[data-filter-rarity]").forEach((btn) => {
+        btn.classList.remove("gear-filter-active");
+        btn.setAttribute("aria-pressed", "false");
+      });
+      this._applyExpandedClasses();
+      this.refresh();
+    }
+    pulseNewLoot() {
+      this.els.panel?.classList.add("gear-panel-loot-pulse");
+      setTimeout(() => this.els.panel?.classList.remove("gear-panel-loot-pulse"), 600);
+    }
+  };
+
+  // js/systems/enemyPopulation.js
+  var EnemyPopulationManager = class {
+    /** @param {import('../game/gameState.js').GameState} state */
+    constructor(state) {
+      this.state = state;
+    }
+    get maxEnemies() {
+      return BALANCE.maxEnemiesOnScreen;
+    }
+    isAtCap() {
+      const active = this.state.enemies.filter((e) => !e.isSplitFragment && !e.isSplitMinion);
+      return active.length >= this.maxEnemies;
+    }
+    /** Skip spawn when at cap. */
+    canSpawn() {
+      return !this.isAtCap();
+    }
+    /**
+     * Cull excess low-priority enemies when over cap (memory + performance).
+     * Removes farthest normal/swarm enemies first.
+     */
+    enforceCap(game) {
+      const s = this.state;
+      if (s.enemies.length <= this.maxEnemies) return;
+      const { x: px, y: py } = game.ui.getPlayerPosition();
+      const excess = s.enemies.length - this.maxEnemies;
+      const sorted = [...s.enemies].filter((e) => e.rarity === "normal" && !e.isTreasure && !e.isSplitFragment && !e.isSplitMinion).map((e) => ({
+        enemy: e,
+        dist: Math.hypot(
+          parseFloat(e.element.style.left) - px,
+          parseFloat(e.element.style.top) - py
+        )
+      })).sort((a, b) => b.dist - a.dist);
+      let removed = 0;
+      for (const { enemy } of sorted) {
+        if (removed >= excess) break;
+        game._forceRemoveEnemy(enemy, false);
+        removed++;
+      }
+    }
+    /** Spawn rate multiplier based on elapsed time (warmup). */
+    getSpawnMultiplier(elapsedSeconds) {
+      if (elapsedSeconds < BALANCE.warmupSeconds) {
+        const t = elapsedSeconds / BALANCE.warmupSeconds;
+        return BALANCE.warmupSpawnMultiplier + (1 - BALANCE.warmupSpawnMultiplier) * t;
+      }
+      return 1;
+    }
+    /** Whether a spawn tick should fire this frame. @param {number} now */
+    shouldSpawnNow(category, elapsedSeconds, lastSpawn, intervalMs, now = Date.now()) {
+      if (!this.canSpawn()) return false;
+      const mult = this.getSpawnMultiplier(elapsedSeconds);
+      const adjustedInterval = intervalMs / Math.max(0.35, mult);
+      return now - lastSpawn >= adjustedInterval;
+    }
+  };
+
+  // js/utils/companionAi.js
+  function toPx(xVw, yVh, innerWidth, innerHeight) {
+    return { x: xVw * innerWidth / 100, y: yVh * innerHeight / 100 };
+  }
+  function toVw(xPx, yPx, innerWidth, innerHeight) {
+    return { x: xPx * 100 / innerWidth, y: yPx * 100 / innerHeight };
+  }
+  function stepTowardPx(opts) {
+    const { x, y, targetX, targetY, speedPx, arriveDist = 8 } = opts;
+    const dx = targetX - x;
+    const dy = targetY - y;
+    const dist = Math.hypot(dx, dy);
+    if (dist <= arriveDist) {
+      return { x, y, arrived: true, dist };
+    }
+    const step = Math.min(speedPx, Math.max(0, dist - arriveDist * 0.1));
+    return {
+      x: x + dx / dist * step,
+      y: y + dy / dist * step,
+      arrived: false,
+      dist
+    };
+  }
+  function findNearestEnemyAt(enemies, x, y, innerWidth, innerHeight) {
+    let nearest = null;
+    let min = Infinity;
+    for (const enemy of enemies) {
+      if (!enemy?.stats || enemy.stats.hp <= 0) continue;
+      const ex = parseFloat(enemy.element.style.left);
+      const ey = parseFloat(enemy.element.style.top);
+      if (!Number.isFinite(ex) || !Number.isFinite(ey)) continue;
+      const dist = distanceVw(x, y, ex, ey, innerWidth, innerHeight);
+      if (dist < min) {
+        min = dist;
+        nearest = enemy;
+      }
+    }
+    return nearest;
+  }
+  function companionAiStep(agent, ctx) {
+    const {
+      ownerX,
+      ownerY,
+      enemies,
+      speedVw = 0.35,
+      leashVw = 12,
+      homeOffsetX = 0,
+      homeOffsetY = 0,
+      attackRangePx = 45,
+      style = "melee",
+      innerWidth,
+      innerHeight
+    } = ctx;
+    const iw = innerWidth;
+    const ih = innerHeight;
+    let pos = toPx(agent.x, agent.y, iw, ih);
+    const owner = toPx(ownerX, ownerY, iw, ih);
+    const home = toPx(ownerX + homeOffsetX, ownerY + homeOffsetY, iw, ih);
+    const speedPx = speedVw * iw / 100;
+    const leashPx = leashVw * iw / 100;
+    const nearest = findNearestEnemyAt(enemies, agent.x, agent.y, iw, ih);
+    let targetX = home.x;
+    let targetY = home.y;
+    let mode = "home";
+    let arriveDist = 10;
+    if (nearest) {
+      const ex = parseFloat(nearest.element.style.left);
+      const ey = parseFloat(nearest.element.style.top);
+      const enemy = toPx(ex, ey, iw, ih);
+      const toOwner = Math.hypot(enemy.x - owner.x, enemy.y - owner.y);
+      if (toOwner <= leashPx * 1.45) {
+        const dx = enemy.x - pos.x;
+        const dy = enemy.y - pos.y;
+        const dist = Math.hypot(dx, dy) || 1;
+        if (style === "ranged") {
+          if (dist > attackRangePx * 0.92) {
+            targetX = enemy.x;
+            targetY = enemy.y;
+            mode = "chase";
+            arriveDist = Math.max(12, attackRangePx * 0.85);
+          } else {
+            targetX = pos.x;
+            targetY = pos.y;
+            mode = "engage";
+            arriveDist = 999;
+          }
+        } else {
+          const hold = Math.max(18, attackRangePx * 0.7);
+          targetX = enemy.x - dx / dist * hold;
+          targetY = enemy.y - dy / dist * hold;
+          mode = "chase";
+          arriveDist = 8;
+        }
+      }
+    }
+    const fromOwner = Math.hypot(pos.x - owner.x, pos.y - owner.y);
+    if (fromOwner > leashPx) {
+      targetX = home.x;
+      targetY = home.y;
+      mode = "leash";
+      arriveDist = 14;
+    }
+    const next = stepTowardPx({
+      x: pos.x,
+      y: pos.y,
+      targetX,
+      targetY,
+      speedPx: mode === "leash" ? speedPx * 1.6 : speedPx,
+      arriveDist
+    });
+    pos = { x: next.x, y: next.y };
+    let inAttackRange = false;
+    if (nearest) {
+      const ex = parseFloat(nearest.element.style.left);
+      const ey = parseFloat(nearest.element.style.top);
+      const enemy = toPx(ex, ey, iw, ih);
+      const dist = Math.hypot(pos.x - enemy.x, pos.y - enemy.y);
+      inAttackRange = dist <= attackRangePx;
+    }
+    const vw = toVw(pos.x, pos.y, iw, ih);
+    return {
+      x: vw.x,
+      y: vw.y,
+      target: nearest,
+      mode,
+      inAttackRange
+    };
+  }
+
+  // js/systems/illusionClone.js
+  var IllusionCloneManager = class {
+    /** @param {object} game */
+    constructor(game) {
+      this.game = game;
+      this.clone = null;
+    }
+    /** @param {number} now */
+    tick(now) {
+      if (!this.clone) return;
+      if (now >= this.clone.expiresAt) {
+        this.dismiss();
+        return;
+      }
+      if (this.clone.roam) {
+        this._tickRoamMovement();
+      } else {
+        this._syncPosition();
+      }
+      this._tickCloneAttacks(now);
+    }
+    /**
+     * Permanent roaming companion (Ranger passive) — never expires.
+     * @param {number} now
+     * @param {{ damagePercent: number, speedVw?: number, leashVw?: number }} opts
+     */
+    ensureRoamingCompanion(now, opts) {
+      if (this.clone?.roam) {
+        this.clone.damagePercent = opts.damagePercent ?? this.clone.damagePercent;
+        if (opts.speedVw != null) this.clone.speedVw = opts.speedVw;
+        if (opts.leashVw != null) this.clone.leashVw = opts.leashVw;
+        return;
+      }
+      this.dismiss();
+      const { x, y } = this.game.ui.getPlayerPosition();
+      const homeX = x + 3.2;
+      const homeY = y;
+      const el = document.createElement("div");
+      el.className = "illusion-clone illusion-clone-ranger";
+      el.setAttribute("aria-hidden", "true");
+      el.innerHTML = buildCompanionModelHtml("illusion", { ranger: true });
+      el.style.left = `${homeX}vw`;
+      el.style.top = `${homeY}vh`;
+      this.game.ui.els.gameContainer.appendChild(el);
+      this.clone = {
+        el,
+        x: homeX,
+        y: homeY,
+        expiresAt: Number.MAX_SAFE_INTEGER,
+        lastAttackTime: now,
+        damagePercent: opts.damagePercent ?? 60,
+        roam: true,
+        speedVw: opts.speedVw ?? 0.55,
+        leashVw: opts.leashVw ?? 14,
+        homeOffsetX: 3.2,
+        homeOffsetY: 0
+      };
+    }
+    /** External roam step — move clone to new vw position. */
+    setRoamPosition(x, y) {
+      if (!this.clone?.roam) return;
+      this.clone.x = x;
+      this.clone.y = y;
+      this.clone.el.style.left = `${x}vw`;
+      this.clone.el.style.top = `${y}vh`;
+    }
+    /**
+     * Summon if off cooldown and no active clone.
+     * @param {number} level
+     * @param {number} now
+     * @returns {boolean}
+     */
+    trySummon(level, now) {
+      const s = this.game.state;
+      const cfg = getIllusionConfig(level);
+      if (level <= 0 || this.clone) return false;
+      if (now - (s.skillCooldowns.illusion || 0) < cfg.cooldown) return false;
+      s.skillCooldowns.illusion = now;
+      this._spawn(now, cfg);
+      this.game.effects?.spawnCastFlash(
+        parseFloat(this.clone.el.style.left),
+        parseFloat(this.clone.el.style.top),
+        "arcane"
+      );
+      return true;
+    }
+    /** @param {number} now @param {ReturnType<typeof getIllusionConfig>} cfg */
+    _spawn(now, cfg) {
+      const { x, y } = this.game.ui.getPlayerPosition();
+      const el = document.createElement("div");
+      el.className = "illusion-clone";
+      el.setAttribute("aria-hidden", "true");
+      el.innerHTML = buildCompanionModelHtml("illusion");
+      el.style.left = `${x + cfg.offsetVw}vw`;
+      el.style.top = `${y}vh`;
+      this.game.ui.els.gameContainer.appendChild(el);
+      this.clone = {
+        el,
+        x: x + cfg.offsetVw,
+        y,
+        expiresAt: now + cfg.duration,
+        lastAttackTime: 0,
+        damagePercent: cfg.damagePercent,
+        roam: false
+      };
+      el.classList.add("illusion-spawn-in");
+      setTimeout(() => el.classList.remove("illusion-spawn-in"), 500);
+    }
+    /** Ranger passive: ranged bot chase within leash. */
+    _tickRoamMovement() {
+      const clone = this.clone;
+      if (!clone?.roam) return;
+      const { x: px, y: py } = this.game.ui.getPlayerPosition();
+      const iw = window.innerWidth;
+      const ih = window.innerHeight;
+      const attackRangePx = this.game.state.stats.attackRange;
+      const ax = Number.isFinite(clone.x) ? clone.x : parseFloat(clone.el.style.left);
+      const ay = Number.isFinite(clone.y) ? clone.y : parseFloat(clone.el.style.top);
+      const step = companionAiStep(
+        { x: ax, y: ay },
+        {
+          ownerX: px,
+          ownerY: py,
+          enemies: this.game.state.enemies,
+          speedVw: clone.speedVw ?? 0.55,
+          leashVw: clone.leashVw ?? 14,
+          homeOffsetX: clone.homeOffsetX ?? 3.2,
+          homeOffsetY: clone.homeOffsetY ?? 0,
+          attackRangePx,
+          style: "ranged",
+          innerWidth: iw,
+          innerHeight: ih
+        }
+      );
+      this.setRoamPosition(step.x, step.y);
+    }
+    _syncPosition() {
+      if (!this.clone || this.clone.roam) return;
+      const cfg = getIllusionConfig(this.game.state.skillList.illusion?.level || 1);
+      const { x, y } = this.game.ui.getPlayerPosition();
+      this.clone.x = x + cfg.offsetVw;
+      this.clone.y = y;
+      this.clone.el.style.left = `${this.clone.x}vw`;
+      this.clone.el.style.top = `${this.clone.y}vh`;
+    }
+    _tickCloneAttacks(now) {
+      const s = this.game.state;
+      if (!this.clone || s.gamePaused || s.gameOver) return;
+      const interval = 1e3 / s.stats.attackSpeed;
+      if (now - this.clone.lastAttackTime < interval) return;
+      const x = Number.isFinite(this.clone.x) ? this.clone.x : parseFloat(this.clone.el.style.left);
+      const y = Number.isFinite(this.clone.y) ? this.clone.y : parseFloat(this.clone.el.style.top);
+      this.clone.lastAttackTime = now;
+      this.clone.el.classList.remove("illusion-attacking");
+      void this.clone.el.offsetWidth;
+      this.clone.el.classList.add("illusion-attacking");
+      this.game._attackNearestEnemy(x, y, null, null, {
+        damageMultiplier: this.clone.damagePercent / 100,
+        skipPlayerAnim: true,
+        projectileClass: "projectile-illusion"
+      });
+    }
+    dismiss() {
+      if (!this.clone) return;
+      this.clone.el.remove();
+      this.clone = null;
+    }
+    cleanup() {
+      this.dismiss();
+    }
+    isActive() {
+      return Boolean(this.clone);
+    }
+  };
+
+  // js/systems/characterPassives.js
+  var CharacterPassiveManager = class {
+    /** @param {import('../game/game.js').Game} game */
+    constructor(game) {
+      this.game = game;
+      this.def = null;
+      this._lastPulse = 0;
+      this._lastSnack = 0;
+      this._frenzyUntil = 0;
+      this._frenzyReadyAt = 0;
+      this._frenzyBonus = 0;
+      this._frenzyDurationMs = 0;
+      this._shield = 0;
+      this._shieldMax = 0;
+      this._lastShieldRepair = 0;
+      this._zombie = null;
+      this._zombieReadyAt = 0;
+      this._bears = [];
+    }
+    /** @param {string} characterName */
+    activate(characterName) {
+      this.cleanup();
+      this.def = getCharacterPassive(characterName);
+      if (!this.def) return;
+      if (this.def.id === "paladin") this._initShield();
+      if (this.def.id === "summoner") this._spawnBears();
+      if (this.def.id === "berserker") this._frenzyReadyAt = Date.now();
+      if (this.def.id === "necromancer") this._zombieReadyAt = Date.now();
+      this.game.ui?.setCharacterPassive?.(this.def);
+    }
+    /** @param {number} now */
+    tick(now) {
+      if (!this.def || this.game.state.gamePaused || this.game.state.gameOver) return;
+      switch (this.def.id) {
+        case "healer":
+          this._tickHealerPulse(now);
+          break;
+        case "necromancer":
+          this._tickNecromancer(now);
+          break;
+        case "paladin":
+          this._tickPaladinShield(now);
+          break;
+        case "berserker":
+          this._tickBerserkerFrenzy(now);
+          break;
+        case "summoner":
+          this._tickBears(now);
+          break;
+        case "capybara":
+          this._tickCapybara(now);
+          break;
+        case "ranger":
+          this._tickRangerIllusion(now);
+          break;
+        default:
+          break;
+      }
+      this.game.ui?.updatePassiveHud?.({
+        shield: this._shield,
+        shieldMax: this._shieldMax,
+        frenzyActive: now < this._frenzyUntil
+      });
+    }
+    /**
+     * @param {object} hitEnemy
+     * @param {{ damage: number, isCritical: boolean, missed?: boolean }} result
+     */
+    onBasicHit(hitEnemy, result) {
+      if (!this.def || result?.missed || !hitEnemy) return;
+      const ex = parseFloat(hitEnemy.element.style.left);
+      const ey = parseFloat(hitEnemy.element.style.top);
+      if (this.def.id === "warrior" && rollChance(this.def.params.chance)) {
+        this._splashAround(ex, ey, this.def.params.radiusPx, result.damage * this.def.params.splashMult, hitEnemy.id, "fire");
+        this.game.effects?.spawnMegaExplosion?.(ex, ey, "fire");
+      }
+      if (this.def.id === "assassin" && result.isCritical && rollChance(this.def.params.chance)) {
+        this._splashAround(ex, ey, this.def.params.radiusPx, result.damage * this.def.params.splashMult, hitEnemy.id, "crit");
+      }
+    }
+    /** @param {number} damage @param {string} element */
+    modifySkillDamage(damage, element) {
+      if (this.def?.id !== "elementalist") return damage;
+      if (!ELEMENTALIST_ELEMENTS.has(element)) return damage;
+      return Math.floor(damage * (1 + this.def.params.elementBonus));
+    }
+    /** @param {number} expGain */
+    modifyExpGain(expGain) {
+      if (this.def?.id !== "adventurer") return expGain;
+      return expGain * (1 + this.def.params.expBonus);
+    }
+    /** @param {number} damage @returns {number} remaining HP damage */
+    absorbDamage(damage) {
+      if (this.def?.id !== "paladin" || this._shield <= 0) return damage;
+      const blocked = Math.min(this._shield, damage);
+      this._shield -= blocked;
+      return damage - blocked;
+    }
+    getShieldState() {
+      return { current: this._shield, max: this._shieldMax };
+    }
+    cleanup() {
+      this._clearFrenzy();
+      this._zombie?.el?.remove();
+      this._zombie = null;
+      this._bears.forEach((b) => b.el?.remove());
+      this._bears = [];
+      this._shield = 0;
+      this._shieldMax = 0;
+      this.def = null;
+      this.game.ui?.clearCharacterPassive?.();
+    }
+    // --- implementation ---
+    _initShield() {
+      const maxHp = this.game.state.stats.maxHp;
+      this._shieldMax = Math.max(1, Math.floor(maxHp * this.def.params.shieldPercent / 100));
+      this._shield = this._shieldMax;
+      this._lastShieldRepair = Date.now();
+    }
+    _tickPaladinShield(now) {
+      if (now - this._lastShieldRepair < this.def.params.repairIntervalMs) return;
+      this._lastShieldRepair = now;
+      this._shieldMax = Math.max(1, Math.floor(this.game.state.stats.maxHp * this.def.params.shieldPercent / 100));
+      this._shield = this._shieldMax;
+      const { x, y } = this.game.ui.getPlayerPosition();
+      this.game.effects?.spawnCastFlash?.(x, y, "heal");
+    }
+    _tickHealerPulse(now) {
+      if (now - this._lastPulse < this.def.params.intervalMs) return;
+      this._lastPulse = now;
+      const { x, y } = this.game.ui.getPlayerPosition();
+      const damage = Math.max(1, Math.floor(this.game.state.stats.hpRegen * this.def.params.regenDamageMult));
+      this._splashAround(x, y, this.def.params.radiusPx, damage, null, "heal");
+      this.game.effects?.spawnCastFlash?.(x, y, "heal");
+      this.game.skillRanges?.showImpactArea?.(x, y, this.def.params.radiusPx, "holy", 500);
+    }
+    _tickCapybara(now) {
+      if (now - this._lastSnack < this.def.params.intervalMs) return;
+      this._lastSnack = now;
+      const s = this.game.state;
+      const { x, y } = this.game.ui.getPlayerPosition();
+      const damage = Math.max(1, Math.floor(s.stats.physicalDamage * this.def.params.damageMult));
+      this._splashAround(x, y, this.def.params.radiusPx, damage, null, "cold");
+      const heal = Math.max(1, Math.floor(s.stats.maxHp * this.def.params.healPercent / 100));
+      s.stats.hp = Math.min(s.stats.maxHp, s.stats.hp + heal);
+      this.game.effects?.spawnDamageNumber?.(x, y - 2, heal, false, "heal");
+      this.game.effects?.spawnCastFlash?.(x, y, "cold");
+      s.enemies.forEach((enemy) => {
+        if (enemy.stats.hp <= 0) return;
+        const ex = parseFloat(enemy.element.style.left);
+        const ey = parseFloat(enemy.element.style.top);
+        if (distanceVw(x, y, ex, ey, window.innerWidth, window.innerHeight) <= this.def.params.radiusPx) {
+          this.game._applySlow?.(enemy, this.def.params.chillPercent, this.def.params.chillDurationMs);
+        }
+      });
+    }
+    _tickBerserkerFrenzy(now) {
+      if (now < this._frenzyUntil) return;
+      this._clearFrenzy();
+      if (now < this._frenzyReadyAt) return;
+      const bonus = this.game.state.stats.attackSpeed * (this.def.params.bonusPercent / 100);
+      this._frenzyBonus = bonus;
+      this.game.state.stats.attackSpeed += bonus;
+      this._frenzyDurationMs = this.def.params.durationMs;
+      this._frenzyUntil = now + this._frenzyDurationMs;
+      this._frenzyReadyAt = this._frenzyUntil + (this.def.params.cooldownMs - this.def.params.durationMs);
+      this.game.buffTracker?.apply({
+        id: "berserker-frenzy",
+        name: "Blood Frenzy",
+        icon: "\u{1FA78}",
+        description: `+${this.def.params.bonusPercent}% attack speed`,
+        durationMs: this.def.params.durationMs,
+        now
+      });
+      const { x, y } = this.game.ui.getPlayerPosition();
+      this.game.effects?.spawnCastFlash?.(x, y, "fire");
+    }
+    _clearFrenzy() {
+      if (this._frenzyBonus > 0 && this.game.state?.stats) {
+        this.game.state.stats.attackSpeed = Math.max(
+          0.1,
+          this.game.state.stats.attackSpeed - this._frenzyBonus
+        );
+      }
+      this._frenzyBonus = 0;
+      this._frenzyUntil = 0;
+      this.game.buffTracker?.remove("berserker-frenzy");
+    }
+    _tickNecromancer(now) {
+      if (this._zombie) {
+        if (now >= this._zombie.expiresAt) {
+          this._zombie.el.remove();
+          this._zombie = null;
+          this._zombieReadyAt = now + this.def.params.cooldownMs;
+          this.game.buffTracker?.remove("raise-zombie");
+          return;
+        }
+        this._tickCombatMinion(this._zombie, now, {
+          homeOffsetX: this.def.params.offsetVw,
+          homeOffsetY: 0,
+          leashVw: 14
+        });
+        return;
+      }
+      if (now < this._zombieReadyAt) return;
+      this._spawnZombie(now);
+    }
+    _spawnZombie(now) {
+      const { x, y } = this.game.ui.getPlayerPosition();
+      const el = document.createElement("div");
+      el.className = "passive-minion passive-zombie";
+      el.innerHTML = buildCompanionModelHtml("zombie");
+      el.style.left = `${x + this.def.params.offsetVw}vw`;
+      el.style.top = `${y}vh`;
+      this.game.ui.els.gameContainer.appendChild(el);
+      this._zombie = {
+        el,
+        x: x + this.def.params.offsetVw,
+        y,
+        expiresAt: now + this.def.params.durationMs,
+        lastAttack: 0,
+        damagePercent: this.def.params.damagePercent,
+        moveSpeed: this.def.params.moveSpeed,
+        attackIntervalMs: this.def.params.attackIntervalMs
+      };
+      this.game.buffTracker?.apply({
+        id: "raise-zombie",
+        name: "Raise Zombie",
+        icon: "\u{1F9DF}",
+        description: "A zombie fights beside you",
+        durationMs: this.def.params.durationMs,
+        now
+      });
+      this.game.effects?.spawnCastFlash?.(x, y, "poison");
+    }
+    _spawnBears() {
+      const { x, y } = this.game.ui.getPlayerPosition();
+      const count = this.def.params.count;
+      for (let i = 0; i < count; i++) {
+        const angle = Math.PI * 2 * i / count;
+        const ox = Math.cos(angle) * this.def.params.orbitVw;
+        const oy = Math.sin(angle) * this.def.params.orbitVw;
+        const el = document.createElement("div");
+        el.className = "passive-minion passive-bear";
+        el.innerHTML = buildCompanionModelHtml("bear");
+        el.style.left = `${x + ox}vw`;
+        el.style.top = `${y + oy}vh`;
+        this.game.ui.els.gameContainer.appendChild(el);
+        this._bears.push({
+          el,
+          x: x + ox,
+          y: y + oy,
+          homeOffsetX: ox,
+          homeOffsetY: oy,
+          lastAttack: 0,
+          damagePercent: this.def.params.damagePercent,
+          moveSpeed: this.def.params.moveSpeed,
+          attackIntervalMs: this.def.params.attackIntervalMs
+        });
+      }
+    }
+    _tickBears(now) {
+      this._bears.forEach((bear) => {
+        this._tickCombatMinion(bear, now, {
+          homeOffsetX: bear.homeOffsetX,
+          homeOffsetY: bear.homeOffsetY,
+          leashVw: 16
+        });
+      });
+    }
+    _tickRangerIllusion(now) {
+      const cloneMgr = this.game.illusionClone;
+      if (!cloneMgr) return;
+      const iw = window.innerWidth;
+      const leashVw = Math.max(
+        12,
+        this.game.state.stats.attackRange / iw * 100 * (this.def.params.roamRadiusFraction || 0.85) + 4
+      );
+      cloneMgr.ensureRoamingCompanion(now, {
+        damagePercent: this.def.params.damagePercent,
+        speedVw: 0.55,
+        leashVw
+      });
+    }
+    /**
+     * Combat minion AI: chase foes, attack in melee, return home.
+     */
+    _tickCombatMinion(minion, now, opts) {
+      const { x: px, y: py } = this.game.ui.getPlayerPosition();
+      const iw = window.innerWidth;
+      const ih = window.innerHeight;
+      const step = companionAiStep(
+        { x: minion.x, y: minion.y },
+        {
+          ownerX: px,
+          ownerY: py,
+          enemies: this.game.state.enemies,
+          speedVw: minion.moveSpeed,
+          leashVw: opts.leashVw,
+          homeOffsetX: opts.homeOffsetX,
+          homeOffsetY: opts.homeOffsetY,
+          attackRangePx: 48,
+          innerWidth: iw,
+          innerHeight: ih
+        }
+      );
+      minion.x = step.x;
+      minion.y = step.y;
+      minion.el.style.left = `${step.x}vw`;
+      minion.el.style.top = `${step.y}vh`;
+      if (!step.target || !step.inAttackRange) return;
+      if (now - minion.lastAttack < minion.attackIntervalMs) return;
+      minion.lastAttack = now;
+      const damage = Math.max(1, Math.floor(this.game.state.stats.physicalDamage * minion.damagePercent / 100));
+      this.game._dealSkillDamageToEnemy?.(step.target, damage, "physical", false);
+      minion.el.classList.remove("passive-minion-attack");
+      void minion.el.offsetWidth;
+      minion.el.classList.add("passive-minion-attack");
+    }
+    _splashAround(cx, cy, radiusPx, damage, excludeId, element) {
+      const dmg = Math.max(1, Math.floor(damage));
+      const targets = findEnemiesInRadius(
+        this.game.state.enemies.map((e) => ({
+          id: e.id,
+          x: parseFloat(e.element.style.left),
+          y: parseFloat(e.element.style.top),
+          hp: e.stats.hp,
+          ref: e
+        })),
+        cx,
+        cy,
+        radiusPx,
+        window.innerWidth,
+        window.innerHeight,
+        excludeId
+      );
+      targets.forEach((t) => {
+        if (t.ref) this.game._dealSkillDamageToEnemy?.(t.ref, dmg, element, false);
+      });
+    }
+  };
+
+  // js/systems/buffTracker.js
+  var BuffTracker = class {
+    constructor() {
+      this.buffs = /* @__PURE__ */ new Map();
+    }
+    /**
+     * @param {object} opts
+     * @param {string} opts.id
+     * @param {string} opts.name
+     * @param {string} opts.icon
+     * @param {string} opts.description
+     * @param {number} opts.durationMs
+     * @param {number} [opts.now]
+     * @param {number} [opts.stacks]
+     */
+    apply(opts) {
+      const now = opts.now ?? Date.now();
+      const durationMs = Math.max(0, opts.durationMs);
+      this.buffs.set(opts.id, {
+        id: opts.id,
+        name: opts.name,
+        icon: opts.icon,
+        description: opts.description,
+        startedAt: now,
+        expiresAt: now + durationMs,
+        durationMs,
+        stacks: opts.stacks ?? 1
+      });
+      return this.buffs.get(opts.id);
+    }
+    /** @param {string} id */
+    remove(id) {
+      this.buffs.delete(id);
+    }
+    /** @param {string} id */
+    has(id) {
+      return this.buffs.has(id);
+    }
+    /** Expire finished buffs. @param {number} now @returns {string[]} removed ids */
+    tick(now) {
+      const removed = [];
+      for (const [id, buff] of this.buffs) {
+        if (buff.durationMs > 0 && now >= buff.expiresAt) {
+          this.buffs.delete(id);
+          removed.push(id);
+        }
+      }
+      return removed;
+    }
+    /** Snapshot for HUD rendering. @param {number} now */
+    getActiveBuffs(now = Date.now()) {
+      return [...this.buffs.values()].filter((b) => b.durationMs <= 0 || now < b.expiresAt).map((b) => {
+        const remainingMs = b.durationMs <= 0 ? Infinity : Math.max(0, b.expiresAt - now);
+        const remainingRatio = b.durationMs <= 0 ? 1 : remainingMs / b.durationMs;
+        return {
+          ...b,
+          remainingMs,
+          remainingRatio: Math.max(0, Math.min(1, remainingRatio))
+        };
+      });
+    }
+    clear() {
+      this.buffs.clear();
+    }
+  };
+
+  // js/systems/splitterSpawn.js
+  function getSplitterFragmentPositions(cx, cy, count) {
+    const positions = [];
+    for (let i = 0; i < count; i++) {
+      const angle = Math.PI * 2 * i / count + (Math.random() - 0.5) * 0.35;
+      const dist = 0.6 + Math.random() * 1.1;
+      positions.push({
+        x: cx + Math.cos(angle) * dist,
+        y: cy + Math.sin(angle) * dist
+      });
+    }
+    return positions;
+  }
+  function configureSplitFragment(enemy, parentMaxHp) {
+    enemy.isSplitFragment = true;
+    const hp = Math.max(3, Math.floor(parentMaxHp * 0.18));
+    enemy.stats.hp = hp;
+    enemy.stats.maxHp = hp;
+    enemy.stats.exp = Math.max(1, Math.floor(enemy.stats.exp * 0.35));
+    enemy.element.classList.add("enemy-split-fragment");
+    enemy.element.title = "Splitter fragment";
+  }
+  function spawnSplitterFragments(game, ex, ey, splitCount, parentMaxHp) {
+    const positions = getSplitterFragmentPositions(ex, ey, splitCount);
+    for (const at of positions) {
+      const spawned = game._spawnEnemy("normal", "splitFragment", {
+        at,
+        bypassCap: true,
+        skipGroup: true,
+        splitFragment: true
+      });
+      if (spawned) configureSplitFragment(spawned, parentMaxHp);
+    }
+  }
+
+  // js/systems/enemyDeathEffects.js
+  function handleEnemyDeathEffects(game, enemy, ex, ey, grantRewards) {
+    if (!grantRewards || !enemy?.typeConfig) return;
+    const type = enemy.typeConfig.type;
+    if (type === "bomber") {
+      triggerBomberExplosion(game, enemy, ex, ey);
+    }
+    if (type === "splitter" && enemy.rarity !== "boss") {
+      spawnSplitterFragments(
+        game,
+        ex,
+        ey,
+        enemy.typeConfig.splitCount || 3,
+        enemy.stats.maxHp
+      );
+    }
+  }
+  function triggerBomberExplosion(game, enemy, ex, ey) {
+    const radiusPx = enemy.typeConfig.explosionRadius || 150;
+    const damage = enemy.typeConfig.explosionDamage || 28;
+    game.effects.spawnMegaExplosion(ex, ey, "fire");
+    game.effects.spawnHitEffect(ex, ey, "fire");
+    game.skillRanges?.showImpactArea(ex, ey, radiusPx, "fire", 700);
+    const s = game.state;
+    const { x, y } = game.ui.getPlayerPosition();
+    const dist = distanceVw(ex, ey, x, y, window.innerWidth, window.innerHeight);
+    if (dist > radiusPx) return;
+    if (rollChance(s.stats.evade)) return;
+    const abilities = game._getAbilityLevels();
+    const dealt = calculatePlayerIncomingDamage({
+      enemyDamage: damage,
+      playerArmour: s.stats.armour,
+      damageReductionLevel: abilities.damageReductionLevel,
+      ignoreArmour: false
+    });
+    s.stats.hp -= game.characterPassives?.absorbDamage(dealt) ?? dealt;
+    game._onPlayerDamaged();
+  }
+
+  // js/systems/enemySpawn.js
+  var SWARM_GROUP_SIZE = { min: 3, max: 5 };
+  var SWARM_GROUP_SPREAD_VW = 2.4;
+  function getSwarmGroupPositions(anchorX, anchorY, count) {
+    const positions = [{ x: anchorX, y: anchorY }];
+    for (let i = 1; i < count; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const dist = 0.8 + Math.random() * SWARM_GROUP_SPREAD_VW;
+      positions.push({
+        x: anchorX + Math.cos(angle) * dist,
+        y: anchorY + Math.sin(angle) * dist
+      });
+    }
+    return positions;
+  }
+  function rollSwarmGroupSize() {
+    const { min, max } = SWARM_GROUP_SIZE;
+    return min + Math.floor(Math.random() * (max - min + 1));
+  }
+  function getEdgeSpawnAnchor(edge) {
+    switch (edge) {
+      case 0:
+        return { x: 15 + Math.random() * 70, y: -2 };
+      case 1:
+        return { x: 102, y: 15 + Math.random() * 70 };
+      case 2:
+        return { x: 15 + Math.random() * 70, y: 102 };
+      default:
+        return { x: -2, y: 15 + Math.random() * 70 };
+    }
+  }
+
+  // js/systems/enemyProjectiles.js
+  var EnemyProjectileManager = class {
+    /** @param {import('../game/gameState.js').GameState} state */
+    constructor(state) {
+      this.state = state;
+      this.projectiles = [];
+    }
+    /**
+     * @param {HTMLElement} el
+     * @param {() => void} onTick
+     * @returns {() => void} cancel
+     */
+    track(el, onTick) {
+      const entry = { el, animId: null };
+      this.projectiles.push(entry);
+      const step = () => {
+        if (!this.projectiles.includes(entry)) return;
+        if (this.state.gamePaused || this.state.gameOver) {
+          this._removeEntry(entry);
+          return;
+        }
+        const keepAlive = onTick();
+        if (!keepAlive) {
+          this._removeEntry(entry);
+          return;
+        }
+        entry.animId = requestAnimationFrame(step);
+        this.state.trackAnimation(entry.animId);
+      };
+      entry.animId = requestAnimationFrame(step);
+      this.state.trackAnimation(entry.animId);
+      return () => this._removeEntry(entry);
+    }
+    /** @param {{ el: HTMLElement, animId: number|null }} entry */
+    _removeEntry(entry) {
+      if (entry.animId) this.state.cancelAnimation(entry.animId);
+      entry.el?.remove();
+      const idx = this.projectiles.indexOf(entry);
+      if (idx !== -1) this.projectiles.splice(idx, 1);
+    }
+    clearAll() {
+      [...this.projectiles].forEach((entry) => this._removeEntry(entry));
+    }
+  };
+
+  // js/config/enemyGuide.js
+  var ENEMY_GUIDE_ENTRIES = [
+    {
+      type: "grunt",
+      label: "Grunt",
+      color: ENEMY_TYPE_COLORS.grunt,
+      tag: "Melee",
+      description: "Standard chaser. Balanced HP and damage."
+    },
+    {
+      type: "swarm",
+      label: "Swarm",
+      color: ENEMY_TYPE_COLORS.swarm,
+      tag: "Fast",
+      description: "Small, fast, low HP. Spawns in groups of 3\u20135 from the edge."
+    },
+    {
+      type: "tank",
+      label: "Tank",
+      color: ENEMY_TYPE_COLORS.tank,
+      tag: "Armoured",
+      description: "High HP and armour. Slow but hits hard."
+    },
+    {
+      type: "archer",
+      label: "Archer",
+      color: ENEMY_TYPE_COLORS.archer,
+      tag: "Ranged",
+      description: "Stops at range and shoots green projectiles."
+    },
+    {
+      type: "dasher",
+      label: "Dasher",
+      color: ENEMY_TYPE_COLORS.dasher,
+      tag: "Dash",
+      description: "Spawns alone. Periodically dashes toward you for burst speed."
+    },
+    {
+      type: "splitter",
+      label: "Splitter",
+      color: ENEMY_TYPE_COLORS.splitter,
+      tag: "Split",
+      description: "On death, splits into fast orange fragments at the death spot."
+    },
+    {
+      type: "bomber",
+      label: "Bomber",
+      color: ENEMY_TYPE_COLORS.bomber,
+      tag: "Explode",
+      description: "Dark armored mine. Explodes on death if you are nearby."
+    },
+    {
+      type: "penetrator",
+      label: "Penetrator",
+      color: ENEMY_TYPE_COLORS.penetrator,
+      tag: "Pierce",
+      description: "Teal spike \u2014 attacks ignore your armour mitigation."
+    },
+    {
+      type: "wraith",
+      label: "Wraith",
+      color: ENEMY_TYPE_COLORS.wraith,
+      tag: "Evade",
+      description: "High evade \u2014 your attacks can miss. Evade rises with wave."
+    }
+  ];
+
+  // js/ui/enemyGuidePanel.js
+  var EnemyGuidePanel = class {
+    constructor() {
+      this.root = document.getElementById("enemy-guide-panel");
+      this.toggleBtn = document.getElementById("enemy-guide-toggle");
+      this.body = document.getElementById("enemy-guide-body");
+      this.expanded = false;
+      if (!this.root) return;
+      this._renderEntries();
+      this.toggleBtn?.addEventListener("click", () => this.toggle());
+    }
+    _renderEntries() {
+      if (!this.body) return;
+      this.body.innerHTML = ENEMY_GUIDE_ENTRIES.map((entry) => `
+            <div class="enemy-guide-row" data-type="${entry.type}">
+                <span class="enemy-guide-swatch" style="background:${entry.color}"></span>
+                <div class="enemy-guide-text">
+                    <div class="enemy-guide-title">
+                        <strong style="color:${entry.color}">${entry.label}</strong>
+                        <span class="enemy-guide-tag">${entry.tag}</span>
+                    </div>
+                    <p class="enemy-guide-desc">${entry.description}</p>
+                </div>
+            </div>
+        `).join("");
+    }
+    toggle() {
+      this.expanded = !this.expanded;
+      this.root?.classList.toggle("expanded", this.expanded);
+      if (this.toggleBtn) {
+        this.toggleBtn.setAttribute("aria-expanded", String(this.expanded));
+      }
+    }
+    collapse() {
+      this.expanded = false;
+      this.root?.classList.remove("expanded");
+      this.toggleBtn?.setAttribute("aria-expanded", "false");
+    }
+  };
+
+  // js/game/game.js
+  var Game = class {
+    constructor() {
+      this.state = new GameState();
+      this.ui = new UIManager();
+      this.effects = null;
+      this.meta = loadMetaProgress();
+      this.killStreak = new KillStreakTracker();
+      this._bindEvents();
+      this.ui.bindPauseMenu({
+        resume: () => this.resumeGame(),
+        restart: () => this.restartRun(),
+        characterSelect: () => this.quitToCharacterSelect()
+      });
+      this.ui.showCharacterSelection((name) => this.selectCharacter(name), this.meta);
+    }
+    _bindEvents() {
+      document.addEventListener("keydown", (e) => this._onKeyDown(e));
+      document.addEventListener("click", () => {
+        if (this.state.gameOver && !this.state.gamePaused) this.restart();
+      });
+    }
+    _onKeyDown(event) {
+      if (this.state.gameOver && !this.state.gamePaused) {
+        this.restart();
+        return;
+      }
+      if (event.key === "Escape" && !this.state.characterSelection) {
+        this.togglePause();
+        return;
+      }
+      if (event.key === "u" || event.key === "U") {
+        if (!this.state.characterSelection && !this.state.gameOver) {
+          this.upgradePanel?.toggle();
+          if (this.upgradePanel?.isExpanded()) this._refreshUpgradePanel();
+        }
+        return;
+      }
+      if (event.key === "g" || event.key === "G") {
+        if (!this.state.characterSelection && !this.state.gameOver) {
+          this.gearPanel?.toggle();
+          if (this.gearPanel?.isExpanded()) this.gearPanel.refresh();
+        }
+        return;
+      }
+      const charIdx = this._getCharacterKeyIndex(event);
+      if (charIdx >= 0 && this.state.characterSelection) {
+        const buttons = this.ui.getCharacterButtons();
+        if (charIdx < buttons.length) buttons[charIdx].click();
+        return;
+      }
+      if (this.upgradePanel?.isExpanded() && !this.state.characterSelection && !this.state.gameOver && !this.state.gamePaused) {
+        const idx = parseInt(event.key, 10) - 1;
+        if (idx >= 0 && idx <= 8) {
+          const view = this.upgradePanel.getView();
+          if (view === "categories") {
+            const buttons = this.upgradePanel.getCategoryButtons();
+            if (idx < buttons.length) {
+              buttons[idx].click();
+              return;
+            }
+          } else if (view === "choices") {
+            const buttons = this.upgradePanel.getChoiceButtons();
+            if (idx < buttons.length) {
+              buttons[idx].click();
+              return;
+            }
+          }
+        }
+      }
+    }
+    /** Map keyboard key to character list index (supports 11 heroes). */
+    _getCharacterKeyIndex(event) {
+      if (event.key >= "1" && event.key <= "9") return parseInt(event.key, 10) - 1;
+      if (event.key === "0") return 9;
+      if (event.key === "-" || event.key === "_") return 10;
+      return -1;
+    }
+    selectCharacter(name) {
+      const character = CHARACTERS.find((c) => c.name === name);
+      if (!character) return;
+      this.state.fullCleanup();
+      resetPlayerModel(this.ui.els.player);
+      this.state.initForCharacter(deepClone(character.stats));
+      this.state.selectedCharacterName = name;
+      this.state.itemsLooted = 0;
+      this.killStreak.reset();
+      this.gearInventory = new GearInventory();
+      this.gearLootFilter = new GearLootFilter();
+      this.enemyPopulation = new EnemyPopulationManager(this.state);
+      this.treasureEvents = new TreasureEventManager(this);
+      this.treasureEvents.reset();
+      this.effects = new EffectManager(this.ui.els.gameContainer);
+      this.skillExecutor = new SkillExecutor(this);
+      this.illusionClone = new IllusionCloneManager(this);
+      this.characterPassives = new CharacterPassiveManager(this);
+      this.buffTracker = new BuffTracker();
+      this.enemyProjectiles = new EnemyProjectileManager(this.state);
+      this.poisonPools = new PoisonPoolManager(this);
+      this.skillRanges = new SkillRangeDisplay(
+        this.ui.els.gameContainer,
+        document.getElementById("skill-range-layer")
+      );
+      applyPlayerModel(this.ui.els.player, character.name);
+      this._activeUpgradeCategory = null;
+      this._upgradeOptionCache = { stat: null, skill: null };
+      this.upgradePanel = new UpgradePanel(
+        (key) => this._spendUpgrade(key),
+        (type) => this._selectUpgradeCategory(type)
+      );
+      this.upgradePanel.reset();
+      this.gearPanel = new GearPanel(
+        this.gearInventory,
+        (id) => this._equipGear(id),
+        (slot) => this._unequipGear(slot),
+        (id) => this._deleteGear(id),
+        (rarity) => this._bulkDeleteGear(rarity),
+        this.gearLootFilter
+      );
+      this.gearPanel.reset();
+      this.enemyGuidePanel = new EnemyGuidePanel();
+      this.ui.showGame();
+      this.ui.els.playerAnchor.style.left = "50vw";
+      this.ui.els.playerAnchor.style.top = "50vh";
+      this.ui.updateAttackRange(this.state.stats.attackRange);
+      this.ui.updateStats(this.state.stats, this.state.skillList);
+      this.ui.updateMeta(this.state.killCount, this.state.currentWave, this.killStreak.streak);
+      this.ui.showWaveAnnouncement(this.state.currentWave);
+      this.state.previousWave = this.state.currentWave;
+      this.characterPassives?.activate(name);
+      this._startGameLoop();
+    }
+    restart() {
+      this.quitToCharacterSelect();
+    }
+    quitToCharacterSelect() {
+      this._endRun(false);
+      this.state.characterSelection = true;
+      this.state.gameOver = false;
+      this.ui.hideGameOver();
+      this.ui.showPause(false);
+      this.ui.showCharacterSelection((name) => this.selectCharacter(name), this.meta);
+    }
+    /** Restart the current character without returning to selection. */
+    restartRun() {
+      const name = this.state.selectedCharacterName;
+      if (!name) {
+        this.quitToCharacterSelect();
+        return;
+      }
+      this.state.gamePaused = false;
+      this.ui.showPause(false);
+      this._endRun(false);
+      this.selectCharacter(name);
+    }
+    /** @param {boolean} died */
+    _endRun(died) {
+      const s = this.state;
+      if (s.stats && s.selectedCharacterName) {
+        updateCharacterRecord(this.meta, {
+          character: s.selectedCharacterName,
+          level: s.stats.level,
+          time: s.elapsedSeconds,
+          kills: s.killCount,
+          wave: s.currentWave
+        });
+      }
+      if (died && s.stats) {
+      }
+      s.fullCleanup();
+      this.effects?.cleanup();
+      this.poisonPools?.clear();
+      this.skillRanges?.clear();
+      this.upgradePanel?.reset();
+      this.gearPanel?.reset();
+      this.gearLootFilter?.reset();
+      this.skillExecutor?.cleanup();
+      this.illusionClone?.cleanup();
+      this.characterPassives?.cleanup();
+      this.buffTracker?.clear();
+      this.ui?.updateBuffBar?.([]);
+      this.enemyProjectiles?.clearAll();
+      this.gearInventory = null;
+      if (died) s.gameOver = true;
+    }
+    togglePause() {
+      if (this.state.gamePaused) this.resumeGame();
+      else this.pauseGame();
+    }
+    pauseGame() {
+      const s = this.state;
+      if (s.gamePaused || s.gameOver) return;
+      s.gamePaused = true;
+      s.pauseTime = Date.now();
+      this.ui.showPause(true);
+      s.cancelAllAnimations();
+      this.enemyProjectiles?.clearAll();
+      s.enemies.forEach((e) => s.cancelAnimation(e.moveAnimationId));
+      s.bullets.forEach((b) => s.cancelAnimation(b.moveAnimationId));
+    }
+    resumeGame() {
+      const s = this.state;
+      if (!s.gamePaused) return;
+      s.gamePaused = false;
+      this.ui.showPause(false);
+      const elapsed = Date.now() - s.pauseTime;
+      s.lastAttackTime += elapsed;
+      s.timerStart += elapsed;
+      s.bossSpawnTime += elapsed;
+      s.eliteSpawnTime += elapsed;
+      s.rareEnemySpawnTime += elapsed;
+      s.normalSpawnTime += elapsed;
+      s.attackSpeedBuffTime += elapsed;
+      s.healthRegenTime += elapsed;
+      if (this.treasureEvents) this.treasureEvents.lastSpawnTime += elapsed;
+      s.enemies.forEach((e) => {
+        s.enemyAttackCooldown[e.id] = (s.enemyAttackCooldown[e.id] || 0) + elapsed;
+        this._startEnemyMovement(e);
+      });
+      s.bullets.forEach((b) => this._startBulletMovement(b));
+      this._startGameLoop();
+    }
+    _startGameLoop() {
+      if (this.state.gameLoopId) cancelAnimationFrame(this.state.gameLoopId);
+      const loop = () => {
+        this._tick();
+        this.state.gameLoopId = requestAnimationFrame(loop);
+        this.state.trackAnimation(this.state.gameLoopId);
+      };
+      loop();
+    }
+    _tick() {
+      const s = this.state;
+      if (s.gamePaused || s.gameOver) return;
+      const now = Date.now();
+      if (now - s.lastAttackTime >= 1e3 / s.stats.attackSpeed) {
+        const { x, y } = this.ui.getPlayerPosition();
+        this._attackNearestEnemy(x, y);
+      }
+      this._tickBuffs(now);
+      this.buffTracker?.tick(now);
+      this.ui?.updateBuffBar?.(this.buffTracker?.getActiveBuffs(now) || []);
+      this._tickTimer(now);
+      this._tickSpawns(now);
+      this._tickEnemyAttacks(now);
+      this._tickRegen(now);
+      this._tickStatusEffects(now);
+      this.skillExecutor?.tick(now);
+      this.characterPassives?.tick(now);
+      this.illusionClone?.tick(now);
+      this.poisonPools?.tick(now);
+      this.treasureEvents?.tick(now);
+      this.killStreak.tick(now);
+      this.skillRanges?.update(s.skillList);
+      this.enemyPopulation?.enforceCap(this);
+      if (s.stats.hp <= 0) {
+        s.gameOver = true;
+        s.cancelAllAnimations();
+        this.enemyProjectiles?.clearAll();
+        updateCharacterRecord(this.meta, {
+          character: s.selectedCharacterName,
+          level: s.stats.level,
+          time: s.elapsedSeconds,
+          kills: s.killCount,
+          wave: s.currentWave
+        });
+        this.ui.showGameOver(s.stats, s.elapsedSeconds, s.killCount, s.currentWave);
+        return;
+      }
+      this.ui.updateStats(s.stats, s.skillList);
+      this.ui.updateMeta(s.killCount, s.currentWave, this.killStreak.streak);
+      this._checkAchievements();
+    }
+    _checkAchievements() {
+      const s = this.state;
+      const equipped = this.gearInventory?.equipped || {};
+      const equippedRareCount = Object.values(equipped).filter((i) => i && (i.rarity === "rare" || i.rarity === "unique")).length;
+      const unlocked = evaluateAchievements(this.meta, {
+        killCount: s.killCount,
+        level: s.stats.level,
+        elapsedSeconds: s.elapsedSeconds,
+        bestStreak: this.killStreak.bestStreak,
+        treasuresOpened: this.treasureEvents?.treasuresOpened ?? 0,
+        itemsLooted: s.itemsLooted ?? 0,
+        equippedRareCount,
+        equippedGearCount: this.gearInventory?.getEquippedCount() ?? 0
+      });
+      unlocked.forEach((id) => this.ui.showAchievementUnlock(id));
+    }
+    _tickBuffs(now) {
+      const s = this.state;
+      const buffLevel = s.abilityList["Attack Speed Buff"].level;
+      if (buffLevel <= 0) return;
+      const elapsed = now - s.attackSpeedBuffTime;
+      if (elapsed >= s.attackSpeedBuffInterval) {
+        s.attackSpeedBuffTime = now;
+        this._grantBuff("Attack Speed Buff", now);
+      } else if (elapsed >= s.attackSpeedBuffDuration) {
+        this._removeBuff("Attack Speed Buff");
+      }
+    }
+    _grantBuff(name, now = Date.now()) {
+      const s = this.state;
+      if (s.stats.buffList[name]) this._removeBuff(name);
+      if (name === "Attack Speed Buff") {
+        const bonus = s.abilityList[name].level * s.stats.attackSpeed * 16 / 100;
+        s.stats.buffList[name] = bonus;
+        s.stats.attackSpeed += bonus;
+        const pct = Math.round(s.abilityList[name].level * 16);
+        this.buffTracker?.apply({
+          id: "attack-speed-buff",
+          name: "Attack Speed Buff",
+          icon: "\u26A1",
+          description: `+${pct}% attack speed`,
+          durationMs: s.attackSpeedBuffDuration,
+          now
+        });
+      }
+    }
+    _removeBuff(name) {
+      const s = this.state;
+      if (!s.stats.buffList[name]) return;
+      if (name === "Attack Speed Buff") {
+        s.stats.attackSpeed -= s.stats.buffList[name];
+        this.buffTracker?.remove("attack-speed-buff");
+      }
+      delete s.stats.buffList[name];
+    }
+    _tickTimer(now) {
+      const s = this.state;
+      if (now - s.timerStart < 1e3) return;
+      s.elapsedSeconds = Math.floor((now - s.timerStart) / 1e3);
+      this.ui.updateTimer(s.elapsedSeconds);
+      s.currentWave = getWaveNumber(s.elapsedSeconds);
+      s.currentDifficultyLevel = getDifficultyIndex(s.elapsedSeconds);
+      const maxDiff = Math.min(s.currentDifficultyLevel, BALANCE.maxDifficultyForSpawn);
+      if (s.previousWave !== s.currentWave) {
+        this.ui.showWaveAnnouncement(s.currentWave);
+        s.previousWave = s.currentWave;
+        s.previousDifficultyLevel = s.currentDifficultyLevel;
+        s.normalSpawnInterval = getSpawnIntervalMs("normal", maxDiff);
+        s.rareEnemySpawnInterval = getSpawnIntervalMs("rare", maxDiff);
+        s.eliteSpawnInterval = getSpawnIntervalMs("elite", maxDiff);
+        s.bossSpawnInterval = getSpawnIntervalMs("boss", maxDiff);
+      }
+    }
+    _tickSpawns(now) {
+      const s = this.state;
+      const elapsed = s.elapsedSeconds;
+      const pop = this.enemyPopulation;
+      if (pop?.shouldSpawnNow("boss", elapsed, s.bossSpawnTime, s.bossSpawnInterval, now)) {
+        s.bossSpawnTime = now;
+        this._spawnWithType("boss", pickEnemyType(s.currentDifficultyLevel));
+      }
+      if (pop?.shouldSpawnNow("elite", elapsed, s.eliteSpawnTime, s.eliteSpawnInterval, now)) {
+        s.eliteSpawnTime = now;
+        this._spawnWithType("elite", pickEnemyType(s.currentDifficultyLevel));
+      }
+      if (pop?.shouldSpawnNow("rare", elapsed, s.rareEnemySpawnTime, s.rareEnemySpawnInterval, now)) {
+        s.rareEnemySpawnTime = now;
+        this._spawnWithType("rare", pickEnemyType(s.currentDifficultyLevel));
+      }
+      if (pop?.shouldSpawnNow("normal", elapsed, s.normalSpawnTime, s.normalSpawnInterval, now)) {
+        s.normalSpawnTime = now;
+        this._spawnWithType("normal", pickEnemyType(s.currentDifficultyLevel));
+      }
+    }
+    /** Routes swarm to group spawn; dasher and others always spawn solo. */
+    _spawnWithType(rarity, enemyType) {
+      if (enemyType === "swarm") {
+        return this._spawnSwarmGroup(rarity);
+      }
+      return this._spawnEnemy(rarity, enemyType, { skipGroup: true });
+    }
+    _spawnSwarmGroup(rarity) {
+      const edge = Math.floor(Math.random() * 4);
+      const anchor = getEdgeSpawnAnchor(edge);
+      const count = rollSwarmGroupSize();
+      const positions = getSwarmGroupPositions(anchor.x, anchor.y, count);
+      let lead = null;
+      for (const at of positions) {
+        const spawned = this._spawnEnemy(rarity, "swarm", { at, skipGroup: true });
+        if (spawned && !lead) lead = spawned;
+      }
+      return lead;
+    }
+    _tickEnemyAttacks(now) {
+      this.state.enemies.forEach((enemy) => {
+        const last = this.state.enemyAttackCooldown[enemy.id] || 0;
+        if (now - last >= 1e3 / enemy.stats.attackSpeed) {
+          this.state.enemyAttackCooldown[enemy.id] = now;
+          this._enemyAttackPlayer(enemy);
+        }
+      });
+    }
+    _tickRegen(now) {
+      const s = this.state;
+      const regenBoost = s.abilityList["Regen To Damage"].level > 0 ? s.abilityList["Regen To Damage"].level * 20 / 100 : 0;
+      const interval = s.healthRegenInterval / (1 + regenBoost);
+      if (now - s.healthRegenTime >= interval) {
+        s.healthRegenTime = now;
+        s.stats.hp += s.stats.hpRegen;
+      }
+    }
+    _tickStatusEffects(now) {
+      const s = this.state;
+      Object.keys(s.statusEffects).forEach((enemyId) => {
+        const status = s.statusEffects[enemyId];
+        const enemy = s.enemies.find((e) => e.id === enemyId);
+        if (!enemy) {
+          delete s.statusEffects[enemyId];
+          return;
+        }
+        if (status.burn && now < status.burn.endTime) {
+          if (now - status.burn.lastTick >= 500) {
+            status.burn.lastTick = now;
+            const tickDmg = Math.max(1, Math.floor(status.burn.damagePerTick));
+            enemy.stats.hp -= tickDmg;
+            this.effects.spawnDamageNumber(
+              parseFloat(enemy.element.style.left),
+              parseFloat(enemy.element.style.top) - 2,
+              tickDmg,
+              false,
+              "fire"
+            );
+            this._updateEnemyHealthBar(enemy);
+            if (enemy.stats.hp <= 0) this._removeEnemy(enemy);
+          }
+        } else if (status.burn) {
+          this.effects.removeBurnAura(enemy.element);
+          delete status.burn;
+        }
+        if (status.freeze && now >= status.freeze.endTime) {
+          enemy.frozen = false;
+          enemy.stats.moveSpeed = enemy.baseMoveSpeed;
+          this.effects.removeFrostAura(enemy.element);
+          delete status.freeze;
+        }
+        if (status.slow && now >= status.slow.endTime) {
+          enemy.stats.moveSpeed = enemy.baseMoveSpeed;
+          if (!status.freeze || now >= status.freeze.endTime) {
+            this.effects.removeFrostAura(enemy.element);
+          }
+          delete status.slow;
+        }
+      });
+    }
+    _spawnEnemy(rarity, enemyType, spawnOpts = {}) {
+      const s = this.state;
+      const earlyTypeConfig = ENEMY_TYPES[enemyType];
+      if (earlyTypeConfig?.spawnable === false && !spawnOpts.splitFragment) return null;
+      if (!spawnOpts.bypassCap && !spawnOpts.skipGroup && enemyType === "swarm" && !spawnOpts.at) {
+        return this._spawnSwarmGroup(rarity);
+      }
+      if (!spawnOpts.bypassCap && this.enemyPopulation?.isAtCap()) return null;
+      if (!spawnOpts.at && spawnOpts.splitFragment) return null;
+      let x;
+      let y;
+      if (spawnOpts.at) {
+        x = spawnOpts.at.x;
+        y = spawnOpts.at.y;
+      } else {
+        const edge = Math.floor(Math.random() * 4);
+        switch (edge) {
+          case 0:
+            x = Math.random() * 100;
+            y = -2;
+            break;
+          case 1:
+            x = 102;
+            y = Math.random() * 100;
+            break;
+          case 2:
+            x = Math.random() * 100;
+            y = 102;
+            break;
+          default:
+            x = -2;
+            y = Math.random() * 100;
+            break;
+        }
+      }
+      const { stats, typeConfig, rarityConfig } = buildEnemyStats(
+        enemyType,
+        rarity,
+        s.currentDifficultyLevel
+      );
+      const el = document.createElement("div");
+      el.id = `enemy-${s.nextEnemyId++}`;
+      el.className = typeConfig.cssClass + rarityConfig.cssSuffix;
+      el.dataset.enemyType = typeConfig.type;
+      el.style.setProperty("--enemy-type-color", getEnemyTypeColor(typeConfig.type));
+      el.style.left = `${x}vw`;
+      el.style.top = `${y}vh`;
+      el.title = `${typeConfig.label} (${rarity})`;
+      el.insertAdjacentHTML("afterbegin", buildEnemyModelHtml(typeConfig));
+      const healthBar = document.createElement("div");
+      healthBar.className = "enemy-health-bar";
+      const healthFill = document.createElement("div");
+      healthFill.className = "enemy-health-bar-fill";
+      healthBar.appendChild(healthFill);
+      el.appendChild(healthBar);
+      this.ui.els.gameContainer.appendChild(el);
+      const enemy = {
+        id: el.id,
+        element: el,
+        stats,
+        typeConfig,
+        rarity,
+        spawnTime: Date.now(),
+        moveAnimationId: null,
+        frozen: false,
+        lastDashTime: 0,
+        dashing: false,
+        baseMoveSpeed: stats.moveSpeed
+      };
+      s.enemies.push(enemy);
+      s.enemyAttackCooldown[enemy.id] = 0;
+      this.effects?.playEnemySpawn(el);
+      this._startEnemyMovement(enemy);
+      return enemy;
+    }
+    /** Spawn a bonus treasure enemy with high rewards. */
+    spawnTreasureChest() {
+      const s = this.state;
+      const angle = Math.random() * Math.PI * 2;
+      const x = 50 + Math.cos(angle) * 38;
+      const y = 50 + Math.sin(angle) * 38;
+      const enemy = this._spawnEnemy("rare", "grunt");
+      if (!enemy) return;
+      enemy.isTreasure = true;
+      enemy.stats.exp = Math.floor(enemy.stats.exp * 5);
+      enemy.stats.hp = Math.floor(enemy.stats.hp * 0.6);
+      enemy.stats.maxHp = enemy.stats.hp;
+      enemy.element.classList.add("enemy-treasure");
+      enemy.element.style.left = `${x}vw`;
+      enemy.element.style.top = `${y}vh`;
+      enemy.element.title = "Treasure Chest";
+      this.ui.showTreasureHint();
+    }
+    _startEnemyMovement(enemy) {
+      const s = this.state;
+      if (enemy.moveAnimationId) s.cancelAnimation(enemy.moveAnimationId);
+      let ex = parseFloat(enemy.element.style.left);
+      let ey = parseFloat(enemy.element.style.top);
+      const animate = () => {
+        if (s.gamePaused || s.gameOver) return;
+        if (enemy.frozen) {
+          enemy.moveAnimationId = requestAnimationFrame(animate);
+          s.trackAnimation(enemy.moveAnimationId);
+          return;
+        }
+        const { x: px, y: py } = this.ui.getPlayerPosition();
+        const behavior = enemy.typeConfig.behavior;
+        const now = Date.now();
+        let speed = enemy.stats.moveSpeed;
+        if (behavior === "dash" && !enemy.dashing && now - enemy.lastDashTime >= (enemy.typeConfig.dashCooldown || 3e3)) {
+          enemy.dashing = true;
+          enemy.lastDashTime = now;
+          speed *= enemy.typeConfig.dashSpeed || 2.5;
+          const dashTimeout = setTimeout(() => {
+            enemy.dashing = false;
+          }, 400);
+          s.trackTimeout(dashTimeout);
+        }
+        const angle = Math.atan2(py - ey, px - ex);
+        const dist = distanceVw(ex, ey, px, py, window.innerWidth, window.innerHeight);
+        const stopRange = behavior === "ranged" ? (enemy.typeConfig.rangedRange || 180) * 0.6 : enemy.stats.attackRange;
+        if (dist > stopRange) {
+          ex += Math.cos(angle) * speed;
+          ey += Math.sin(angle) * speed;
+          enemy.element.style.left = `${ex}vw`;
+          enemy.element.style.top = `${ey}vh`;
+        }
+        enemy.moveAnimationId = requestAnimationFrame(animate);
+        s.trackAnimation(enemy.moveAnimationId);
+      };
+      animate();
+    }
+    _attackNearestEnemy(fromX, fromY, excludeTarget = null, remainingBounce = null, attackOpts = {}) {
+      const s = this.state;
+      let nearest = null;
+      let minDist = s.stats.attackRange;
+      s.enemies.forEach((enemy) => {
+        if (excludeTarget && enemy.id === excludeTarget.id) return;
+        const ex = parseFloat(enemy.element.style.left);
+        const ey = parseFloat(enemy.element.style.top);
+        const dist = distanceVw(fromX, fromY, ex, ey, window.innerWidth, window.innerHeight);
+        if (dist <= s.stats.attackRange && dist < minDist) {
+          minDist = dist;
+          nearest = enemy;
+        }
+      });
+      if (!nearest) return;
+      if (!excludeTarget && !attackOpts.skipPlayerAnim) {
+        s.lastAttackTime = Date.now();
+        this.effects.triggerAttackAnimation(this.ui.els.player);
+        this.effects.flashAttackRange(this.ui.els.attackRange);
+      }
+      this._fireBullet(fromX, fromY, nearest, excludeTarget, remainingBounce, attackOpts);
+    }
+    _fireBullet(fromX, fromY, target, excludeTarget, remainingBounce, attackOpts = {}) {
+      const s = this.state;
+      const projectileClass = attackOpts.projectileClass || "projectile-physical";
+      const el = document.createElement("div");
+      el.className = `projectile ${projectileClass}`;
+      el.innerHTML = '<span class="projectile-core"></span><span class="projectile-tail"></span>';
+      el.style.left = `${fromX}vw`;
+      el.style.top = `${fromY}vh`;
+      this.ui.els.gameContainer.appendChild(el);
+      const bullet = {
+        element: el,
+        remainingBounce: remainingBounce ?? s.abilityList.Bounce.level,
+        targetEnemy: target,
+        excludeTarget,
+        moveAnimationId: null,
+        elementType: "physical",
+        damageMultiplier: attackOpts.damageMultiplier ?? 1,
+        attackOpts
+      };
+      s.bullets.push(bullet);
+      const timeoutId = setTimeout(() => {
+        s.cancelAnimation(bullet.moveAnimationId);
+        bullet.element.remove();
+        const idx = s.bullets.indexOf(bullet);
+        if (idx !== -1) s.bullets.splice(idx, 1);
+        s.pendingTimeouts.delete(timeoutId);
+      }, 5e3);
+      s.trackTimeout(timeoutId);
+      this._startBulletMovement(bullet);
+    }
+    _startBulletMovement(bullet) {
+      const s = this.state;
+      const target = bullet.targetEnemy;
+      if (!target || !target.element.parentElement) {
+        bullet.element.remove();
+        const idx = s.bullets.indexOf(bullet);
+        if (idx !== -1) s.bullets.splice(idx, 1);
+        return;
+      }
+      if (bullet.moveAnimationId) s.cancelAnimation(bullet.moveAnimationId);
+      let bx = parseFloat(bullet.element.style.left);
+      let by = parseFloat(bullet.element.style.top);
+      const tx = parseFloat(target.element.style.left);
+      const ty = parseFloat(target.element.style.top);
+      const angle = Math.atan2(ty - by, tx - bx);
+      const speed = 1.2;
+      const animate = () => {
+        if (s.gamePaused || s.gameOver) return;
+        bx += Math.cos(angle) * speed;
+        by += Math.sin(angle) * speed;
+        bullet.element.style.left = `${bx}vw`;
+        bullet.element.style.top = `${by}vh`;
+        let hit = null;
+        for (const enemy of s.enemies) {
+          if (bullet.excludeTarget && enemy.id === bullet.excludeTarget.id) continue;
+          const ex = parseFloat(enemy.element.style.left);
+          const ey = parseFloat(enemy.element.style.top);
+          const ew = enemy.element.offsetWidth * 100 / window.innerWidth;
+          const eh = enemy.element.offsetHeight * 100 / window.innerHeight;
+          if (Math.abs(bx - ex) < ew / 2 && Math.abs(by - ey) < eh / 2 && enemy.stats.hp > 0) {
+            hit = enemy;
+            break;
+          }
+        }
+        if (hit) {
+          this._dealDamageToEnemy(
+            hit,
+            false,
+            bullet.remainingBounce > 0,
+            bullet.damageMultiplier ?? 1
+          );
+          if (bullet.remainingBounce > 0) {
+            bullet.remainingBounce--;
+            this._attackNearestEnemy(bx, by, hit, bullet.remainingBounce, bullet.attackOpts || {});
+          }
+          s.cancelAnimation(bullet.moveAnimationId);
+          bullet.element.remove();
+          const idx = s.bullets.indexOf(bullet);
+          if (idx !== -1) s.bullets.splice(idx, 1);
+        } else {
+          bullet.moveAnimationId = requestAnimationFrame(animate);
+          s.trackAnimation(bullet.moveAnimationId);
+        }
+      };
+      animate();
+    }
+    _getAbilityLevels() {
+      const a = this.state.abilityList;
+      return {
+        reflectLevel: a.Reflect.level,
+        bounceLevel: a.Bounce.level,
+        hpToDamageLevel: a["HP To Damage"].level,
+        regenToDamageLevel: a["Regen To Damage"].level,
+        lifestealLevel: a.Lifesteal.level,
+        damageReductionLevel: a["Damage Reduction"].level
+      };
+    }
+    _dealDamageToEnemy(hitEnemy, isReflect, isBounce, damageMultiplier = 1) {
+      const s = this.state;
+      if (rollEnemyEvade(hitEnemy.stats.evadeChance)) {
+        const ex2 = parseFloat(hitEnemy.element.style.left);
+        const ey2 = parseFloat(hitEnemy.element.style.top);
+        this.effects.spawnDamageNumber(ex2, ey2 - 2, "MISS", false);
+        return { damage: 0, isCritical: false, missed: true };
+      }
+      const abilities = this._getAbilityLevels();
+      const { damage, isCritical } = calculatePlayerDamage({
+        physicalDamage: Math.max(1, Math.floor(s.stats.physicalDamage * damageMultiplier)),
+        targetArmour: hitEnemy.stats.armour,
+        maxHp: s.stats.maxHp,
+        hpRegen: s.stats.hpRegen,
+        isReflect,
+        isBounce,
+        critChance: s.stats.critChance,
+        critMultiplier: s.stats.critMultiplier,
+        abilities
+      });
+      hitEnemy.stats.hp -= damage;
+      const ex = parseFloat(hitEnemy.element.style.left);
+      const ey = parseFloat(hitEnemy.element.style.top);
+      this.effects.triggerEnemyHitAnimation(hitEnemy.element);
+      this.effects.spawnHitEffect(ex, ey, isCritical ? "crit" : "physical");
+      this.effects.spawnDamageNumber(ex, ey - 2, damage, isCritical);
+      this._updateEnemyHealthBar(hitEnemy);
+      if (hitEnemy.stats.hp <= 0) {
+        this._removeEnemy(hitEnemy);
+      } else if (!isReflect && !isBounce) {
+        const heal = calculateLifesteal({ damage, lifestealLevel: abilities.lifestealLevel });
+        if (heal > 0) {
+          s.stats.hp += heal;
+        }
+      }
+      const result = { damage, isCritical };
+      if (!isReflect && !isBounce) {
+        this.characterPassives?.onBasicHit(hitEnemy, result);
+      }
+      return result;
+    }
+    /** Skill damage — bypasses bounce penalty, uses element for visuals */
+    _dealSkillDamageToEnemy(hitEnemy, damage, element, isCrit = false) {
+      const s = this.state;
+      if (rollEnemyEvade(hitEnemy.stats.evadeChance)) {
+        const ex2 = parseFloat(hitEnemy.element.style.left);
+        const ey2 = parseFloat(hitEnemy.element.style.top);
+        this.effects.spawnDamageNumber(ex2, ey2 - 2, "MISS", false);
+        return { damage: 0, missed: true };
+      }
+      damage = this.characterPassives?.modifySkillDamage(damage, element) ?? damage;
+      damage = Math.max(1, Math.floor(damage));
+      hitEnemy.stats.hp -= damage;
+      const ex = parseFloat(hitEnemy.element.style.left);
+      const ey = parseFloat(hitEnemy.element.style.top);
+      this.effects.triggerEnemyHitAnimation(hitEnemy.element);
+      this.effects.spawnHitEffect(ex, ey, element);
+      this.effects.spawnDamageNumber(ex, ey - 2, damage, isCrit, element);
+      this._updateEnemyHealthBar(hitEnemy);
+      if (hitEnemy.stats.hp <= 0) {
+        this._removeEnemy(hitEnemy);
+      }
+    }
+    _applyBurn(enemy, totalBurnDamage, duration) {
+      if (totalBurnDamage <= 0) return;
+      const s = this.state;
+      this.effects.applyBurnAura(enemy.element);
+      if (!s.statusEffects[enemy.id]) s.statusEffects[enemy.id] = {};
+      s.statusEffects[enemy.id].burn = {
+        damagePerTick: totalBurnDamage / 6,
+        endTime: Date.now() + duration,
+        lastTick: Date.now()
+      };
+    }
+    _applySlow(enemy, slowPercent, duration) {
+      const s = this.state;
+      this.effects.applyFrostAura(enemy.element);
+      enemy.stats.moveSpeed = enemy.baseMoveSpeed * (1 - slowPercent / 100);
+      if (!s.statusEffects[enemy.id]) s.statusEffects[enemy.id] = {};
+      s.statusEffects[enemy.id].slow = { endTime: Date.now() + duration };
+    }
+    _applyFreeze(enemy, duration) {
+      const s = this.state;
+      enemy.frozen = true;
+      if (!s.statusEffects[enemy.id]) s.statusEffects[enemy.id] = {};
+      s.statusEffects[enemy.id].freeze = { endTime: Date.now() + duration };
+    }
+    _enemyAttackPlayer(enemy) {
+      const s = this.state;
+      const { x: px, y: py } = this.ui.getPlayerPosition();
+      const ex = parseFloat(enemy.element.style.left);
+      const ey = parseFloat(enemy.element.style.top);
+      const dist = distanceVw(ex, ey, px, py, window.innerWidth, window.innerHeight);
+      if (enemy.typeConfig.behavior === "ranged" && dist <= (enemy.typeConfig.rangedRange || 220)) {
+        this.effects.triggerEnemyAttackAnimation(enemy.element, px, py);
+        this._fireEnemyProjectile(enemy);
+        return;
+      }
+      if (dist <= enemy.stats.attackRange) {
+        this.effects.triggerEnemyAttackAnimation(enemy.element, px, py);
+        if (rollChance(s.stats.evade)) return;
+        const abilities = this._getAbilityLevels();
+        const damage = calculatePlayerIncomingDamage({
+          enemyDamage: enemy.stats.physicalDamage,
+          playerArmour: s.stats.armour,
+          damageReductionLevel: abilities.damageReductionLevel,
+          ignoreArmour: Boolean(enemy.stats.ignoreArmour)
+        });
+        s.stats.hp -= this.characterPassives?.absorbDamage(damage) ?? damage;
+        this._onPlayerDamaged();
+        if (s.abilityList.Reflect.level > 0) {
+          this._dealDamageToEnemy(enemy, true, false);
+        }
+      }
+    }
+    _fireEnemyProjectile(enemy) {
+      const s = this.state;
+      const el = document.createElement("div");
+      el.className = "enemy-projectile";
+      const ex = parseFloat(enemy.element.style.left);
+      const ey = parseFloat(enemy.element.style.top);
+      el.style.left = `${ex}vw`;
+      el.style.top = `${ey}vh`;
+      this.ui.els.gameContainer.appendChild(el);
+      const ignoreArmour = Boolean(enemy.stats.ignoreArmour);
+      this.enemyProjectiles.track(el, () => {
+        const { x: px, y: py } = this.ui.getPlayerPosition();
+        const bx = parseFloat(el.style.left);
+        const by = parseFloat(el.style.top);
+        const angle = Math.atan2(py - by, px - bx);
+        const nx = bx + Math.cos(angle) * 1.5;
+        const ny = by + Math.sin(angle) * 1.5;
+        el.style.left = `${nx}vw`;
+        el.style.top = `${ny}vh`;
+        const dist = distanceVw(nx, ny, px, py, window.innerWidth, window.innerHeight);
+        if (dist < 30) {
+          if (!rollChance(s.stats.evade)) {
+            const abilities = this._getAbilityLevels();
+            const damage = calculatePlayerIncomingDamage({
+              enemyDamage: enemy.stats.physicalDamage,
+              playerArmour: s.stats.armour,
+              damageReductionLevel: abilities.damageReductionLevel,
+              ignoreArmour
+            });
+            s.stats.hp -= this.characterPassives?.absorbDamage(damage) ?? damage;
+            this._onPlayerDamaged();
+          }
+          return false;
+        }
+        return true;
+      });
+    }
+    _removeEnemy(enemy) {
+      this._forceRemoveEnemy(enemy, true);
+    }
+    /** @param {object} enemy @param {boolean} grantRewards */
+    _forceRemoveEnemy(enemy, grantRewards) {
+      const s = this.state;
+      const ex = parseFloat(enemy.element.style.left);
+      const ey = parseFloat(enemy.element.style.top);
+      if (grantRewards) {
+        s.killCount++;
+        const now = Date.now();
+        const streakBonus = this.killStreak.recordKill(
+          now,
+          EXP_CONFIG.streakBonusPerKill,
+          EXP_CONFIG.streakBonusCap
+        );
+        const expGain = calculateExpFromKill(
+          enemy.stats.exp,
+          this.characterPassives?.modifyExpGain(s.stats.expGain) ?? s.stats.expGain,
+          streakBonus,
+          {
+            waveIndex: s.currentDifficultyLevel,
+            enemyType: enemy.typeConfig?.type || enemy.element?.dataset?.enemyType || "grunt"
+          }
+        );
+        s.stats.exp += expGain;
+        this.effects.spawnExpOrbs(ex, ey);
+        this.ui.flashHudBar("exp");
+        if (enemy.isTreasure) this.treasureEvents?.recordOpen();
+        this._tryDropGear(enemy, ex, ey);
+        if (s.stats.exp >= s.stats.expThreshold) this._afterExpChange();
+        this._checkAchievements();
+      }
+      this.effects.spawnDeathExplosion(ex, ey, enemy.rarity);
+      delete s.statusEffects[enemy.id];
+      handleEnemyDeathEffects(this, enemy, ex, ey, grantRewards);
+      s.cancelAnimation(enemy.moveAnimationId);
+      delete s.enemyAttackCooldown[enemy.id];
+      enemy.element.remove();
+      const idx = s.enemies.indexOf(enemy);
+      if (idx !== -1) s.enemies.splice(idx, 1);
+    }
+    /** @param {object} enemy @param {number} x @param {number} y */
+    _tryDropGear(enemy, x, y) {
+      const category = enemy.isTreasure ? "treasure" : enemy.rarity;
+      if (!shouldDropGear(category)) return;
+      const ilvl = computeDropIlvl(
+        this.state.stats.level,
+        this.state.currentDifficultyLevel
+      );
+      const item = rollLootDrop(category, ilvl);
+      if (this.gearLootFilter?.shouldAutoDelete(item.rarity)) {
+        return;
+      }
+      if (!this.gearInventory.addItem(item)) return;
+      this.state.itemsLooted += 1;
+      this.effects.spawnLootBurst(x, y);
+      const r = RARITY_CONFIG2[item.rarity];
+      this.ui.showGearLoot(item.name, r.cssClass);
+      this.gearPanel?.pulseNewLoot();
+      this.gearPanel?.refresh();
+    }
+    _onPlayerDamaged() {
+      flashPlayerSprite(this.ui.els.player, "player-hit", 200);
+      shakePlayerAnchor(this.ui.els.playerAnchor);
+      this.ui.flashHudBar("hp");
+    }
+    _equipGear(itemId) {
+      if (!this.gearInventory?.equip(itemId, this.state.stats)) return;
+      this.ui.updateStats(this.state.stats, this.state.skillList);
+      this.ui.updateAttackRange(this.state.stats.attackRange);
+      this.gearPanel?.refresh();
+      this._checkAchievements();
+    }
+    _unequipGear(slot) {
+      if (!this.gearInventory?.unequip(slot, this.state.stats)) return;
+      this.ui.updateStats(this.state.stats, this.state.skillList);
+      this.ui.updateAttackRange(this.state.stats.attackRange);
+      this.gearPanel?.refresh();
+    }
+    _deleteGear(itemId) {
+      if (!this.gearInventory?.removeItem(itemId)) return;
+      this.gearPanel?.refresh();
+    }
+    _bulkDeleteGear(rarity) {
+      const removed = this.gearInventory?.removeByRarities([rarity]) ?? 0;
+      if (removed > 0) this.gearPanel?.refresh();
+    }
+    /** Bank earned levels and refresh the non-blocking upgrade panel. */
+    _afterExpChange() {
+      const s = this.state;
+      bankExpLevelUps(s);
+      this._refreshUpgradePanel();
+      this.ui.updateStats(s.stats, s.skillList);
+    }
+    _refreshUpgradePanel() {
+      const s = this.state;
+      const pendingList = s.pendingUpgrades || [];
+      const count = pendingList.length;
+      const summary = summarizeUpgradeQueue(pendingList);
+      this.upgradePanel?.updateBadge(count);
+      this.upgradePanel?.updateQueueSummary(summary, count);
+      if (count <= 0) {
+        this._activeUpgradeCategory = null;
+        this._upgradeOptionCache = { stat: null, skill: null };
+        this.upgradePanel?.showEmptyState();
+        return;
+      }
+      if (this._activeUpgradeCategory) {
+        const options = this._buildUpgradeOptions(this._activeUpgradeCategory);
+        const remaining = summary[this._activeUpgradeCategory] || 0;
+        if (options.length === 0 || remaining <= 0) {
+          this._clearUpgradeCache(this._activeUpgradeCategory);
+          this._activeUpgradeCategory = null;
+        } else {
+          this.upgradePanel?.renderChoices(
+            this._activeUpgradeCategory,
+            options,
+            () => {
+              this._clearUpgradeCache(this._activeUpgradeCategory);
+              this._activeUpgradeCategory = null;
+              this._refreshUpgradePanel();
+            },
+            remaining
+          );
+          return;
+        }
+      }
+      this.upgradePanel?.renderCategoryMenu(summary);
+    }
+    /** @param {'stat'|'skill'|'ability'} type */
+    _buildUpgradeOptions(type) {
+      const s = this.state;
+      if (type === "stat") {
+        if (this._upgradeOptionCache?.stat) {
+          return buildStatUpgradeOptionsFromKeys(s.statsList, this._upgradeOptionCache.stat);
+        }
+        return buildStatUpgradeOptions(s.statsList);
+      }
+      if (type === "skill") {
+        if (this._upgradeOptionCache?.skill) {
+          return buildSkillUpgradeOptionsFromKeys(s.skillList, this._upgradeOptionCache.skill);
+        }
+        return buildSkillUpgradeOptions(s.skillList);
+      }
+      return buildAbilityUpgradeOptions(
+        s.abilityList,
+        (name) => formatAbilityDescription(s.abilityList[name])
+      );
+    }
+    /** @param {'stat'|'skill'|'ability'} type */
+    _clearUpgradeCache(type) {
+      if (!this._upgradeOptionCache) return;
+      if (type === "stat") this._upgradeOptionCache.stat = null;
+      if (type === "skill") this._upgradeOptionCache.skill = null;
+    }
+    /** @param {'stat'|'skill'|'ability'} type */
+    _ensureUpgradeCache(type) {
+      if (!this._upgradeOptionCache) {
+        this._upgradeOptionCache = { stat: null, skill: null };
+      }
+      const s = this.state;
+      if (type === "stat" && !this._upgradeOptionCache.stat) {
+        this._upgradeOptionCache.stat = rollStatUpgradeKeys(s.statsList);
+      }
+      if (type === "skill" && !this._upgradeOptionCache.skill) {
+        this._upgradeOptionCache.skill = rollSkillUpgradeKeys(s.skillList);
+      }
+    }
+    /** @param {'stat'|'skill'|'ability'} type */
+    _selectUpgradeCategory(type) {
+      const summary = summarizeUpgradeQueue(this.state.pendingUpgrades || []);
+      if (!summary[type]) return;
+      this._ensureUpgradeCache(type);
+      this._activeUpgradeCategory = type;
+      this._refreshUpgradePanel();
+    }
+    /** Spend one banked upgrade point while the game keeps running. */
+    _spendUpgrade(choiceKey) {
+      const s = this.state;
+      const type = this._activeUpgradeCategory;
+      if (!type) return;
+      const consumed = consumePendingUpgradeByType(s, type);
+      if (!consumed) return;
+      if (type === "stat") {
+        applyStatUpgrade(choiceKey, s.stats, s.originalStats, s.statsList);
+      } else if (type === "ability") {
+        s.abilityList[choiceKey].level += 1;
+      } else if (type === "skill") {
+        s.skillList[choiceKey].level += 1;
+        syncPlayerSkillLevels(s.stats.skills, s.skillList);
+      }
+      const summary = summarizeUpgradeQueue(s.pendingUpgrades || []);
+      this._clearUpgradeCache(type);
+      if (!summary[type]) {
+        this._activeUpgradeCategory = null;
+      } else if (type === "stat" || type === "skill") {
+        this._ensureUpgradeCache(type);
+      }
+      this.ui.updateAttackRange(s.stats.attackRange);
+      this._refreshUpgradePanel();
+      this.ui.updateStats(s.stats, s.skillList);
+      if (s.stats.exp >= s.stats.expThreshold) {
+        this._afterExpChange();
+      }
+    }
+    _updateEnemyHealthBar(enemy) {
+      const fill = enemy.element.querySelector(".enemy-health-bar-fill");
+      if (fill) {
+        fill.style.width = `${enemy.stats.hp / enemy.stats.maxHp * 100}%`;
+      }
+    }
+  };
+
+  // js/main.js
+  document.addEventListener("DOMContentLoaded", () => {
+    new Game();
+  });
+})();
+//# sourceMappingURL=game.bundle.js.map

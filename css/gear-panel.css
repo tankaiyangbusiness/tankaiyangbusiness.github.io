@@ -1,0 +1,654 @@
+/* ===== Gear panel ===== */
+.gear-panel {
+    position: fixed;
+    left: 1rem;
+    bottom: 4.5rem;
+    z-index: 25;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+    max-width: min(248px, calc(100vw - 2rem));
+    pointer-events: none;
+}
+
+.gear-panel > * { pointer-events: auto; }
+
+.gear-panel-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.65rem 1.1rem;
+    background: rgba(15, 23, 42, 0.92);
+    border: 1px solid rgba(167, 139, 250, 0.45);
+    border-radius: 10px;
+    color: #c4b5fd;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.95rem;
+    cursor: pointer;
+}
+
+.gear-panel-badge {
+    min-width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #a78bfa, #7c3aed);
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.82rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.gear-panel-badge-hidden { display: none; }
+
+.gear-panel-body {
+    width: 100%;
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    background: rgba(15, 23, 42, 0.94);
+    border: 1px solid rgba(167, 139, 250, 0.35);
+    border-radius: 12px;
+    transition: max-height 0.35s ease, opacity 0.25s, padding 0.25s;
+    padding: 0 0.75rem;
+}
+
+.gear-panel-expanded .gear-panel-body {
+    max-height: 58vh;
+    opacity: 1;
+    padding: 0.6rem;
+    overflow-y: auto;
+}
+
+.gear-slots {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-areas:
+        "pad-tl top top-right"
+        "mid-left mid pad-mr"
+        "bot-left bot bot-right";
+    gap: 0.4rem;
+    margin-bottom: 0.65rem;
+}
+
+.gear-doll-cell[data-area="pad-tl"] { grid-area: pad-tl; }
+.gear-doll-cell[data-area="top"] { grid-area: top; }
+.gear-doll-cell[data-area="top-right"] { grid-area: top-right; }
+.gear-doll-cell[data-area="mid-left"] { grid-area: mid-left; }
+.gear-doll-cell[data-area="mid"] { grid-area: mid; }
+.gear-doll-cell[data-area="pad-mr"] { grid-area: pad-mr; }
+.gear-doll-cell[data-area="bot-left"] { grid-area: bot-left; }
+.gear-doll-cell[data-area="bot"] { grid-area: bot; }
+.gear-doll-cell[data-area="bot-right"] { grid-area: bot-right; }
+
+.gear-doll-empty {
+    visibility: hidden;
+    min-height: 0;
+    padding: 0;
+}
+
+.gear-slot {
+    height: 52px;
+    max-height: 52px;
+    overflow: hidden;
+    padding: 0.25rem 0.3rem;
+    border-radius: 8px;
+    border: 1px solid rgba(100, 116, 139, 0.45);
+    background: rgba(30, 41, 59, 0.75);
+    font-size: 0.78rem;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    gap: 0.1rem;
+    box-sizing: border-box;
+}
+
+.gear-slot-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    color: #94a3b8;
+}
+
+.gear-slot-svg {
+    width: 1.35rem;
+    height: 1.35rem;
+    display: block;
+}
+
+.gear-slot-filled .gear-slot-icon {
+    color: inherit;
+}
+
+.gear-slot-label {
+    display: none;
+}
+
+.gear-slot-empty {
+    opacity: 0.82;
+    filter: grayscale(0.3);
+    background: rgba(30, 41, 59, 0.78);
+    border-color: rgba(148, 163, 184, 0.55);
+}
+
+.gear-slot-empty .gear-slot-icon {
+    opacity: 0.9;
+    color: #94a3b8;
+}
+
+.gear-slot-empty .gear-slot-label {
+    display: block;
+    font-size: 0.58rem;
+    color: #94a3b8;
+    text-transform: uppercase;
+}
+
+.gear-slot-filled {
+    border-width: 2px;
+    border-color: var(--gear-rarity-color, #64748b);
+    box-shadow: inset 0 0 12px color-mix(in srgb, var(--gear-rarity-color) 15%, transparent);
+}
+
+.gear-unequip-btn {
+    position: absolute;
+    top: 1px;
+    right: 3px;
+    background: none;
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+    font-size: 0.95rem;
+    line-height: 1;
+    padding: 0;
+}
+
+.gear-normal { border-color: #94a3b8; color: #e2e8f0; }
+.gear-magic { border-color: #3b82f6; color: #93c5fd; }
+.gear-rare { border-color: #eab308; color: #fde047; }
+.gear-unique { border-color: #ea580c; color: #fdba74; background: rgba(234, 88, 12, 0.12); }
+
+.gear-inv-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.gear-actions-section {
+    margin-top: 0.45rem;
+    padding: 0.45rem 0.5rem;
+    border-radius: 8px;
+    border: 1px solid rgba(100, 116, 139, 0.35);
+    background: rgba(2, 6, 23, 0.55);
+}
+
+.gear-bulk-section,
+.gear-filter-section {
+    border-color: rgba(100, 116, 139, 0.3);
+    background: rgba(15, 23, 42, 0.65);
+}
+
+.gear-section-title {
+    margin: 0 0 0.2rem;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.72rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: #94a3b8;
+}
+
+.gear-section-hint {
+    margin: 0 0 0.45rem;
+    font-size: 0.72rem;
+    color: #64748b;
+    line-height: 1.35;
+}
+
+.gear-bulk-section .gear-bulk-confirm {
+    margin-top: 0.45rem;
+}
+
+.gear-inv-toolbar-label {
+    font-size: 0.72rem;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-right: 0.15rem;
+}
+
+.gear-bulk-btn {
+    padding: 0.22rem 0.5rem;
+    border-radius: 5px;
+    border: 1px solid;
+    font-family: inherit;
+    font-size: 0.68rem;
+    font-weight: 600;
+    cursor: pointer;
+    opacity: 0.95;
+}
+
+.gear-bulk-btn.gear-normal {
+    background: rgba(226, 232, 240, 0.18);
+    border-color: #e2e8f0;
+    color: #f8fafc;
+}
+
+.gear-bulk-btn.gear-magic {
+    background: rgba(59, 130, 246, 0.22);
+    border-color: #60a5fa;
+    color: #bfdbfe;
+}
+
+.gear-bulk-btn.gear-rare {
+    background: rgba(234, 179, 8, 0.2);
+    border-color: #eab308;
+    color: #fde047;
+}
+
+.gear-bulk-btn:hover {
+    filter: brightness(1.12);
+    opacity: 1;
+}
+
+.gear-bulk-btn::after {
+    content: ' \26a0';
+    font-size: 0.6rem;
+    opacity: 0.65;
+}
+
+.gear-inventory-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
+    gap: 0.35rem;
+    max-height: 22vh;
+    margin-bottom: 0.5rem;
+    overflow-y: auto;
+    padding: 0.15rem 0.35rem 0.15rem 0.15rem;
+    scrollbar-width: thin;
+    scrollbar-color: #a78bfa rgba(15, 23, 42, 0.85);
+}
+
+.gear-inventory-list::-webkit-scrollbar {
+    width: 11px;
+}
+
+.gear-inventory-list::-webkit-scrollbar-track {
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.95), rgba(30, 27, 75, 0.9));
+    border-radius: 6px;
+    border: 1px solid rgba(124, 58, 237, 0.35);
+    box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.5);
+}
+
+.gear-inventory-list::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #c4b5fd, #7c3aed 45%, #5b21b6);
+    border-radius: 6px;
+    border: 2px solid rgba(15, 23, 42, 0.85);
+    box-shadow: 0 0 8px rgba(167, 139, 250, 0.45);
+}
+
+.gear-inventory-list::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #ddd6fe, #8b5cf6 45%, #6d28d9);
+}
+
+.gear-inv-item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    aspect-ratio: 1;
+    min-height: 44px;
+    padding: 0.35rem;
+    border-radius: 8px;
+    border: 2px solid var(--gear-rarity-color, #64748b);
+    background: rgba(15, 23, 42, 0.85);
+    cursor: pointer;
+    color: var(--gear-rarity-color, #e2e8f0);
+    box-sizing: border-box;
+    box-shadow: inset 0 0 8px color-mix(in srgb, var(--gear-rarity-color) 12%, transparent);
+}
+
+.gear-inv-item:hover {
+    filter: brightness(1.15);
+    box-shadow: 0 0 10px color-mix(in srgb, var(--gear-rarity-color) 40%, transparent);
+}
+
+.gear-inv-selected {
+    outline: 2px solid #38bdf8;
+    outline-offset: 1px;
+}
+
+.gear-inv-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+}
+
+.gear-inv-icon .gear-slot-svg {
+    width: 1.25rem;
+    height: 1.25rem;
+}
+
+.gear-inv-rarity-dot {
+    position: absolute;
+    bottom: 3px;
+    right: 3px;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--gear-rarity-color);
+    box-shadow: 0 0 4px var(--gear-rarity-color);
+}
+
+/* Colorful slot emoji icons */
+.gear-emoji {
+    font-size: 1.45rem;
+    line-height: 1;
+    display: inline-block;
+    filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.45));
+}
+
+.gear-icon-weapon { transform: scale(1.05); }
+.gear-icon-ring { transform: scale(1.1); }
+.gear-icon-amulet { transform: scale(1.05); }
+
+.gear-slot-svg {
+    width: 1.35rem;
+    height: 1.35rem;
+    display: block;
+    color: #c4b5fd;
+    filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.45));
+}
+
+.gear-slot-icon .gear-slot-svg {
+    width: 1.25rem;
+    height: 1.25rem;
+}
+
+.gear-inv-icon .gear-slot-svg {
+    width: 1.2rem;
+    height: 1.2rem;
+}
+
+.gear-slot-icon .gear-emoji {
+    font-size: 1.35rem;
+}
+
+.gear-inv-icon .gear-emoji {
+    font-size: 1.3rem;
+}
+
+.gear-empty {
+    margin: 0;
+    grid-column: 1 / -1;
+    color: #64748b;
+    font-size: 0.88rem;
+    text-align: center;
+}
+
+.gear-panel-loot-pulse .gear-panel-toggle {
+    animation: gear-pulse 0.6s ease;
+}
+
+@keyframes gear-pulse {
+    0%, 100% { box-shadow: none; }
+    50% { box-shadow: 0 0 20px rgba(167, 139, 250, 0.6); }
+}
+
+.gear-loot-toast {
+    position: absolute;
+    bottom: 8rem;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(15, 23, 42, 0.92);
+    border: 1px solid rgba(167, 139, 250, 0.5);
+    border-radius: 8px;
+    padding: 0.5rem 1rem;
+    font-size: 0.92rem;
+    z-index: 20;
+    opacity: 0;
+    transition: opacity 0.25s;
+    pointer-events: none;
+}
+
+.gear-loot-toast.toast-visible { opacity: 1; }
+
+.gear-loot-toast.gear-magic { border-color: #3b82f6; color: #93c5fd; }
+.gear-loot-toast.gear-rare { border-color: #eab308; color: #fde047; }
+.gear-loot-toast.gear-unique { border-color: #ea580c; color: #fdba74; }
+
+/* ===== Floating item tooltip ===== */
+.gear-tooltip {
+    position: fixed;
+    z-index: 200;
+    pointer-events: none;
+    min-width: 180px;
+    max-width: 260px;
+    filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.55));
+}
+
+.gear-tip-inner {
+    background: linear-gradient(165deg, rgba(15, 23, 42, 0.98) 0%, rgba(2, 6, 23, 0.98) 100%);
+    border: 1px solid var(--tip-rarity, rgba(100, 116, 139, 0.5));
+    border-radius: 10px;
+    padding: 0.65rem 0.75rem;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 0.88rem;
+    box-shadow: 0 0 14px color-mix(in srgb, var(--tip-rarity) 25%, transparent);
+}
+
+.gear-tip-inner.gear-magic { border-color: rgba(59, 130, 246, 0.65); }
+.gear-tip-inner.gear-rare { border-color: rgba(234, 179, 8, 0.65); }
+.gear-tip-inner.gear-unique { border-color: rgba(234, 88, 12, 0.7); box-shadow: 0 0 16px rgba(234, 88, 12, 0.2); }
+
+.gear-tip-header {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    margin-bottom: 0.35rem;
+}
+
+.gear-tip-name {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.82rem;
+    color: #f1f5f9;
+    line-height: 1.25;
+}
+
+.gear-tip-ilvl {
+    font-size: 0.72rem;
+    color: #64748b;
+    letter-spacing: 0.03em;
+}
+
+.gear-tip-divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.35), transparent);
+    margin-bottom: 0.4rem;
+}
+
+.gear-tip-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+}
+
+.gear-tip-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.12rem;
+}
+
+.gear-tip-section-title {
+    font-size: 0.7rem;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.1rem;
+}
+
+.gear-tip-line {
+    line-height: 1.45;
+    font-size: 0.84rem;
+    color: #cbd5e1;
+}
+
+.gear-tip-muted {
+    color: #64748b;
+    font-style: italic;
+}
+
+.gear-tip-tier {
+    font-size: 0.68rem;
+    color: #94a3b8;
+    letter-spacing: 0.04em;
+}
+
+/* Compare tooltip — hovered item vs equipped */
+.gear-tip-compare {
+    display: flex;
+    gap: 0.55rem;
+    align-items: flex-start;
+}
+
+.gear-tip-compare-col {
+    flex: 1;
+    min-width: 0;
+}
+
+.gear-tip-compare-equipped .gear-tip-inner {
+    border-color: rgba(100, 116, 139, 0.55);
+}
+
+.gear-tip-empty-slot .gear-tip-name {
+    color: #94a3b8;
+}
+
+.gear-tip-compare-single {
+    max-width: 280px;
+}
+
+.gear-tip-equipped-label {
+    display: inline-block;
+    margin-left: 0.35rem;
+    font-size: 0.68rem;
+    color: #4ade80;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.gear-tooltip .gear-tip-inner {
+    min-width: 11rem;
+}
+
+.gear-tooltip .gear-tip-compare .gear-tip-inner {
+    min-width: 10.5rem;
+}
+
+/* In-game bulk delete confirm (no browser alert, game keeps running) */
+.gear-bulk-confirm {
+    display: none;
+    flex-direction: column;
+    gap: 0.55rem;
+    margin-top: 0.45rem;
+    padding: 0.65rem 0.75rem;
+    border-radius: 10px;
+    border: 1px solid rgba(248, 113, 113, 0.45);
+    background: rgba(30, 15, 25, 0.92);
+    box-shadow: 0 0 14px rgba(248, 113, 113, 0.15);
+}
+
+.gear-bulk-confirm-visible {
+    display: flex;
+}
+
+.gear-bulk-confirm-text {
+    margin: 0;
+    font-size: 0.78rem;
+    line-height: 1.45;
+    color: #fca5a5;
+}
+
+.gear-bulk-confirm-actions {
+    display: flex;
+    gap: 0.45rem;
+}
+
+.gear-bulk-confirm-yes,
+.gear-bulk-confirm-no {
+    flex: 1;
+    padding: 0.4rem 0.6rem;
+    border-radius: 8px;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.72rem;
+    cursor: pointer;
+    border: 1px solid transparent;
+}
+
+.gear-bulk-confirm-yes {
+    background: linear-gradient(135deg, #ef4444, #b91c1c);
+    color: #fff;
+    border-color: rgba(248, 113, 113, 0.6);
+}
+
+.gear-bulk-confirm-no {
+    background: rgba(15, 23, 42, 0.9);
+    color: #94a3b8;
+    border-color: rgba(100, 116, 139, 0.5);
+}
+
+.gear-bulk-confirm-yes:hover { filter: brightness(1.1); }
+.gear-bulk-confirm-no:hover { color: #e2e8f0; border-color: #64748b; }
+
+/* Auto-delete rarity filters */
+.gear-filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.gear-filter-btn {
+    padding: 0.22rem 0.5rem;
+    border-radius: 5px;
+    font-size: 0.66rem;
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px dashed;
+    opacity: 0.9;
+}
+
+.gear-filter-btn.gear-normal {
+    background: rgba(226, 232, 240, 0.12);
+    border-color: #94a3b8;
+    color: #e2e8f0;
+}
+
+.gear-filter-btn.gear-magic {
+    background: rgba(59, 130, 246, 0.15);
+    border-color: #60a5fa;
+    color: #93c5fd;
+}
+
+.gear-filter-btn.gear-rare {
+    background: rgba(234, 179, 8, 0.14);
+    border-color: #eab308;
+    color: #fde047;
+}
+
+.gear-filter-btn.gear-filter-active {
+    border-style: solid;
+    opacity: 1;
+    box-shadow: 0 0 8px currentColor;
+    filter: brightness(1.1);
+}

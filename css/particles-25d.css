@@ -1,0 +1,90 @@
+/* Shared 2.5D particle / shard visuals — diamond tiles instead of flat circles */
+
+.particle-25d {
+    position: relative;
+    transform-style: preserve-3d;
+}
+
+.particle-25d-face {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: 2px;
+    transform: rotate(45deg) skewY(-6deg);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+.particle-25d-shadow {
+    position: absolute;
+    left: 50%;
+    bottom: -35%;
+    width: 80%;
+    height: 35%;
+    transform: translateX(-50%);
+    border-radius: 50%;
+    background: radial-gradient(ellipse, rgba(0, 0, 0, 0.35), transparent 70%);
+    pointer-events: none;
+    z-index: -1;
+}
+
+.projectile-core {
+    border-radius: 2px !important;
+    transform: translate(-50%, -50%) rotate(45deg) skewY(-6deg) !important;
+    animation: projectile-core-pulse-25d 0.1s ease infinite alternate;
+}
+
+@keyframes projectile-core-pulse-25d {
+    from { transform: translate(-50%, -50%) rotate(45deg) skewY(-6deg) scale(1); }
+    to { transform: translate(-50%, -50%) rotate(45deg) skewY(-6deg) scale(1.12); }
+}
+
+.enemy-projectile {
+    border-radius: 2px !important;
+    transform: translate(-50%, -50%) rotate(45deg) skewY(-6deg);
+    width: 9px;
+    height: 9px;
+}
+
+.hit-effect {
+    border-radius: 0 !important;
+    background: transparent !important;
+    width: 48px;
+    height: 48px;
+}
+
+.hit-effect .particle-25d-face {
+    width: 18px;
+    height: 18px;
+    margin: 0 auto;
+    animation: hit-shard-spin 0.5s ease-out forwards;
+}
+
+@keyframes hit-shard-spin {
+    0% { transform: rotate(45deg) skewY(-6deg) scale(0.3); opacity: 1; }
+    100% { transform: rotate(225deg) skewY(-6deg) scale(1.4); opacity: 0; }
+}
+
+.hit-effect-physical .particle-25d-face { background: linear-gradient(135deg, #fda4af, #e11d48); }
+.hit-effect-crit .particle-25d-face { background: linear-gradient(135deg, #fde047, #ca8a04); }
+.hit-effect-fire .particle-25d-face { background: linear-gradient(135deg, #fdba74, #ea580c); }
+.hit-effect-cold .particle-25d-face { background: linear-gradient(135deg, #bae6fd, #0284c7); }
+.hit-effect-lightning .particle-25d-face { background: linear-gradient(135deg, #fde047, #ca8a04); }
+.hit-effect-spark .particle-25d-face { background: linear-gradient(135deg, #f0abfc, #c026d3); }
+
+.world-exp-orb {
+    border-radius: 0 !important;
+    background: transparent !important;
+    width: 12px;
+    height: 12px;
+}
+
+.world-exp-orb .particle-25d-face {
+    background: linear-gradient(135deg, #fde047, #f59e0b);
+    box-shadow: 0 0 8px #fbbf24;
+}
+
+.cast-flash-spark {
+    background: radial-gradient(circle, rgba(232, 121, 249, 0.55), transparent 70%);
+}
+
+.damage-spark { color: #e879f9; text-shadow: 0 0 8px #c026d3; }

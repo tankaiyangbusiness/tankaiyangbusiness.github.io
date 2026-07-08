@@ -1,0 +1,17 @@
+{
+  "name": "survivor-arena-idle-rpg",
+  "version": "2.0.0",
+  "description": "Idle survival auto-battler RPG",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.js",
+    "test": "npm run build && vitest run",
+    "test:unit": "vitest run",
+    "test:watch": "vitest",
+    "dev": "npm run build && npx serve . -p 3456"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0",
+    "vitest": "^3.0.0"
+  }
+}

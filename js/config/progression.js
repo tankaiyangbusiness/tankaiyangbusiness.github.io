@@ -1,0 +1,62 @@
+export function createDefaultStatsList() {
+    return {
+        'Upgrade Damage': { level: 0, maxLevel: 1000 },
+        'Upgrade AoE': { level: 0, maxLevel: 25 },
+        'Upgrade Attack Speed': { level: 0, maxLevel: 50 },
+        'Upgrade HP (Recover 20% Life)': { level: 0, maxLevel: 1000 },
+        'Upgrade HP Regen': { level: 0, maxLevel: 1000 },
+        'Upgrade Armour': { level: 0, maxLevel: 1000 },
+        'Upgrade Crit Chance': { level: 0, maxLevel: 40 },
+        'Upgrade Crit Multiplier': { level: 0, maxLevel: 100 }
+    };
+}
+
+/** Passive combat abilities — separate from active elemental skills */
+export function createDefaultAbilityList() {
+    return {
+        Reflect: {
+            text: 'Return ??%(25%) damage to the enemy',
+            progression: ['5', '10', '15', '20', '25'],
+            level: 0, maxLevel: 5
+        },
+        Bounce: {
+            text: 'Deal ??%(0%) less damage. Projectiles bounce ??(5) extra times',
+            progression: ['40', '30', '20', '10', '0', '1', '2', '3', '4', '5'],
+            level: 0, maxLevel: 5
+        },
+        'Attack Speed Buff': {
+            text: 'Grant ??%(80%) attack speed for 5s, cooldown 10s',
+            progression: ['16', '32', '48', '64', '80'],
+            level: 0, maxLevel: 5
+        },
+        'Damage Reduction': {
+            text: 'Grant ??%(60%) damage reduction',
+            progression: ['12', '24', '36', '48', '60'],
+            level: 0, maxLevel: 5
+        },
+        Lifesteal: {
+            text: 'Grant ??%(75%) lifesteal',
+            progression: ['15', '30', '45', '60', '75'],
+            level: 0, maxLevel: 5
+        },
+        'HP To Damage': {
+            text: 'Deal ??%(30%) of max HP as bonus damage',
+            progression: ['6', '12', '18', '24', '30'],
+            level: 0, maxLevel: 5
+        },
+        'Regen To Damage': {
+            text: 'Deal ??%(250%) of Regen as damage. ??%(100%) faster regen',
+            progression: ['50', '100', '150', '200', '250', '20', '40', '60', '80', '100'],
+            level: 0, maxLevel: 5
+        }
+    };
+}
+
+/** Milestone levels for passive abilities (9, 19, 29 …) */
+export function createAbilityLevelThresholds(count = 30) {
+    const thresholds = [];
+    for (let i = 0; i < count; i++) {
+        thresholds.push(9 + 10 * i);
+    }
+    return thresholds;
+}

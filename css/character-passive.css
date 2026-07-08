@@ -1,0 +1,342 @@
+/* Character passive HUD icon + hover tooltip (beside stats panel) */
+
+.stat-level-row {
+    margin-bottom: 0.55rem;
+}
+
+.stat-level-row .stat-level {
+    margin-bottom: 0;
+}
+
+.character-passive-btn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border-radius: 12px;
+    border: 1px solid rgba(251, 191, 36, 0.55);
+    background: linear-gradient(145deg, rgba(51, 65, 85, 0.95), rgba(15, 23, 42, 0.96));
+    color: #fde68a;
+    cursor: help;
+    flex-shrink: 0;
+    pointer-events: auto;
+    z-index: 40;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+
+.character-passive-btn:hover,
+.character-passive-btn:focus-visible {
+    border-color: #fbbf24;
+    box-shadow: 0 0 16px rgba(251, 191, 36, 0.45);
+    outline: none;
+    transform: translateY(-1px);
+}
+
+.character-passive-icon {
+    font-size: 1.35rem;
+    line-height: 1;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
+}
+
+.character-passive-tip {
+    visibility: hidden;
+    opacity: 0;
+    position: absolute;
+    top: 0;
+    left: calc(100% + 10px);
+    width: min(260px, 68vw);
+    padding: 0.7rem 0.8rem;
+    border-radius: 10px;
+    border: 1px solid rgba(251, 191, 36, 0.45);
+    background: rgba(15, 23, 42, 0.98);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+    text-align: left;
+    text-transform: none;
+    letter-spacing: normal;
+    z-index: 9999;
+    pointer-events: none;
+    transition: opacity 0.12s ease;
+}
+
+.character-passive-btn:hover .character-passive-tip,
+.character-passive-btn:focus-visible .character-passive-tip,
+.character-passive-btn.passive-tip-open .character-passive-tip {
+    visibility: visible;
+    opacity: 1;
+}
+
+.passive-tip-name {
+    display: block;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.82rem;
+    color: #fde68a;
+    margin-bottom: 0.2rem;
+}
+
+.passive-tip-tag {
+    display: inline-block;
+    font-size: 0.65rem;
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: rgba(251, 191, 36, 0.15);
+    color: #fbbf24;
+    margin-bottom: 0.35rem;
+}
+
+.passive-tip-desc {
+    margin: 0;
+    font-size: 0.8rem;
+    line-height: 1.35;
+    color: #cbd5e1;
+    font-weight: 500;
+}
+
+/* Dedicated shield row (Paladin) */
+.shield-row label {
+    color: #7dd3fc;
+}
+
+.shield-fill {
+    background: linear-gradient(90deg, #0ea5e9, #7dd3fc);
+    box-shadow: inset 0 0 8px rgba(255, 255, 255, 0.25);
+}
+
+/* Companion / minion shells */
+.passive-minion,
+.illusion-clone {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    z-index: 6;
+    pointer-events: none;
+}
+
+.companion-model {
+    position: relative;
+    width: 52px;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.companion-ground-shadow {
+    position: absolute;
+    bottom: 2%;
+    left: 50%;
+    width: 70%;
+    height: 16%;
+    transform: translateX(-50%);
+    border-radius: 50%;
+    background: radial-gradient(ellipse, rgba(0, 0, 0, 0.4), transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+}
+
+.companion-sprite {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.4));
+}
+
+.companion-sprite .entity-svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+.companion-zombie .companion-sprite {
+    filter: drop-shadow(0 0 8px rgba(132, 204, 22, 0.45));
+}
+
+.companion-bear {
+    width: 58px;
+    height: 58px;
+}
+
+.companion-bear .companion-sprite {
+    filter: drop-shadow(0 0 8px rgba(180, 83, 9, 0.45));
+}
+
+.companion-illusion {
+    width: 48px;
+    height: 48px;
+}
+
+.companion-illusion .companion-sprite {
+    opacity: 0.88;
+    filter: drop-shadow(0 0 10px rgba(167, 139, 250, 0.7));
+    animation: companion-illusion-flicker 1.6s linear infinite;
+}
+
+.companion-illusion-ranger .companion-sprite {
+    opacity: 0.92;
+}
+
+@keyframes companion-illusion-flicker {
+    0%, 100% { opacity: 0.8; }
+    50% { opacity: 1; }
+}
+
+.illusion-clone {
+    opacity: 1;
+}
+
+.illusion-spawn-in {
+    animation: companion-spawn-in 0.5s linear forwards;
+}
+
+@keyframes companion-spawn-in {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.45); }
+    100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+.passive-minion-attack .companion-sprite,
+.illusion-attacking .companion-sprite {
+    animation: companion-jab 0.2s linear;
+}
+
+@keyframes companion-jab {
+    0%, 100% { transform: translateX(0); }
+    50% { transform: translateX(6px) scale(1.06); }
+}
+
+.character-passive-btn.passive-frenzy-active {
+    border-color: #f97316;
+    box-shadow: 0 0 12px rgba(249, 115, 22, 0.45);
+    animation: passive-frenzy-pulse 0.4s ease-in-out infinite alternate;
+}
+
+@keyframes passive-frenzy-pulse {
+    from { filter: brightness(1); }
+    to { filter: brightness(1.25); }
+}
+
+/* Character select card passive chip */
+.character-passive-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    margin-top: 0.35rem;
+    padding: 0.15rem 0.4rem;
+    border-radius: 6px;
+    border: 1px solid rgba(251, 191, 36, 0.35);
+    background: rgba(251, 191, 36, 0.08);
+    color: #fde68a;
+    font-size: 0.7rem;
+    font-weight: 600;
+    position: relative;
+    cursor: help;
+}
+
+.character-passive-chip .chip-tip {
+    display: none;
+    position: absolute;
+    left: 0;
+    bottom: calc(100% + 6px);
+    width: 200px;
+    padding: 0.5rem 0.6rem;
+    border-radius: 8px;
+    border: 1px solid rgba(251, 191, 36, 0.35);
+    background: rgba(15, 23, 42, 0.97);
+    color: #cbd5e1;
+    font-size: 0.72rem;
+    font-weight: 500;
+    z-index: 5;
+    line-height: 1.3;
+}
+
+.character-passive-chip:hover .chip-tip {
+    display: block;
+}
+
+/* ===== PoE-style buff bar above skills ===== */
+.buff-bar {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.35rem;
+    min-height: 0;
+    margin-bottom: 0.35rem;
+    pointer-events: auto;
+}
+
+.buff-icon {
+    position: relative;
+    width: 36px;
+    height: 36px;
+    border-radius: 6px;
+    border: 1px solid rgba(148, 163, 184, 0.45);
+    background: rgba(15, 23, 42, 0.92);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    cursor: help;
+    overflow: hidden;
+}
+
+.buff-icon-glyph {
+    position: relative;
+    z-index: 2;
+    line-height: 1;
+}
+
+.buff-icon-timer {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 0;
+    background: rgba(2, 6, 23, 0.78);
+    z-index: 1;
+    pointer-events: none;
+}
+
+.buff-icon-tip {
+    display: none;
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    width: 200px;
+    padding: 0.5rem 0.6rem;
+    border-radius: 8px;
+    border: 1px solid rgba(125, 211, 252, 0.4);
+    background: rgba(15, 23, 42, 0.97);
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
+    z-index: 50;
+    text-align: left;
+    pointer-events: none;
+}
+
+.buff-icon:hover .buff-icon-tip {
+    display: block;
+}
+
+.buff-tip-name {
+    display: block;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.72rem;
+    color: #7dd3fc;
+    margin-bottom: 0.15rem;
+}
+
+.buff-tip-desc {
+    margin: 0 0 0.2rem;
+    font-size: 0.72rem;
+    color: #cbd5e1;
+    line-height: 1.3;
+}
+
+.buff-tip-time {
+    font-size: 0.68rem;
+    color: #94a3b8;
+}

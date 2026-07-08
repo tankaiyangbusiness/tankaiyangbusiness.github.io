@@ -1,0 +1,270 @@
+/* ===== In-game upgrade panel (non-blocking level-ups) ===== */
+.upgrade-panel {
+    position: fixed;
+    right: 1rem;
+    bottom: 4.5rem;
+    z-index: 25;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.5rem;
+    max-width: min(440px, calc(100vw - 2rem));
+    pointer-events: none;
+}
+
+.upgrade-panel > * {
+    pointer-events: auto;
+}
+
+.upgrade-panel-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.65rem 1.1rem;
+    background: rgba(15, 23, 42, 0.92);
+    border: 1px solid rgba(56, 189, 248, 0.45);
+    border-radius: 10px;
+    color: #7dd3fc;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s, transform 0.2s;
+    backdrop-filter: blur(8px);
+}
+
+.upgrade-panel-toggle:hover {
+    background: rgba(30, 58, 95, 0.95);
+    border-color: #38bdf8;
+}
+
+.upgrade-panel-has-pending .upgrade-panel-toggle {
+    border-color: #fbbf24;
+    box-shadow: 0 0 16px rgba(251, 191, 36, 0.35);
+    animation: upgrade-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes upgrade-pulse {
+    0%, 100% { box-shadow: 0 0 12px rgba(251, 191, 36, 0.25); }
+    50% { box-shadow: 0 0 22px rgba(251, 191, 36, 0.55); }
+}
+
+.upgrade-panel-icon {
+    transition: transform 0.25s ease;
+    font-size: 0.75rem;
+}
+
+.upgrade-panel-expanded .upgrade-panel-icon {
+    transform: rotate(180deg);
+}
+
+.upgrade-panel-badge {
+    min-width: 1.5rem;
+    height: 1.5rem;
+    padding: 0 0.35rem;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #fbbf24, #f59e0b);
+    color: #0f172a;
+    font-weight: 700;
+    font-size: 0.8rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.upgrade-panel-badge-hidden {
+    display: none;
+}
+
+.upgrade-panel-body {
+    width: 100%;
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    background: linear-gradient(165deg, rgba(15, 23, 42, 0.97) 0%, rgba(2, 6, 23, 0.97) 100%);
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    border-radius: 14px;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+    transition: max-height 0.35s ease, opacity 0.25s ease, padding 0.25s ease;
+    padding: 0 1rem;
+}
+
+.upgrade-panel-expanded .upgrade-panel-body {
+    max-height: 72vh;
+    opacity: 1;
+    padding: 1rem 1.1rem;
+    overflow-y: auto;
+}
+
+.upgrade-panel-header {
+    margin-bottom: 0.85rem;
+    padding-bottom: 0.65rem;
+    border-bottom: 1px solid rgba(56, 189, 248, 0.15);
+}
+
+.upgrade-panel-header h3 {
+    margin: 0 0 0.35rem;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.1rem;
+    color: #7dd3fc;
+    letter-spacing: 0.04em;
+}
+
+.upgrade-panel-queue {
+    margin: 0;
+    font-size: 0.92rem;
+    color: #94a3b8;
+}
+
+.upgrade-choice-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+}
+
+.upgrade-choice-grid .choice-card {
+    width: 100%;
+}
+
+/* Category picker — themed cards */
+.upgrade-category-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.55rem;
+}
+
+.upgrade-category-btn {
+    display: grid;
+    grid-template-columns: 2rem auto 1fr auto;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.85rem 1rem;
+    border-radius: 12px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    font-family: 'Rajdhani', sans-serif;
+    text-align: left;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s;
+    background: rgba(30, 41, 59, 0.85);
+}
+
+.upgrade-category-btn:hover {
+    transform: translateX(3px);
+}
+
+.upgrade-category-btn.upgrade-cat-stat {
+    border-color: rgba(56, 189, 248, 0.45);
+    background: linear-gradient(135deg, rgba(14, 116, 144, 0.25), rgba(15, 23, 42, 0.9));
+    color: #e0f2fe;
+}
+
+.upgrade-category-btn.upgrade-cat-skill {
+    border-color: rgba(167, 139, 250, 0.45);
+    background: linear-gradient(135deg, rgba(91, 33, 182, 0.22), rgba(15, 23, 42, 0.9));
+    color: #ede9fe;
+}
+
+.upgrade-category-btn.upgrade-cat-ability {
+    border-color: rgba(251, 191, 36, 0.45);
+    background: linear-gradient(135deg, rgba(146, 64, 14, 0.22), rgba(15, 23, 42, 0.9));
+    color: #fef3c7;
+}
+
+.upgrade-cat-icon {
+    font-size: 1.5rem;
+    width: 2.2rem;
+    text-align: center;
+}
+
+.upgrade-cat-label {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.92rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+}
+
+.upgrade-cat-count {
+    font-size: 0.82rem;
+    padding: 0.2rem 0.55rem;
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.65);
+    color: #94a3b8;
+}
+
+/* Choice list inside category */
+.upgrade-choice-btn {
+    display: grid;
+    grid-template-columns: 2rem 1fr auto;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.75rem 0.9rem;
+    border-radius: 10px;
+    border: 1px solid rgba(100, 116, 139, 0.35);
+    background: rgba(30, 41, 59, 0.75);
+    color: #e2e8f0;
+    cursor: pointer;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 0.95rem;
+    text-align: left;
+    transition: all 0.15s ease;
+}
+
+.upgrade-choice-btn:hover {
+    border-color: #38bdf8;
+    background: rgba(56, 189, 248, 0.12);
+}
+
+.upgrade-choice-btn.upgrade-choice-stat { border-left: 3px solid #38bdf8; }
+.upgrade-choice-btn.upgrade-choice-skill { border-left: 3px solid #a78bfa; }
+.upgrade-choice-btn.upgrade-choice-ability { border-left: 3px solid #fbbf24; }
+
+.upgrade-choice-key {
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 700;
+    color: #38bdf8;
+    text-align: center;
+}
+
+.upgrade-choice-level {
+    font-size: 0.8rem;
+    color: #94a3b8;
+    white-space: nowrap;
+}
+
+.upgrade-empty {
+    margin: 0;
+    color: #64748b;
+    font-size: 0.95rem;
+    text-align: center;
+    padding: 0.5rem 0;
+}
+
+.upgrade-back-btn {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    margin-bottom: 0.35rem;
+    background: rgba(30, 41, 59, 0.8);
+    border: 1px solid rgba(100, 116, 139, 0.45);
+    border-radius: 8px;
+    color: #94a3b8;
+    font-family: inherit;
+    font-size: 0.88rem;
+    cursor: pointer;
+    text-align: left;
+}
+
+.upgrade-back-btn:hover {
+    border-color: #38bdf8;
+    color: #7dd3fc;
+}
+
+.upgrade-hint {
+    margin: 0.75rem 0 0;
+    font-size: 0.88rem;
+    color: #64748b;
+    text-align: center;
+}
+
+.upgrade-hint kbd {
+    font-size: 0.75rem;
+}

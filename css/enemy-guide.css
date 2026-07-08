@@ -1,0 +1,116 @@
+/* Enemy guide — ! toggle beside top-center meta panel */
+.enemy-guide-panel {
+    position: relative;
+    font-family: 'Rajdhani', sans-serif;
+    pointer-events: auto;
+    flex-shrink: 0;
+}
+
+.enemy-guide-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    border: 1px solid rgba(251, 191, 36, 0.45);
+    border-radius: 50%;
+    background: rgba(15, 23, 42, 0.92);
+    color: #fbbf24;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s linear, border-color 0.15s linear, box-shadow 0.15s linear;
+}
+
+.enemy-guide-toggle:hover {
+    background: rgba(30, 41, 59, 0.95);
+    border-color: rgba(251, 191, 36, 0.75);
+    box-shadow: 0 0 10px rgba(251, 191, 36, 0.25);
+}
+
+.enemy-guide-panel.expanded .enemy-guide-toggle {
+    border-color: #fbbf24;
+    box-shadow: 0 0 12px rgba(251, 191, 36, 0.35);
+}
+
+.enemy-guide-body {
+    display: none;
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    width: min(300px, calc(100vw - 24px));
+    max-height: 55vh;
+    overflow-y: auto;
+    padding: 8px;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    border-radius: 10px;
+    background: rgba(15, 23, 42, 0.96);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+    z-index: 50;
+}
+
+.enemy-guide-panel.expanded .enemy-guide-body {
+    display: block;
+}
+
+.enemy-guide-row {
+    display: flex;
+    gap: 10px;
+    padding: 8px 4px;
+    border-bottom: 1px solid rgba(51, 65, 85, 0.6);
+}
+
+.enemy-guide-row:last-child {
+    border-bottom: none;
+}
+
+.enemy-guide-swatch {
+    flex-shrink: 0;
+    width: 14px;
+    height: 14px;
+    margin-top: 4px;
+    border-radius: 3px;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.35);
+}
+
+.enemy-guide-text {
+    flex: 1;
+    min-width: 0;
+}
+
+.enemy-guide-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 2px;
+}
+
+.enemy-guide-tag {
+    font-size: 0.7rem;
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: rgba(51, 65, 85, 0.8);
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.enemy-guide-desc {
+    margin: 0;
+    font-size: 0.82rem;
+    line-height: 1.35;
+    color: #94a3b8;
+}
+
+/* Illusion projectile (clone model CSS lives in character-passive.css) */
+.projectile-illusion .projectile-core {
+    background: radial-gradient(circle, #c4b5fd, #7c3aed);
+    box-shadow: 0 0 8px rgba(167, 139, 250, 0.8);
+}
+
+.projectile-illusion .projectile-tail {
+    background: linear-gradient(90deg, transparent, rgba(167, 139, 250, 0.6));
+}

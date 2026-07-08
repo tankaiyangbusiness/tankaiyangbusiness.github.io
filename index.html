@@ -3,54 +3,193 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Idle RPG Game</title>
+    <title>Survivor Arena — Idle RPG</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="css/models.css">
+    <link rel="stylesheet" href="css/skills.css">
+    <link rel="stylesheet" href="css/level-toast.css">
+    <link rel="stylesheet" href="css/upgrade-panel.css">
+    <link rel="stylesheet" href="css/gear-panel.css">
+    <link rel="stylesheet" href="css/enemy-guide.css">
+    <link rel="stylesheet" href="css/animations.css">
+    <link rel="stylesheet" href="css/particles-25d.css">
+    <link rel="stylesheet" href="css/character-passive.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
+    <!-- Character Selection -->
     <div id="character-selection">
-        <h2>Select Your Character</h2>
-        <div id="character-list">
-            <button class="character-button" data-character="Scion">1. Scion</button>
+        <header class="char-select-header">
+            <h1 class="game-title">Survivor Arena</h1>
+            <p class="game-subtitle">Auto-battle survival RPG — pick your champion</p>
+        </header>
+        <div class="char-select-body">
+            <h2 class="section-title">Select Your Character</h2>
+            <div id="character-list"></div>
         </div>
+        <p class="controls-hint">Press <kbd>1</kbd>–<kbd>9</kbd>, <kbd>0</kbd>, <kbd>-</kbd> to select · In-game: <kbd>U</kbd> upgrades · <kbd>G</kbd> gear · <kbd>Esc</kbd> pause</p>
     </div>
+
+    <!-- Game Arena -->
     <div id="game-container">
         <div id="game-area">
-            <div id="player">
-                <div id="attack-range"></div>
+            <div id="player-anchor" class="player-anchor">
+                <div id="range-layer" class="range-layer">
+                    <div id="skill-range-layer" class="skill-range-layer"></div>
+                    <div id="attack-range"></div>
+                </div>
+                <div id="player"></div>
             </div>
         </div>
     </div>
+
+    <!-- HUD & Overlays -->
     <div id="game-ui" style="display: none;">
-        <div id="timer">Time: 0:00</div>
-        <div id="player-stats">
-            <div id="level">Level: 1</div>
-            <div id="hp-bar">
-                <div id="hp-value">HP: 100 / 100</div>
-                <div id="hp-bar-fill"></div>
+        <header class="hud-top">
+            <div class="hud-stats-wrap">
+                <div id="player-stats" class="stats-panel">
+                    <div class="stat-level-row">
+                        <div id="level" class="stat-level">Lv. 1</div>
+                    </div>
+                    <div class="stat-row">
+                        <label>HP</label>
+                        <div id="hp-bar" class="bar-container">
+                            <div id="hp-bar-fill" class="bar-fill hp-fill"></div>
+                            <span id="hp-value" class="bar-text">600 / 600</span>
+                        </div>
+                    </div>
+                    <div id="shield-row" class="stat-row shield-row" hidden>
+                        <label>Shield</label>
+                        <div id="shield-bar" class="bar-container">
+                            <div id="shield-bar-fill" class="bar-fill shield-fill"></div>
+                            <span id="shield-value" class="bar-text">0 / 0</span>
+                        </div>
+                    </div>
+                    <div class="stats-grid">
+                        <div class="stat-item"><span class="stat-label">DMG</span><span id="damage" class="stat-value">30</span></div>
+                        <div class="stat-item"><span class="stat-label">AoE</span><span id="aoe" class="stat-value">150</span></div>
+                        <div class="stat-item"><span class="stat-label">ATK SPD</span><span id="attack-speed" class="stat-value">2</span></div>
+                        <div class="stat-item"><span class="stat-label">REGEN</span><span id="hp-regen" class="stat-value">3</span></div>
+                        <div class="stat-item"><span class="stat-label">DEF</span><span id="defence" class="stat-value">30</span></div>
+                        <div class="stat-item"><span class="stat-label">EVADE</span><span id="evade" class="stat-value">15%</span></div>
+                        <div class="stat-item"><span class="stat-label">CRIT</span><span id="crit-chance" class="stat-value">5%</span></div>
+                        <div class="stat-item"><span class="stat-label">CRIT×</span><span id="crit-multiplier" class="stat-value">150%</span></div>
+                    </div>
+                </div>
+                <button id="character-passive-btn" type="button" class="character-passive-btn" aria-describedby="character-passive-tip" hidden>
+                    <span id="character-passive-icon" class="character-passive-icon" aria-hidden="true">?</span>
+                    <div id="character-passive-tip" class="character-passive-tip" role="tooltip"></div>
+                </button>
             </div>
-            <div id="damage">Damage: 1</div>
-            <div id="aoe">AoE: 1</div>
-            <div id="attack-speed">Attack Speed: 1</div>
-            <div id="hp-regen">HP Regen: 1</div>
-            <div id="armour">Armour: 1</div>
-            <div id="evade">Evade: 1.0%</div>
-            <div id="crit-chance">Crit: 5.0%</div>
-            <div id="crit-multiplier">Crit Multi: 150%</div>
+
+            <div class="hud-meta-center">
+                <div class="meta-panel">
+                    <div class="meta-item"><span class="meta-label">Kills</span><span id="kill-count" class="meta-value">0</span></div>
+                    <div class="meta-item"><span class="meta-label">Streak</span><span id="streak-count" class="meta-value">—</span></div>
+                    <div class="meta-item"><span class="meta-label">Wave</span><span id="difficulty-level" class="meta-value">0</span></div>
+                </div>
+                <aside id="enemy-guide-panel" class="enemy-guide-panel" aria-label="Enemy types">
+                    <button id="enemy-guide-toggle" type="button" class="enemy-guide-toggle" aria-expanded="false" title="Enemy guide">!</button>
+                    <div id="enemy-guide-body" class="enemy-guide-body"></div>
+                </aside>
+            </div>
+
+            <div class="hud-timer-wrap">
+                <div id="timer" class="timer-display">0:00</div>
+            </div>
+        </header>
+
+        <div class="hud-skill-dock">
+            <div id="buff-bar" class="buff-bar" aria-label="Active buffs"></div>
+            <div id="skill-bar" class="skill-bar"></div>
         </div>
-        <div id="exp-bar">
-            <div id="exp-bar-fill"></div>
-            <div id="exp-value">EXP: 0 / 10</div>
+
+        <div id="exp-bar" class="exp-bar-container">
+            <div id="exp-bar-fill" class="exp-bar-fill"></div>
+            <span id="exp-value" class="exp-bar-text">0 / 8</span>
         </div>
-        <div id="pause-overlay">Paused</div>
-        <div id="game-over-overlay">
-            Game Over<br>
-            Press any key to restart
-        </div>
-        <div id="ability-choices-overlay">
-            <div id="ability-button-wrapper" class="ability-button-wrapper">
+        <div id="level-toast" class="level-toast" aria-live="polite"></div>
+
+        <aside id="gear-panel" class="gear-panel gear-panel-expanded" aria-label="Equipment">
+            <button id="gear-panel-toggle" type="button" class="gear-panel-toggle">
+                <span>Gear</span>
+                <span id="gear-panel-count" class="gear-panel-badge gear-panel-badge-hidden">0</span>
+            </button>
+            <div id="gear-panel-body" class="gear-panel-body">
+                <div id="gear-slots" class="gear-slots"></div>
+                <div id="gear-inventory-list" class="gear-inventory-list"></div>
+                <section id="gear-bulk-section" class="gear-actions-section gear-bulk-section" aria-label="Bulk delete">
+                    <h4 class="gear-section-title">Bulk delete</h4>
+                    <p class="gear-section-hint">Remove matching items from inventory</p>
+                    <div id="gear-inv-toolbar" class="gear-inv-toolbar">
+                        <button type="button" class="gear-bulk-btn gear-normal" data-bulk-rarity="normal">Normal</button>
+                        <button type="button" class="gear-bulk-btn gear-magic" data-bulk-rarity="magic">Magic</button>
+                        <button type="button" class="gear-bulk-btn gear-rare" data-bulk-rarity="rare">Rare</button>
+                    </div>
+                    <div id="gear-bulk-confirm" class="gear-bulk-confirm" aria-hidden="true">
+                        <p id="gear-bulk-confirm-text" class="gear-bulk-confirm-text"></p>
+                        <div class="gear-bulk-confirm-actions">
+                            <button type="button" id="gear-bulk-confirm-yes" class="gear-bulk-confirm-yes">Delete</button>
+                            <button type="button" id="gear-bulk-confirm-no" class="gear-bulk-confirm-no">Cancel</button>
+                        </div>
+                    </div>
+                </section>
+                <section id="gear-filter-section" class="gear-actions-section gear-filter-section" aria-label="Auto-delete drops">
+                    <h4 class="gear-section-title">Auto-delete drops</h4>
+                    <p class="gear-section-hint">Skip loot of selected rarities</p>
+                    <div id="gear-filter-bar" class="gear-filter-bar">
+                        <button type="button" class="gear-filter-btn gear-normal" data-filter-rarity="normal" aria-pressed="false">Normal</button>
+                        <button type="button" class="gear-filter-btn gear-magic" data-filter-rarity="magic" aria-pressed="false">Magic</button>
+                        <button type="button" class="gear-filter-btn gear-rare" data-filter-rarity="rare" aria-pressed="false">Rare</button>
+                    </div>
+                </section>
+            </div>
+        </aside>
+
+        <aside id="upgrade-panel" class="upgrade-panel upgrade-panel-expanded" aria-label="Level upgrades">
+            <button id="upgrade-panel-toggle" type="button" class="upgrade-panel-toggle" aria-expanded="true">
+                <span>Upgrades</span>
+                <span id="upgrade-panel-count" class="upgrade-panel-badge upgrade-panel-badge-hidden">0</span>
+                <span class="upgrade-panel-icon" aria-hidden="true">▲</span>
+            </button>
+            <div id="upgrade-panel-body" class="upgrade-panel-body">
+                <div class="upgrade-panel-header">
+                    <h3 id="upgrade-panel-title">Upgrades</h3>
+                    <p id="upgrade-panel-queue" class="upgrade-panel-queue"></p>
+                </div>
+                <div id="upgrade-button-wrapper" class="upgrade-choice-grid"></div>
+                <p class="upgrade-hint">Press <kbd>U</kbd> to toggle · <kbd>1</kbd>–<kbd>9</kbd> to pick</p>
+            </div>
+        </aside>
+
+        <div id="gear-loot-toast" class="gear-loot-toast" aria-live="polite"></div>
+        <div id="achievement-toast" class="game-toast achievement-toast" aria-live="polite"></div>
+        <div id="wave-toast" class="game-toast wave-toast" aria-live="polite"></div>
+
+        <div id="pause-overlay" class="overlay">
+            <div class="overlay-content pause-menu">
+                <h2>Paused</h2>
+                <div class="pause-menu-buttons">
+                    <button id="pause-resume" type="button" class="pause-btn pause-btn-primary">Resume</button>
+                    <button id="pause-restart" type="button" class="pause-btn">Restart Run</button>
+                    <button id="pause-character" type="button" class="pause-btn">Character Select</button>
+                </div>
+                <p class="controls-hint">Press <kbd>Esc</kbd> to resume</p>
             </div>
         </div>
+
+        <div id="game-over-overlay" class="overlay overlay-gameover">
+            <div class="overlay-content">
+                <h2>Defeated</h2>
+                <div id="game-over-stats"></div>
+                <p class="restart-hint">Press any key or click to try again</p>
+            </div>
+        </div>
+
     </div>
-    <script src="script.js"></script>
+
+    <script src="game.bundle.js"></script>
 </body>
 </html>

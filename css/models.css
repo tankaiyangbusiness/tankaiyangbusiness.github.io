@@ -1,0 +1,464 @@
+/* ===== Character & Enemy Visual Models ===== */
+
+/* --- Player base --- */
+.player-model {
+    position: relative;
+    width: 75px;
+    height: 75px;
+    filter: none;
+}
+
+.player-sprite {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    transform-origin: center center;
+    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.4));
+}
+
+.range-layer .player-attack-range,
+.range-layer #attack-range {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+}
+
+/* Adventurer — sword & shield knight */
+.player-adventurer .player-sprite {
+    background: radial-gradient(circle at 40% 35%, #93c5fd, #2563eb 55%, #1e3a8a);
+    border-radius: 45% 45% 40% 40%;
+    border: 2px solid #60a5fa;
+}
+.player-adventurer .player-sprite::before {
+    content: '';
+    position: absolute;
+    right: -8px; top: 20%;
+    width: 8px; height: 55%;
+    background: linear-gradient(180deg, #e2e8f0, #94a3b8);
+    border-radius: 2px;
+    transform: rotate(-12deg);
+    box-shadow: 2px 0 4px rgba(0,0,0,0.3);
+}
+.player-adventurer .player-sprite::after {
+    content: '';
+    position: absolute;
+    left: -6px; top: 30%;
+    width: 14px; height: 18px;
+    background: linear-gradient(135deg, #64748b, #475569);
+    border-radius: 3px;
+    border: 1px solid #94a3b8;
+}
+
+/* Warrior — heavy armored tank */
+.player-warrior .player-sprite {
+    background: radial-gradient(circle at 40% 30%, #cbd5e1, #64748b 50%, #334155);
+    border-radius: 42%;
+    border: 3px solid #94a3b8;
+    width: 90px;
+    height: 90px;
+    margin: -7px;
+}
+.player-warrior .player-sprite::before {
+    content: '';
+    position: absolute;
+    inset: 15% 20%;
+    border: 2px solid #475569;
+    border-radius: 30%;
+    background: rgba(30,41,59,0.5);
+}
+.player-warrior .player-sprite::after {
+    content: '';
+    position: absolute;
+    bottom: -4px; left: 50%;
+    transform: translateX(-50%);
+    width: 50px; height: 12px;
+    background: linear-gradient(180deg, #64748b, #334155);
+    border-radius: 4px;
+}
+
+/* Ranger — hooded archer */
+.player-ranger .player-sprite {
+    background: radial-gradient(circle at 50% 40%, #86efac, #16a34a 55%, #14532d);
+    border-radius: 50% 50% 45% 45%;
+    border: 2px solid #4ade80;
+}
+.player-ranger .player-sprite::before {
+    content: '';
+    position: absolute;
+    top: -12px; left: 50%;
+    transform: translateX(-50%);
+    border-left: 18px solid transparent;
+    border-right: 18px solid transparent;
+    border-bottom: 22px solid #14532d;
+}
+.player-ranger .player-sprite::after {
+    content: '';
+    position: absolute;
+    right: -14px; top: 35%;
+    width: 28px; height: 4px;
+    background: #92400e;
+    border-radius: 2px;
+    box-shadow: 0 -6px 0 0 #78350f, 0 6px 0 0 #78350f;
+}
+
+/* Assassin — hooded rogue with daggers */
+.player-assassin .player-sprite {
+    background: radial-gradient(circle at 45% 40%, #4b5563, #1f2937 60%, #0f172a);
+    border-radius: 50% 50% 42% 42%;
+    border: 2px solid #6b7280;
+    box-shadow: 0 0 12px rgba(139,92,246,0.4);
+}
+.player-assassin .player-sprite::before {
+    content: '';
+    position: absolute;
+    top: -10px; left: 50%;
+    transform: translateX(-50%);
+    width: 0; height: 0;
+    border-left: 16px solid transparent;
+    border-right: 16px solid transparent;
+    border-bottom: 18px solid #0f172a;
+}
+.player-assassin .player-sprite::after {
+    content: '';
+    position: absolute;
+    bottom: 15%; left: -10px; right: -10px;
+    height: 3px;
+    background: linear-gradient(90deg, #a78bfa, transparent 30%, transparent 70%, #a78bfa);
+}
+
+/* Healer — robed cleric with staff */
+.player-healer .player-sprite {
+    background: radial-gradient(circle at 45% 35%, #fde68a, #d97706 50%, #92400e);
+    border-radius: 45% 45% 50% 50%;
+    border: 2px solid #fbbf24;
+}
+.player-healer .player-sprite::before {
+    content: '';
+    position: absolute;
+    right: -6px; top: -20%;
+    width: 4px; height: 90%;
+    background: linear-gradient(180deg, #92400e, #78350f);
+    border-radius: 2px;
+}
+.player-healer .player-sprite::after {
+    content: '+';
+    position: absolute;
+    right: -12px; top: -18%;
+    font-size: 16px;
+    font-weight: bold;
+    color: #fef08a;
+    text-shadow: 0 0 8px #facc15;
+}
+
+
+.player-warrior .player-sprite { transform: scale(1.15); transform-origin: center; }
+.char-preview {
+    width: 56px;
+    height: 56px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    position: relative;
+}
+.char-preview-adventurer { background: radial-gradient(circle, #60a5fa, #1d4ed8); border: 2px solid #93c5fd; }
+.char-preview-warrior { background: radial-gradient(circle, #94a3b8, #334155); border: 3px solid #64748b; border-radius: 42%; width: 62px; height: 62px; }
+.char-preview-ranger { background: radial-gradient(circle, #4ade80, #15803d); border: 2px solid #86efac; }
+.char-preview-assassin { background: radial-gradient(circle, #374151, #0f172a); border: 2px solid #8b5cf6; box-shadow: 0 0 8px rgba(139,92,246,0.5); }
+.char-preview-healer { background: radial-gradient(circle, #fbbf24, #b45309); border: 2px solid #fde68a; }
+
+/* --- Enemy sprites --- */
+.enemy, .rare-enemy, .elite, .boss {
+    background: transparent !important;
+    box-shadow: none !important;
+    border: none !important;
+    outline: none;
+}
+
+.enemy-sprite {
+    width: 92%;
+    height: 92%;
+    position: relative;
+    border-radius: 4px;
+    flex-shrink: 0;
+    box-sizing: border-box;
+    background: transparent !important;
+}
+
+.rare-enemy .enemy-sprite,
+.elite .enemy-sprite,
+.boss .enemy-sprite {
+    outline: none;
+}
+
+/* Grunt — horned imp */
+.enemy-sprite-grunt {
+    background: radial-gradient(circle at 40% 35%, #fca5a5, #dc2626 60%, #991b1b);
+    box-shadow: 0 0 10px rgba(220,38,38,0.5);
+}
+.enemy-sprite-grunt::before,
+.enemy-sprite-grunt::after {
+    content: '';
+    position: absolute;
+    top: -6px;
+    width: 8px; height: 12px;
+    background: #991b1b;
+    border-radius: 50% 50% 0 0;
+}
+.enemy-sprite-grunt::before { left: 18%; transform: rotate(-20deg); }
+.enemy-sprite-grunt::after { right: 18%; transform: rotate(20deg); }
+
+/* Swarm — bat creature */
+.enemy-swarm .enemy-sprite,
+.enemy-sprite-swarm {
+    background: radial-gradient(circle, #fdba74, #ea580c);
+    box-shadow: 0 0 8px rgba(234,88,12,0.5);
+    animation: swarm-wiggle 0.5s ease-in-out infinite alternate;
+}
+.enemy-sprite-swarm::before {
+    content: '';
+    position: absolute;
+    top: 20%; left: -20%; right: -20%;
+    height: 40%;
+    background: transparent;
+    border-top: 8px solid rgba(234,88,12,0.7);
+    border-radius: 50%;
+    transform: scaleY(0.5);
+}
+
+/* Tank — armored beetle */
+.enemy-sprite-tank {
+    background: radial-gradient(circle, #94a3b8, #475569 55%, #1e293b);
+    border: 3px solid #64748b;
+    border-radius: 40%;
+    box-shadow: 0 0 12px rgba(71,85,105,0.6);
+}
+.enemy-sprite-tank::before {
+    content: '';
+    position: absolute;
+    inset: 20%;
+    border: 2px solid #334155;
+    border-radius: 30%;
+}
+
+/* Archer — hooded green archer */
+.enemy-sprite-archer {
+    background: radial-gradient(circle, #86efac, #16a34a 55%, #14532d);
+    box-shadow: 0 0 10px rgba(22,163,74,0.5);
+}
+.enemy-sprite-archer::before {
+    content: '';
+    position: absolute;
+    top: -8px; left: 50%;
+    transform: translateX(-50%);
+    border-left: 12px solid transparent;
+    border-right: 12px solid transparent;
+    border-bottom: 14px solid #14532d;
+}
+.enemy-sprite-archer::after {
+    content: '';
+    position: absolute;
+    right: -8px; top: 40%;
+    width: 16px; height: 3px;
+    background: #78350f;
+}
+
+/* Dasher — single purple stalker (no wing blobs that look like a group) */
+.enemy-sprite-dasher {
+    background: transparent !important;
+    box-shadow: none !important;
+}
+.enemy-sprite-dasher::before,
+.enemy-sprite-dasher::after {
+    display: none;
+}
+
+/* Splitter — crystal blob */
+.enemy-sprite-splitter {
+    background: radial-gradient(circle at 30% 30%, #fde68a, #ca8a04 50%, #a16207);
+    border-radius: 30% 70% 50% 40%;
+    box-shadow: 0 0 10px rgba(202,138,4,0.5);
+    animation: splitter-morph 3s ease-in-out infinite;
+}
+@keyframes splitter-morph {
+    0%, 100% { border-radius: 30% 70% 50% 40%; }
+    50% { border-radius: 60% 40% 30% 70%; }
+}
+
+/* Bomber — dark spiky mine (distinct from bright red grunt) */
+.enemy-sprite-bomber {
+    background: transparent !important;
+    box-shadow: none !important;
+    animation: bomber-pulse 1s ease-in-out infinite;
+}
+.enemy-sprite-bomber::before {
+    display: none;
+}
+
+/* Rarity overlays — brightness on container; ring on sprite */
+.rare-enemy { filter: brightness(1.1); }
+.elite { filter: brightness(1.15); }
+.boss { filter: brightness(1.2); }
+
+.enemy-sprite-penetrator {
+    background: transparent !important;
+    border: none;
+    box-shadow: none !important;
+}
+
+.enemy-sprite-splitFragment,
+.enemy-split-fragment .enemy-sprite {
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+.enemy-sprite-wraith {
+    background: radial-gradient(circle, rgba(203, 213, 225, 0.95), rgba(71, 85, 105, 0.9));
+    box-shadow: 0 0 12px rgba(148, 163, 184, 0.5);
+    animation: wraith-flicker 1.4s ease-in-out infinite;
+}
+
+/* --- Active skill visuals --- */
+.skill-projectile {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    z-index: 9;
+    border-radius: 50%;
+}
+
+.skill-fireball {
+    width: 22px;
+    height: 22px;
+    background: radial-gradient(circle, #fef08a 20%, #f97316 50%, #dc2626);
+    box-shadow: 0 0 16px #f97316, 0 0 32px rgba(249,115,22,0.5);
+    animation: fireball-flicker 0.1s infinite alternate;
+}
+
+@keyframes fireball-flicker {
+    from { transform: translate(-50%, -50%) scale(1); }
+    to { transform: translate(-50%, -50%) scale(1.15); }
+}
+
+.skill-ice-nova {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    border: 3px solid rgba(147,197,253,0.9);
+    background: radial-gradient(circle, rgba(191,219,254,0.5), rgba(56,189,248,0.15), transparent 70%);
+    pointer-events: none;
+    z-index: 4;
+    animation: ice-nova-expand 0.55s ease-out forwards;
+}
+
+@keyframes ice-nova-expand {
+    0% { transform: translate(-50%, -50%) scale(0.2); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
+}
+
+.death-explosion-fire {
+    background: radial-gradient(circle, rgba(251,146,60,1), rgba(220,38,38,0.6), transparent) !important;
+}
+
+/* Skill level-up button */
+.skill-button, .choice-card.skill-button {
+    background: linear-gradient(135deg, rgba(127,29,29,0.85), rgba(30,58,95,0.85));
+    border-color: rgba(251,146,60,0.5);
+    color: #fed7aa;
+}
+.skill-button:hover, .choice-card.skill-button:hover {
+    background: rgba(249,115,22,0.25);
+    border-color: #fb923c;
+    transform: translateX(4px);
+}
+
+.skill-slot.skill-fire.skill-active { border-color: rgba(249,115,22,0.7); box-shadow: 0 0 10px rgba(249,115,22,0.4); }
+.skill-slot.skill-cold.skill-active { border-color: rgba(56,189,248,0.7); box-shadow: 0 0 10px rgba(56,189,248,0.4); }
+.skill-slot.skill-lightning.skill-active { border-color: rgba(250,204,21,0.7); box-shadow: 0 0 10px rgba(250,204,21,0.4); }
+
+.skill-name {
+    font-size: 0.55rem;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.skill-slot { min-width: 56px; }
+
+.skill-maxed { opacity: 0.85; }
+.skill-maxed .skill-level { color: #fbbf24; }
+
+/* --- 2.5D enemy model wrapper --- */
+.enemy-model-25d {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    transform-style: preserve-3d;
+}
+
+.enemy-ground-shadow {
+    position: absolute;
+    bottom: 2%;
+    left: 50%;
+    width: 72%;
+    height: 18%;
+    transform: translateX(-50%);
+    border-radius: 50%;
+    background: radial-gradient(ellipse, rgba(0, 0, 0, 0.45), transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+}
+
+.enemy-model-25d .enemy-sprite {
+    position: relative;
+    z-index: 1;
+    width: 88%;
+    height: 88%;
+    background: transparent !important;
+    border-radius: 0;
+    filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.45));
+}
+
+.enemy-type-badge {
+    position: absolute;
+    top: -3px;
+    right: -5px;
+    z-index: 3;
+    width: 11px;
+    height: 11px;
+    padding: 0;
+    border-radius: 3px;
+    background: var(--enemy-type-color, #94a3b8);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.45);
+    pointer-events: none;
+}
+
+.rare-enemy .enemy-type-badge {
+    box-shadow: 0 0 0 2px #fbbf24, 0 2px 4px rgba(0, 0, 0, 0.45);
+}
+
+.elite .enemy-type-badge {
+    box-shadow: 0 0 0 2px #a78bfa, 0 2px 4px rgba(0, 0, 0, 0.45);
+}
+
+.boss .enemy-type-badge {
+    box-shadow: 0 0 0 2px #ef4444, 0 2px 6px rgba(239, 68, 68, 0.5);
+}
+
+.enemy-type-bomber .enemy-model-25d {
+    filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.45));
+}
+
+.enemy-type-wraith .enemy-model-25d {
+    filter: drop-shadow(0 0 10px rgba(148, 163, 184, 0.35));
+    animation: wraith-flicker 1.4s ease-in-out infinite;
+}
+
+.character-card {
+    display: flex;
+    align-items: center;
+}

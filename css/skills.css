@@ -1,0 +1,312 @@
+/* ===== Skill Range Indicators (centered on range-layer) ===== */
+.skill-range-layer {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    z-index: 2;
+    width: 0;
+    height: 0;
+}
+
+.skill-range-ring {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    border: 2px dashed;
+    opacity: 0.45;
+    transition: opacity 0.3s, box-shadow 0.2s;
+    pointer-events: none;
+}
+
+.skill-range-ring.skill-range-fire {
+    border-color: rgba(249, 115, 22, 0.85);
+    background: radial-gradient(circle, rgba(249,115,22,0.08), transparent 70%);
+    box-shadow: inset 0 0 20px rgba(249,115,22,0.15);
+}
+
+.skill-range-ring.skill-range-cold {
+    border-color: rgba(56, 189, 248, 0.85);
+    background: radial-gradient(circle, rgba(56,189,248,0.1), transparent 70%);
+    box-shadow: inset 0 0 24px rgba(56,189,248,0.2);
+}
+
+.skill-range-ring.skill-range-lightning {
+    border-color: rgba(250, 204, 21, 0.85);
+    background: radial-gradient(circle, rgba(250,204,21,0.08), transparent 70%);
+    animation: lightning-ring-pulse 2s ease-in-out infinite;
+}
+
+.skill-range-ring.skill-range-poison {
+    border-color: rgba(132, 204, 22, 0.85);
+    background: radial-gradient(circle, rgba(132,204,22,0.1), transparent 70%);
+}
+
+.skill-range-label {
+    position: absolute;
+    top: -1.4rem;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+    opacity: 0.8;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.9);
+}
+
+.skill-range-fire .skill-range-label { color: #fb923c; }
+.skill-range-cold .skill-range-label { color: #7dd3fc; }
+.skill-range-lightning .skill-range-label { color: #fde047; }
+.skill-range-poison .skill-range-label { color: #a3e635; }
+
+.skill-range-cast {
+    opacity: 1 !important;
+    animation: skill-range-flash 0.6s ease-out;
+}
+
+@keyframes skill-range-flash {
+    0% { opacity: 1; filter: brightness(1.8); }
+    100% { opacity: 0.45; filter: brightness(1); }
+}
+
+@keyframes lightning-ring-pulse {
+    0%, 100% { box-shadow: inset 0 0 16px rgba(250,204,21,0.2); }
+    50% { box-shadow: inset 0 0 28px rgba(250,204,21,0.45); }
+}
+
+.skill-impact-area {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 3;
+    opacity: 0;
+    border: 3px solid;
+}
+
+.skill-impact-fire {
+    border-color: rgba(249,115,22,0.9);
+    background: radial-gradient(circle, rgba(251,146,60,0.45), rgba(249,115,22,0.1), transparent 70%);
+}
+
+.skill-impact-cold {
+    border-color: rgba(147,197,253,0.95);
+    background: radial-gradient(circle, rgba(191,219,254,0.5), rgba(56,189,248,0.15), transparent 70%);
+}
+
+.skill-impact-poison {
+    border-color: rgba(132,204,22,0.9);
+    background: radial-gradient(circle, rgba(163,230,53,0.35), rgba(77,124,15,0.15), transparent 70%);
+}
+
+.skill-impact-lightning {
+    border-color: rgba(253,224,71,0.9);
+    background: radial-gradient(circle, rgba(254,240,138,0.4), transparent 70%);
+}
+
+.skill-impact-active {
+    opacity: 1;
+    animation: impact-area-pulse 0.7s ease-out forwards;
+}
+
+@keyframes impact-area-pulse {
+    0% { transform: translate(-50%, -50%) scale(0.3); opacity: 0.9; }
+    100% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
+}
+
+.skill-fireball {
+    width: 28px !important;
+    height: 28px !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+.skill-fireball-core {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: radial-gradient(circle, #fef08a 10%, #f97316 45%, #dc2626 80%);
+    box-shadow: 0 0 20px #f97316, 0 0 40px rgba(249,115,22,0.6);
+    animation: fireball-core-pulse 0.12s infinite alternate;
+}
+
+@keyframes fireball-core-pulse {
+    from { transform: scale(1); }
+    to { transform: scale(1.2); }
+}
+
+.skill-poison-bottle {
+    width: 22px !important;
+    height: 28px !important;
+    background: transparent !important;
+}
+
+.poison-bottle-icon {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(180deg, #4d7c0f 30%, #84cc16 60%, #a3e635);
+    border-radius: 4px 4px 8px 8px;
+    border: 2px solid #365314;
+    box-shadow: 0 0 12px rgba(132,204,22,0.7);
+    position: relative;
+}
+
+.skill-ice-nova-enhanced {
+    border: 4px solid rgba(186,230,253,0.95) !important;
+    background: radial-gradient(circle, rgba(224,242,254,0.65), rgba(56,189,248,0.25), transparent 72%) !important;
+    box-shadow: 0 0 40px rgba(56,189,248,0.6), inset 0 0 30px rgba(255,255,255,0.3) !important;
+    animation: ice-nova-expand-enhanced 0.85s ease-out forwards !important;
+}
+
+@keyframes ice-nova-expand-enhanced {
+    0% { transform: translate(-50%, -50%) scale(0.15); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(1.05); opacity: 0; }
+}
+
+.ice-nova-shard {
+    position: absolute;
+    width: 12px;
+    height: 24px;
+    background: linear-gradient(180deg, #e0f2fe, #0ea5e9);
+    transform: translate(-50%, -50%);
+    border-radius: 2px;
+    animation: ice-shard-fly 0.65s ease-out forwards;
+    box-shadow: 0 0 8px #38bdf8;
+}
+
+.poison-pool {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 2;
+    opacity: 0;
+}
+
+.poison-pool-inner {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(163,230,53,0.55), rgba(77,124,15,0.35) 50%, rgba(54,83,20,0.2) 80%);
+    border: 2px dashed rgba(163,230,53,0.6);
+}
+
+.poison-pool-active { opacity: 1; }
+
+.mega-explosion {
+    position: absolute;
+    width: 120px;
+    height: 120px;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 9;
+    animation: mega-burst 0.85s ease-out forwards;
+}
+
+.mega-explosion-fire {
+    background: radial-gradient(circle, rgba(254,240,138,0.95), rgba(249,115,22,0.7), transparent 70%);
+    box-shadow: 0 0 50px #f97316;
+}
+
+.mega-explosion-poison {
+    background: radial-gradient(circle, rgba(190,242,100,0.9), rgba(132,204,22,0.5), transparent 70%);
+    box-shadow: 0 0 40px #84cc16;
+}
+
+@keyframes mega-burst {
+    0% { transform: translate(-50%, -50%) scale(0.2); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(2.2); opacity: 0; }
+}
+
+.cast-flash {
+    position: absolute;
+    width: 80px;
+    height: 80px;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 8;
+    animation: cast-flash-burst 0.45s ease-out forwards;
+}
+
+.cast-flash-fire { background: radial-gradient(circle, rgba(251,146,60,0.85), transparent 70%); }
+.cast-flash-cold { background: radial-gradient(circle, rgba(125,211,252,0.85), transparent 70%); }
+.cast-flash-lightning { background: radial-gradient(circle, rgba(250,204,21,0.85), transparent 70%); }
+.cast-flash-poison { background: radial-gradient(circle, rgba(163,230,53,0.85), transparent 70%); }
+.cast-flash-heal { background: radial-gradient(circle, rgba(74,222,128,0.9), transparent 70%); }
+
+.damage-heal { color: #4ade80; text-shadow: 0 0 8px #22c55e; }
+
+.lightning-bolt-enhanced {
+    height: 5px !important;
+    box-shadow: 0 0 16px #facc15, 0 0 32px #eab308 !important;
+}
+
+.hit-effect-poison {
+    background: radial-gradient(circle, rgba(163,230,53,0.9), transparent) !important;
+}
+
+.damage-poison { color: #84cc16; text-shadow: 0 0 8px #65a30d; }
+
+/* Frostbolt — slow piercing cold shard */
+.skill-frostbolt {
+    width: 14px;
+    height: 14px;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    z-index: 10;
+}
+
+.skill-frostbolt .particle-25d-face {
+    background: linear-gradient(135deg, #e0f2fe, #0284c7);
+    box-shadow: 0 0 12px #38bdf8, 0 0 20px rgba(56, 189, 248, 0.45);
+}
+
+/* Spark — slow magenta wandering arcs */
+.skill-spark {
+    position: absolute;
+    width: 9px;
+    height: 9px;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    z-index: 10;
+    animation: spark-flicker 0.15s ease-in-out infinite alternate;
+}
+
+.skill-spark-arc .particle-25d-face {
+    background: linear-gradient(135deg, #f0abfc, #c026d3);
+    box-shadow: 0 0 10px #e879f9, 0 0 16px rgba(192, 38, 211, 0.55);
+}
+
+/* Righteous Fire aura tick */
+.skill-righteous-fire-aura {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 7;
+    border: 2px solid rgba(249, 115, 22, 0.55);
+    background: radial-gradient(circle, rgba(249, 115, 22, 0.25), transparent 70%);
+    animation: rf-pulse 0.45s ease-out forwards;
+}
+
+@keyframes rf-pulse {
+    0% { opacity: 0.9; transform: translate(-50%, -50%) scale(0.85); }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(1.15); }
+}
+
+@keyframes spark-flicker {
+    from { opacity: 0.75; }
+    to { opacity: 1; filter: brightness(1.4); }
+}
+
+.skill-range-holy .skill-range-label { color: #86efac; }
+
+.entity-svg { width: 100%; height: 100%; display: block; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.45)); }
+.char-preview-svg { flex-shrink: 0; width: 52px; height: 52px; }
+.enemy-sprite, .player-sprite { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
