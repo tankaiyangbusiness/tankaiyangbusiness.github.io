@@ -7,7 +7,9 @@ import {
     rollTieredAffixValue,
     rollValueInTierBand,
     rollBaseStatsWithTiers,
-    TIERED_PREFIXES
+    TIERED_PREFIXES,
+    AFFIX_STAT_WEIGHTS,
+    pickWeightedAffixDef
 } from '../js/config/gearAffixTiers.js';
 import { boostGearStatValue } from '../js/config/gearBalance.js';
 
@@ -89,5 +91,37 @@ describe('rollBaseStatsWithTiers', () => {
         expect(stats.armour).toBeGreaterThan(0);
         expect(rolls[0].tier).toBeGreaterThanOrEqual(1);
         expect(rolls[0].tier).toBeLessThanOrEqual(8);
+    });
+});
+
+describe('affix weights', () => {
+    it('favors HP over evade and makes crit rolls rare', () => {
+        expect(AFFIX_STAT_WEIGHTS.maxHp).toBeGreaterThan(AFFIX_STAT_WEIGHTS.armour);
+        expect(AFFIX_STAT_WEIGHTS.armour).toBeGreaterThan(AFFIX_STAT_WEIGHTS.physicalDamage);
+        expect(AFFIX_STAT_WEIGHTS.physicalDamage).toBeGreaterThan(AFFIX_STAT_WEIGHTS.attackSpeed);
+        expect(AFFIX_STAT_WEIGHTS.attackSpeed).toBeGreaterThan(AFFIX_STAT_WEIGHTS.evade);
+        expect(AFFIX_STAT_WEIGHTS.evade).toBeGreaterThan(AFFIX_STAT_WEIGHTS.critChance);
+        expect(AFFIX_STAT_WEIGHTS.critChance).toBeLessThanOrEqual(5);
+        expect(AFFIX_STAT_WEIGHTS.critMultiplier).toBeLessThanOrEqual(6);
+    });
+
+    it('includes critical damage affixes at low weight', () => {
+        expect(TIERED_PREFIXES.some(p => p.stat === 'critMultiplier')).toBe(true);
+        expect(AFFIX_STAT_WEIGHTS.critMultiplier).toBeGreaterThanOrEqual(AFFIX_STAT_WEIGHTS.critChance);
+    });
+
+    it('weighted pick prefers common stats over many rolls', () => {
+        const pool = [
+            { id: 'a', stat: 'maxHp' },
+            { id: 'b', stat: 'evade' },
+            { id: 'c', stat: 'critChance' }
+        ];
+        const counts = { maxHp: 0, evade: 0, critChance: 0 };
+        for (let i = 0; i < 300; i++) {
+            const picked = pickWeightedAffixDef(pool);
+            counts[picked.stat]++;
+        }
+        expect(counts.maxHp).toBeGreaterThan(counts.evade);
+        expect(counts.maxHp).toBeGreaterThan(counts.critChance);
     });
 });

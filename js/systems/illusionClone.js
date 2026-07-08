@@ -108,6 +108,7 @@ export class IllusionCloneManager {
 
         s.skillCooldowns.illusion = now;
         this._spawn(now, cfg);
+        this.game.audio?.playSkillSfx?.('illusion');
         this.game.effects?.spawnCastFlash(
             parseFloat(this.clone.el.style.left),
             parseFloat(this.clone.el.style.top),
@@ -197,6 +198,7 @@ export class IllusionCloneManager {
         const y = Number.isFinite(this.clone.y)
             ? this.clone.y
             : parseFloat(this.clone.el.style.top);
+        const { x: px, y: py } = this.game.ui.getPlayerPosition();
         this.clone.lastAttackTime = now;
 
         this.clone.el.classList.remove('illusion-attacking');
@@ -204,6 +206,8 @@ export class IllusionCloneManager {
         this.clone.el.classList.add('illusion-attacking');
 
         this.game._attackNearestEnemy(x, y, null, null, {
+            rangeCenterX: px,
+            rangeCenterY: py,
             damageMultiplier: this.clone.damagePercent / 100,
             skipPlayerAnim: true,
             projectileClass: 'projectile-illusion'

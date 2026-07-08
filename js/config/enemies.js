@@ -1,9 +1,10 @@
 import {
     applyBalanceScale,
     applyEnemyMovePressure,
-    applyEarlyWaveDamageReduction,
     applyEarlyWaveHpReduction,
-    applyEarlyWaveExpBonus
+    applyEarlyWaveExpBonus,
+    applyWaveStatBoost,
+    applyEnemyStartingCombatBoost
 } from './balance.js';
 import { finalizeEnemyExpStat } from './expProgression.js';
 
@@ -66,7 +67,7 @@ export const ENEMY_TYPES = {
         moveSpeedMult: 0.7,
         behavior: 'ranged',
         label: 'Archer',
-        rangedRange: 220
+        rangedRange: 260
     },
     dasher: {
         type: 'dasher',
@@ -174,10 +175,7 @@ export function buildEnemyStats(enemyType, rarity, difficulty) {
         ...base,
         hp: applyEarlyWaveHpReduction(applyBalanceScale(Math.floor(hp), 'hp'), difficulty),
         maxHp: applyEarlyWaveHpReduction(applyBalanceScale(Math.floor(hp), 'hp'), difficulty),
-        physicalDamage: applyEarlyWaveDamageReduction(
-            applyBalanceScale(Math.floor(damage), 'damage'),
-            difficulty
-        ),
+        physicalDamage: applyBalanceScale(Math.floor(damage), 'damage'),
         exp: finalizeEnemyExpStat(
             applyEarlyWaveExpBonus(applyBalanceScale(Math.floor(exp), 'exp'), difficulty),
             typeConfig.type,
@@ -193,6 +191,12 @@ export function buildEnemyStats(enemyType, rarity, difficulty) {
     if (typeConfig.behavior === 'ranged') {
         stats.attackRange = typeConfig.rangedRange || 180;
     }
+
+    // From start: +20% damage/AS, +10% armour (not HP / moveSpeed)
+    applyEnemyStartingCombatBoost(stats);
+
+    // Waves 12, 24, 36…: +15% damage / armour / attack speed
+    applyWaveStatBoost(stats, difficulty + 1);
 
     return { stats, typeConfig, rarityConfig };
 }
@@ -223,10 +227,23 @@ export function scaleEnemyExp(base, difficulty) {
     return midCap + lateExtra;
 }
 
+/**
+ * Difficulty gate before swarms enter the type pool.
+ * Keeps the first ~2 minutes (diff 0–5) mostly grunts so new players can clear.
+ */
+export const SWARM_UNLOCK_DIFFICULTY = 6;
+
 /** Pick a random enemy type based on difficulty */
 export function pickEnemyType(difficulty) {
-    const pool = ['grunt', 'grunt', 'grunt'];
-    if (difficulty >= 2) pool.push('swarm', 'swarm', 'swarm');
+    const pool = ['grunt', 'grunt', 'grunt', 'grunt'];
+    // Swarms unlock after the skill-less early window — light weight first, heavier later
+    if (difficulty >= SWARM_UNLOCK_DIFFICULTY && difficulty < 10) {
+        pool.push('swarm');
+    } else if (difficulty >= 10 && difficulty < 16) {
+        pool.push('swarm', 'swarm');
+    } else if (difficulty >= 16) {
+        pool.push('swarm', 'swarm', 'swarm');
+    }
     if (difficulty >= 5) pool.push('tank', 'archer');
     if (difficulty >= 10) pool.push('dasher', 'splitter');
     if (difficulty >= 12) pool.push('wraith', 'wraith');

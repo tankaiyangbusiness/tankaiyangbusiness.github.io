@@ -12,8 +12,8 @@ export class SkillRangeDisplay {
         this.rings = {};
     }
 
-    /** @param {object} skillList */
-    update(skillList) {
+    /** @param {object} skillList @param {number} [playerAttackRange] */
+    update(skillList, playerAttackRange = 0) {
         if (!this.layer) return;
 
         SKILL_IDS.forEach(id => {
@@ -27,7 +27,7 @@ export class SkillRangeDisplay {
                 return;
             }
 
-            const diameterPx = getSkillDisplayRadius(id, level) * 2;
+            const diameterPx = getSkillDisplayRadius(id, level, playerAttackRange) * 2;
 
             if (!ring) {
                 ring = document.createElement('div');

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { GameState } from '../js/game/gameState.js';
 import { buildEnemyStats, pickEnemyType, ENEMY_TYPES, BASE_ENEMY_STATS, scaleEnemyDamage, scaleEnemyExp, scaleEnemyHpForDifficulty, computeEnemyEvadeChance } from '../js/config/enemies.js';
-import { applyBalanceScale, applyEarlyWaveExpBonus, applyEarlyWaveHpReduction, BALANCE } from '../js/config/balance.js';
+import { applyBalanceScale, applyEarlyWaveExpBonus, applyEarlyWaveHpReduction, applyEnemyMovePressure, BALANCE } from '../js/config/balance.js';
 import { finalizeEnemyExpStat } from '../js/config/expProgression.js';
 import { createAbilityLevelThresholds } from '../js/config/progression.js';
 import { clamp, formatTime, calculateExpThreshold, distanceVw } from '../js/utils/math.js';
@@ -67,7 +67,19 @@ describe('buildEnemyStats', () => {
 
     it('sets ranged attack range for archers', () => {
         const archer = buildEnemyStats('archer', 'normal', 0);
-        expect(archer.stats.attackRange).toBe(220);
+        expect(archer.stats.attackRange).toBe(260);
+    });
+
+    it('applies starting combat boost (+20% damage, +10% armour) without HP/moveSpeed', () => {
+        const grunt = buildEnemyStats('grunt', 'normal', 0);
+        const tank = buildEnemyStats('tank', 'normal', 0);
+        expect(grunt.stats.moveSpeed).toBeCloseTo(
+            applyEnemyMovePressure(BASE_ENEMY_STATS.moveSpeed, 0),
+            5
+        );
+        expect(grunt.stats.attackSpeed).toBeCloseTo(BASE_ENEMY_STATS.attackSpeed * 1.2, 5);
+        // Tank armourBonus 8 → ×1.1 → 8 (floor)
+        expect(tank.stats.armour).toBe(Math.floor(8 * BALANCE.enemyBaseArmourBonus + 1e-9));
     });
 
     it('gives penetrator ignore-armour flag', () => {
@@ -147,6 +159,13 @@ describe('pickEnemyType', () => {
         const types = new Set();
         for (let i = 0; i < 50; i++) types.add(pickEnemyType(0));
         expect(types.has('grunt')).toBe(true);
+        expect(types.has('swarm')).toBe(false);
+    });
+
+    it('excludes swarm before unlock difficulty', () => {
+        for (let i = 0; i < 100; i++) {
+            expect(pickEnemyType(5)).not.toBe('swarm');
+        }
     });
 
     it('includes advanced types at high difficulty', () => {
@@ -156,6 +175,7 @@ describe('pickEnemyType', () => {
         expect(types.has('penetrator')).toBe(true);
         expect(types.has('wraith')).toBe(true);
         expect(types.has('splitter')).toBe(true);
+        expect(types.has('swarm')).toBe(true);
     });
 
     it('includes wraith from wave 12 onward', () => {

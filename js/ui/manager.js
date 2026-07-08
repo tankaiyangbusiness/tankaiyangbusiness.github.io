@@ -1,8 +1,11 @@
 import { CHARACTERS } from '../config/characters.js';
-import { SKILL_DEFINITIONS, SKILL_IDS, syncPlayerSkillLevels } from '../config/skills.js';
+import { SKILL_DEFINITIONS, SKILL_IDS, syncPlayerSkillLevels, formatSkillTooltipHtml } from '../config/skills.js';
 import { formatTime } from '../utils/math.js';
 import { getCharacterPreviewHtml } from './entityModels.js';
-import { getAchievementById, getCharacterRecord } from '../systems/metaProgress.js';
+import { getAchievementById, getCharacterRecord, hasCharacterBeatGame } from '../systems/metaProgress.js';
+import { ACHIEVEMENTS, getAchievementTooltipText } from '../config/achievements.js';
+import { FINAL_VICTORY_WAVE } from '../config/victory.js';
+import { computeTooltipPlacement } from '../utils/tooltipClamp.js';
 import {
     getCharacterPassive,
     formatPassiveTooltipHtml
@@ -56,11 +59,17 @@ export class UIManager {
             shieldRow: document.getElementById('shield-row'),
             shieldBarFill: document.getElementById('shield-bar-fill'),
             shieldValue: document.getElementById('shield-value'),
-            buffBar: document.getElementById('buff-bar')
+            buffBar: document.getElementById('buff-bar'),
+            achievementsOverlay: document.getElementById('achievements-overlay'),
+            achievementsGrid: document.getElementById('achievements-grid'),
+            achievementsProgress: document.getElementById('achievements-progress'),
+            achievementsClose: document.getElementById('achievements-close'),
+            treasurePing: null
         };
         this._achievementTimer = null;
         this._waveTimer = null;
         this._gearLootTimer = null;
+        this._treasurePingTimer = null;
         this._lastStreak = 0;
         this._initPauseMenu();
     }
@@ -69,13 +78,178 @@ export class UIManager {
         this.els.pauseResume = document.getElementById('pause-resume');
         this.els.pauseRestart = document.getElementById('pause-restart');
         this.els.pauseCharacter = document.getElementById('pause-character');
+        this.els.pauseAchievements = document.getElementById('pause-achievements');
+        this.els.audioMusicSliderChar = document.getElementById('audio-music-slider-char');
+        this.els.audioMusicSliderPause = document.getElementById('audio-music-slider-pause');
+        this.els.audioSfxSliderChar = document.getElementById('audio-sfx-slider-char');
+        this.els.audioSfxSliderPause = document.getElementById('audio-sfx-slider-pause');
+        this.els.audioMusicValueChar = document.getElementById('audio-music-value-char');
+        this.els.audioMusicValuePause = document.getElementById('audio-music-value-pause');
+        this.els.audioSfxValueChar = document.getElementById('audio-sfx-value-char');
+        this.els.audioSfxValuePause = document.getElementById('audio-sfx-value-pause');
+        this.els.achievementsClose?.addEventListener('click', () => this.closeAchievementsPanel());
     }
 
-    /** @param {{ resume: () => void, restart: () => void, characterSelect: () => void }} handlers */
+    /**
+     * @param {{
+     *   resume: () => void,
+     *   restart: () => void,
+     *   characterSelect: () => void,
+     *   achievements?: () => void
+     * }} handlers
+     */
     bindPauseMenu(handlers) {
         this.els.pauseResume?.addEventListener('click', handlers.resume);
         this.els.pauseRestart?.addEventListener('click', handlers.restart);
         this.els.pauseCharacter?.addEventListener('click', handlers.characterSelect);
+        this.els.pauseAchievements?.addEventListener('click', () => handlers.achievements?.());
+    }
+
+    /**
+     * Renders the full achievement grid (locked + unlocked) with hover tips.
+     * @param {{ unlockedAchievements?: string[] }} meta
+     */
+    openAchievementsPanel(meta) {
+        const unlocked = new Set(meta?.unlockedAchievements || []);
+        const grid = this.els.achievementsGrid;
+        const overlay = this.els.achievementsOverlay;
+        if (!grid || !overlay) return;
+
+        const done = unlocked.size;
+        const total = ACHIEVEMENTS.length;
+        if (this.els.achievementsProgress) {
+            this.els.achievementsProgress.textContent = `${done} / ${total} completed`;
+        }
+
+        grid.innerHTML = ACHIEVEMENTS.map(def => {
+            const isOn = unlocked.has(def.id);
+            const tip = getAchievementTooltipText(def);
+            const safeTip = tip.replace(/"/g, '&quot;');
+            return `
+                <button type="button" class="achievement-icon-btn ${isOn ? 'achievement-unlocked' : 'achievement-locked'}"
+                    role="listitem"
+                    data-id="${def.id}"
+                    title="${safeTip}"
+                    aria-label="${def.title}: ${safeTip}">
+                    <span class="achievement-icon-emoji" aria-hidden="true">${def.icon || '🏅'}</span>
+                    <span class="achievement-icon-title">${def.title}</span>
+                    <span class="achievement-hover-tip">${tip}</span>
+                </button>
+            `;
+        }).join('');
+
+        this._bindAchievementTooltipLayout(grid);
+
+        overlay.style.display = 'flex';
+        overlay.setAttribute('aria-hidden', 'false');
+    }
+
+    /**
+     * Clamp achievement hover tips inside the panel — flip above at bottom rows, shift at sides.
+     * @param {HTMLElement} grid
+     */
+    _bindAchievementTooltipLayout(grid) {
+        if (!grid) return;
+
+        const panel = grid.closest('.achievements-panel');
+
+        const resetTip = (tip) => {
+            tip.classList.remove('achievement-hover-tip--above');
+            tip.style.transform = 'translateX(-50%)';
+            tip.style.left = '50%';
+        };
+
+        const positionTip = (btn) => {
+            const tip = btn.querySelector('.achievement-hover-tip');
+            if (!tip) return;
+
+            resetTip(tip);
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    const bounds = (panel || grid).getBoundingClientRect();
+                    let tipRect = tip.getBoundingClientRect();
+                    let { shiftX, placement } = computeTooltipPlacement(tipRect, bounds, 10);
+
+                    if (placement === 'above') {
+                        tip.classList.add('achievement-hover-tip--above');
+                        tipRect = tip.getBoundingClientRect();
+                        const adjusted = computeTooltipPlacement(tipRect, bounds, 10);
+                        shiftX = adjusted.shiftX;
+                    }
+
+                    if (shiftX !== 0) {
+                        tip.style.transform = `translateX(calc(-50% + ${shiftX}px))`;
+                    }
+                });
+            });
+        };
+
+        grid.querySelectorAll('.achievement-icon-btn').forEach(btn => {
+            btn.addEventListener('mouseenter', () => positionTip(btn));
+            btn.addEventListener('focus', () => positionTip(btn));
+            btn.addEventListener('mouseleave', () => {
+                const tip = btn.querySelector('.achievement-hover-tip');
+                if (tip) resetTip(tip);
+            });
+            btn.addEventListener('blur', () => {
+                const tip = btn.querySelector('.achievement-hover-tip');
+                if (tip) resetTip(tip);
+            });
+        });
+    }
+
+    closeAchievementsPanel() {
+        const overlay = this.els.achievementsOverlay;
+        if (!overlay) return;
+        overlay.style.display = 'none';
+        overlay.setAttribute('aria-hidden', 'true');
+    }
+
+    /** @param {import('../systems/audioManager.js').AudioManager} audio */
+    bindAudioControls(audio) {
+        const sync = () => this.syncAudioVolumeUi(audio);
+
+        const bindSlider = (slider, setter) => {
+            if (!slider) return;
+            const onInput = () => {
+                audio.unlock?.();
+                setter(Number(slider.value));
+                sync();
+            };
+            slider.addEventListener('input', onInput);
+            slider.addEventListener('change', () => {
+                audio.unlock?.();
+                audio.playSfx?.('ui');
+            });
+        };
+
+        bindSlider(this.els.audioMusicSliderChar, v => audio.setBgmVolume(v));
+        bindSlider(this.els.audioMusicSliderPause, v => audio.setBgmVolume(v));
+        bindSlider(this.els.audioSfxSliderChar, v => audio.setSfxVolume(v));
+        bindSlider(this.els.audioSfxSliderPause, v => audio.setSfxVolume(v));
+        sync();
+    }
+
+    /** @param {import('../systems/audioManager.js').AudioManager} audio */
+    syncAudioVolumeUi(audio) {
+        const bgm = audio.getBgmVolume();
+        const sfx = audio.getSfxVolume();
+        const apply = (slider, label, value) => {
+            if (slider) {
+                slider.value = String(value);
+                slider.setAttribute('aria-valuenow', String(value));
+            }
+            if (label) label.textContent = `${value}%`;
+        };
+        apply(this.els.audioMusicSliderChar, this.els.audioMusicValueChar, bgm);
+        apply(this.els.audioMusicSliderPause, this.els.audioMusicValuePause, bgm);
+        apply(this.els.audioSfxSliderChar, this.els.audioSfxValueChar, sfx);
+        apply(this.els.audioSfxSliderPause, this.els.audioSfxValuePause, sfx);
+    }
+
+    /** @deprecated Use syncAudioVolumeUi */
+    syncAudioToggleLabels(audio) {
+        this.syncAudioVolumeUi(audio);
     }
 
     showCharacterSelection(onSelect, meta = null) {
@@ -88,9 +262,12 @@ export class UIManager {
         CHARACTERS.forEach((char, index) => {
             const record = meta ? getCharacterRecord(meta, char.name) : null;
             const hasRecord = record && record.level > 0;
-            const bestText = hasRecord
-                ? `Best: Lv.${record.level} · Wave ${record.wave} · ${record.kills} kills · ${formatTime(record.time)}`
-                : 'No record yet';
+            const beatGame = meta ? hasCharacterBeatGame(meta, char.name) : false;
+            const bestText = beatGame
+                ? `★ Champion — Beat Wave ${FINAL_VICTORY_WAVE}!`
+                : hasRecord
+                    ? `Best: Lv.${record.level} · Wave ${record.wave} · ${record.kills} kills · ${formatTime(record.time)}`
+                    : 'No record yet';
 
             const passive = getCharacterPassive(char.name);
             const passiveChip = passive
@@ -102,7 +279,7 @@ export class UIManager {
                 : '';
 
             const card = document.createElement('button');
-            card.className = 'character-card';
+            card.className = 'character-card' + (beatGame ? ' character-card--champion' : '');
             card.dataset.character = char.name;
             const keyHint = index < 9 ? index + 1 : (index === 9 ? '0' : '-');
             card.innerHTML = `
@@ -122,7 +299,7 @@ export class UIManager {
                         <span class="char-stat-sep">·</span>
                         <span class="char-stat" title="Defence"><span class="char-stat-ico char-stat-def">🛡</span>${char.stats.armour}</span>
                     </div>
-                    <span class="character-best-run ${hasRecord ? 'has-record' : ''}">${bestText}</span>
+                    <span class="character-best-run ${hasRecord || beatGame ? 'has-record' : ''}">${bestText}</span>
                 </div>
             `;
             card.addEventListener('click', () => onSelect(char.name));
@@ -271,22 +448,54 @@ export class UIManager {
     }
 
     updateSkillBar(skills, skillList) {
-        this.els.skillBar.innerHTML = SKILL_IDS.map(id => {
+        const bar = this.els.skillBar;
+        if (!bar) return;
+
+        SKILL_IDS.forEach(id => {
             const def = SKILL_DEFINITIONS[id];
             const level = skills[id] || 0;
             const maxed = skillList[id]?.level >= skillList[id]?.maxLevel;
-            const levelBadge = level > 0
-                ? `<span class="skill-level-badge">${level}</span>`
-                : '';
-            const iconHtml = SKILL_ICON_HTML[id] || `<span class="skill-icon">${def.icon}</span>`;
-            return `
-                <div class="skill-slot skill-${def.element} ${level > 0 ? 'skill-active' : 'skill-locked'} ${maxed ? 'skill-maxed' : ''}"
-                     title="${def.name}: ${def.description}">
-                    ${iconHtml}
-                    ${levelBadge}
-                </div>
-            `;
-        }).join('');
+            let slot = bar.querySelector(`[data-skill-id="${id}"]`);
+
+            if (!slot) {
+                slot = document.createElement('div');
+                slot.className = 'skill-slot';
+                slot.dataset.skillId = id;
+                slot.tabIndex = 0;
+                slot.innerHTML = `
+                    <span class="skill-slot-icon-wrap"></span>
+                    <span class="skill-level-badge" hidden></span>
+                    <div class="skill-slot-tip" role="tooltip"></div>
+                `;
+                const open = () => slot.classList.add('skill-tip-open');
+                const close = () => slot.classList.remove('skill-tip-open');
+                slot.addEventListener('mouseenter', open);
+                slot.addEventListener('mouseleave', close);
+                slot.addEventListener('focus', open);
+                slot.addEventListener('blur', close);
+                bar.appendChild(slot);
+            }
+
+            slot.className = `skill-slot skill-${def.element} ${level > 0 ? 'skill-active' : 'skill-locked'} ${maxed ? 'skill-maxed' : ''}`;
+
+            const iconWrap = slot.querySelector('.skill-slot-icon-wrap');
+            if (iconWrap) {
+                iconWrap.innerHTML = SKILL_ICON_HTML[id] || `<span class="skill-icon">${def.icon}</span>`;
+            }
+
+            const badge = slot.querySelector('.skill-level-badge');
+            if (badge) {
+                if (level > 0) {
+                    badge.hidden = false;
+                    badge.textContent = String(level);
+                } else {
+                    badge.hidden = true;
+                }
+            }
+
+            const tip = slot.querySelector('.skill-slot-tip');
+            if (tip) tip.innerHTML = formatSkillTooltipHtml(def, level);
+        });
     }
 
     updateTimer(seconds) {
@@ -311,6 +520,7 @@ export class UIManager {
     showPause(show) {
         this.els.pauseOverlay.style.display = show ? 'flex' : 'none';
         this.els.gameContainer.classList.toggle('game-paused', show);
+        if (!show) this.closeAchievementsPanel();
     }
 
     showGameOver(stats, elapsedSeconds, kills, wave) {
@@ -343,7 +553,8 @@ export class UIManager {
     showAchievementUnlock(achievementId) {
         const def = getAchievementById(achievementId);
         if (!def || !this.els.achievementToast) return;
-        this.els.achievementToast.innerHTML = `🏆 <strong>${def.title}</strong> — ${def.description}`;
+        const icon = def.icon ? `${def.icon} ` : '🏆 ';
+        this.els.achievementToast.innerHTML = `${icon}<strong>${def.title}</strong> — ${def.description}`;
         this.els.achievementToast.classList.add('toast-visible');
         clearTimeout(this._achievementTimer);
         this._achievementTimer = setTimeout(() => {
@@ -354,7 +565,12 @@ export class UIManager {
     /** @param {number} wave */
     showWaveAnnouncement(wave) {
         if (!this.els.waveToast || wave <= 0) return;
-        this.els.waveToast.textContent = `Wave ${wave} — Difficulty rising!`;
+        if (wave === FINAL_VICTORY_WAVE) {
+            this.els.waveToast.textContent = `Wave ${wave} — The Final Boss approaches!`;
+        } else {
+            this.els.waveToast.textContent = `Wave ${wave} — Difficulty rising!`;
+        }
+        this.els.waveToast.classList.remove('toast-victory', 'toast-boss-final');
         this.els.waveToast.classList.add('toast-visible');
         clearTimeout(this._waveTimer);
         this._waveTimer = setTimeout(() => {
@@ -362,14 +578,62 @@ export class UIManager {
         }, 2200);
     }
 
-    showTreasureHint() {
+    /** @param {number} wave */
+    showFinalVictoryBossIncoming(wave) {
         if (!this.els.waveToast) return;
-        this.els.waveToast.textContent = '✨ Treasure chest appeared!';
-        this.els.waveToast.classList.add('toast-visible');
+        this.els.waveToast.textContent = `⚠️ Wave ${wave} FINAL BOSS — 20× HP · 2× damage · Army incoming!`;
+        this.els.waveToast.classList.remove('toast-victory');
+        this.els.waveToast.classList.add('toast-visible', 'toast-boss-final');
         clearTimeout(this._waveTimer);
         this._waveTimer = setTimeout(() => {
-            this.els.waveToast.classList.remove('toast-visible');
-        }, 2800);
+            this.els.waveToast.classList.remove('toast-visible', 'toast-boss-final');
+        }, 4200);
+    }
+
+    /** @param {string} characterName */
+    showFinalVictoryCelebration(characterName) {
+        if (!this.els.waveToast) return;
+        this.els.waveToast.textContent =
+            `🏆 VICTORY! ${characterName} defeated Wave ${FINAL_VICTORY_WAVE}! Campaign complete — keep fighting!`;
+        this.els.waveToast.classList.remove('toast-boss-final');
+        this.els.waveToast.classList.add('toast-visible', 'toast-victory');
+        clearTimeout(this._waveTimer);
+        this._waveTimer = setTimeout(() => {
+            this.els.waveToast.classList.remove('toast-visible', 'toast-victory');
+        }, 6500);
+    }
+
+    /** @param {number} [x] @param {number} [y] @param {number} [distVw] */
+    showTreasureHint(x, y, distVw) {
+        if (this.els.waveToast) {
+            const rangeNote = Number.isFinite(distVw)
+                ? ` (${Math.round(distVw)} units away)`
+                : '';
+            this.els.waveToast.textContent =
+                `🎁 Treasure chest spawned${rangeNote}! Defeat the golden CHEST enemy — it walks toward you.`;
+            this.els.waveToast.classList.add('toast-visible');
+            clearTimeout(this._waveTimer);
+            this._waveTimer = setTimeout(() => {
+                this.els.waveToast.classList.remove('toast-visible');
+            }, 4500);
+        }
+
+        // Screen ping at spawn location so the chest can't be missed
+        if (Number.isFinite(x) && Number.isFinite(y) && this.els.gameContainer) {
+            this.els.treasurePing?.remove();
+            const ping = document.createElement('div');
+            ping.className = 'treasure-screen-ping';
+            ping.style.left = `${x}vw`;
+            ping.style.top = `${y}vh`;
+            ping.setAttribute('aria-hidden', 'true');
+            this.els.gameContainer.appendChild(ping);
+            this.els.treasurePing = ping;
+            clearTimeout(this._treasurePingTimer);
+            this._treasurePingTimer = setTimeout(() => {
+                ping.remove();
+                if (this.els.treasurePing === ping) this.els.treasurePing = null;
+            }, 2800);
+        }
     }
 
     /** Brief HUD flash when HP or EXP changes. @param {'hp'|'exp'} type */

@@ -6,7 +6,7 @@ import {
     getCharacterPassive,
     ELEMENTALIST_ELEMENTS
 } from '../config/characterPassives.js';
-import { findEnemiesInRadius } from '../config/skills.js';
+import { findEnemiesInRadius, getSkillTags } from '../config/skills.js';
 import { distanceVw, rollChance } from '../utils/math.js';
 import { companionAiStep } from '../utils/companionAi.js';
 import { buildCompanionModelHtml } from '../ui/entityModels.js';
@@ -86,11 +86,44 @@ export class CharacterPassiveManager {
         }
     }
 
-    /** @param {number} damage @param {string} element */
-    modifySkillDamage(damage, element) {
-        if (this.def?.id !== 'elementalist') return damage;
-        if (!ELEMENTALIST_ELEMENTS.has(element)) return damage;
-        return Math.floor(damage * (1 + this.def.params.elementBonus));
+    /**
+     * @param {number} damage
+     * @param {{ element?: string, skillId?: string, tags?: string[] }} [context]
+     */
+    modifySkillDamage(damage, context = {}) {
+        if (!this.def) return damage;
+
+        const tags = context.tags?.length
+            ? context.tags
+            : (context.skillId ? getSkillTags(context.skillId) : []);
+
+        if (this.def.id === 'elementalist') {
+            if (tags.includes('elemental')) {
+                return Math.floor(damage * (1 + this.def.params.elementBonus));
+            }
+            if (context.element && ELEMENTALIST_ELEMENTS.has(context.element)) {
+                return Math.floor(damage * (1 + this.def.params.elementBonus));
+            }
+        }
+
+        if (this.def.id === 'slayer') {
+            const isPhysicalSkill = tags.includes('physical');
+            const isPhysicalElement = context.element === 'physical';
+            if (isPhysicalSkill || isPhysicalElement) {
+                return Math.floor(damage * (1 + this.def.params.physicalBonus));
+            }
+        }
+
+        return damage;
+    }
+
+    /**
+     * Flat physical/basic-attack multiplier (Slayer).
+     * @param {number} damage
+     */
+    modifyPhysicalDamage(damage) {
+        if (this.def?.id !== 'slayer') return damage;
+        return Math.floor(damage * (1 + this.def.params.physicalBonus));
     }
 
     /** @param {number} expGain */
@@ -257,7 +290,7 @@ export class CharacterPassiveManager {
             durationMs: this.def.params.durationMs,
             now
         });
-        this.game.effects?.spawnCastFlash?.(x, y, 'poison');
+        this.game.effects?.spawnCastFlash?.(x, y, 'chaos');
     }
 
     _spawnBears() {
@@ -347,6 +380,15 @@ export class CharacterPassiveManager {
         minion.lastAttack = now;
         const damage = Math.max(1, Math.floor(this.game.state.stats.physicalDamage * minion.damagePercent / 100));
         this.game._dealSkillDamageToEnemy?.(step.target, damage, 'physical', false);
+
+        // Directional melee jab toward the target
+        const tx = parseFloat(step.target.element.style.left);
+        const ty = parseFloat(step.target.element.style.top);
+        const dx = (tx - minion.x) * iw / 100;
+        const dy = (ty - minion.y) * ih / 100;
+        const len = Math.hypot(dx, dy) || 1;
+        minion.el.style.setProperty('--melee-lunge-x', `${(dx / len) * 10}px`);
+        minion.el.style.setProperty('--melee-lunge-y', `${(dy / len) * 10}px`);
         minion.el.classList.remove('passive-minion-attack');
         void minion.el.offsetWidth;
         minion.el.classList.add('passive-minion-attack');

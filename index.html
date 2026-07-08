@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Survivor Arena — Idle RPG</title>
+    <link rel="stylesheet" href="css/typography.css">
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="css/models.css">
     <link rel="stylesheet" href="css/skills.css">
@@ -14,6 +15,7 @@
     <link rel="stylesheet" href="css/animations.css">
     <link rel="stylesheet" href="css/particles-25d.css">
     <link rel="stylesheet" href="css/character-passive.css">
+    <link rel="stylesheet" href="css/scrollbar.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
@@ -21,13 +23,28 @@
 <body>
     <!-- Character Selection -->
     <div id="character-selection">
+        <aside class="char-audio-dock" aria-label="Audio settings">
+            <div class="audio-controls-panel audio-controls-dock" aria-label="Volume">
+                <label class="audio-slider-row">
+                    <span class="audio-slider-label" title="Music">♪</span>
+                    <input id="audio-music-slider-char" class="audio-volume-slider" type="range" min="0" max="100" step="1" value="50" aria-label="Music volume" aria-valuemin="0" aria-valuemax="100">
+                    <span id="audio-music-value-char" class="audio-slider-value">50%</span>
+                </label>
+                <label class="audio-slider-row">
+                    <span class="audio-slider-label" title="SFX">⚔</span>
+                    <input id="audio-sfx-slider-char" class="audio-volume-slider" type="range" min="0" max="100" step="1" value="100" aria-label="SFX volume" aria-valuemin="0" aria-valuemax="100">
+                    <span id="audio-sfx-value-char" class="audio-slider-value">100%</span>
+                </label>
+            </div>
+        </aside>
         <header class="char-select-header">
             <h1 class="game-title">Survivor Arena</h1>
             <p class="game-subtitle">Auto-battle survival RPG — pick your champion</p>
+            <p class="game-objective">Objective: reach <strong>Wave 100</strong> and defeat the Final Boss. Victory ends the campaign — the arena keeps going!</p>
         </header>
         <div class="char-select-body">
             <h2 class="section-title">Select Your Character</h2>
-            <div id="character-list"></div>
+            <div id="character-list" class="game-scrollbar"></div>
         </div>
         <p class="controls-hint">Press <kbd>1</kbd>–<kbd>9</kbd>, <kbd>0</kbd>, <kbd>-</kbd> to select · In-game: <kbd>U</kbd> upgrades · <kbd>G</kbd> gear · <kbd>Esc</kbd> pause</p>
     </div>
@@ -92,7 +109,7 @@
                 </div>
                 <aside id="enemy-guide-panel" class="enemy-guide-panel" aria-label="Enemy types">
                     <button id="enemy-guide-toggle" type="button" class="enemy-guide-toggle" aria-expanded="false" title="Enemy guide">!</button>
-                    <div id="enemy-guide-body" class="enemy-guide-body"></div>
+                    <div id="enemy-guide-body" class="enemy-guide-body game-scrollbar"></div>
                 </aside>
             </div>
 
@@ -117,9 +134,10 @@
                 <span>Gear</span>
                 <span id="gear-panel-count" class="gear-panel-badge gear-panel-badge-hidden">0</span>
             </button>
-            <div id="gear-panel-body" class="gear-panel-body">
+            <div id="gear-panel-body" class="gear-panel-body game-scrollbar">
                 <div id="gear-slots" class="gear-slots"></div>
-                <div id="gear-inventory-list" class="gear-inventory-list"></div>
+                <div class="gear-panel-divider" role="separator" aria-hidden="true"></div>
+                <div id="gear-inventory-list" class="gear-inventory-list game-scrollbar"></div>
                 <section id="gear-bulk-section" class="gear-actions-section gear-bulk-section" aria-label="Bulk delete">
                     <h4 class="gear-section-title">Bulk delete</h4>
                     <p class="gear-section-hint">Remove matching items from inventory</p>
@@ -154,7 +172,7 @@
                 <span id="upgrade-panel-count" class="upgrade-panel-badge upgrade-panel-badge-hidden">0</span>
                 <span class="upgrade-panel-icon" aria-hidden="true">▲</span>
             </button>
-            <div id="upgrade-panel-body" class="upgrade-panel-body">
+            <div id="upgrade-panel-body" class="upgrade-panel-body game-scrollbar">
                 <div class="upgrade-panel-header">
                     <h3 id="upgrade-panel-title">Upgrades</h3>
                     <p id="upgrade-panel-queue" class="upgrade-panel-queue"></p>
@@ -173,10 +191,34 @@
                 <h2>Paused</h2>
                 <div class="pause-menu-buttons">
                     <button id="pause-resume" type="button" class="pause-btn pause-btn-primary">Resume</button>
+                    <button id="pause-achievements" type="button" class="pause-btn">🏆 Achievements</button>
                     <button id="pause-restart" type="button" class="pause-btn">Restart Run</button>
                     <button id="pause-character" type="button" class="pause-btn">Character Select</button>
                 </div>
+                <div class="audio-controls-panel pause-audio-row" aria-label="Audio settings">
+                    <label class="audio-slider-row">
+                        <span class="audio-slider-label">Music</span>
+                        <input id="audio-music-slider-pause" class="audio-volume-slider" type="range" min="0" max="100" step="1" value="50" aria-valuemin="0" aria-valuemax="100">
+                        <span id="audio-music-value-pause" class="audio-slider-value">50%</span>
+                    </label>
+                    <label class="audio-slider-row">
+                        <span class="audio-slider-label">SFX</span>
+                        <input id="audio-sfx-slider-pause" class="audio-volume-slider" type="range" min="0" max="100" step="1" value="100" aria-valuemin="0" aria-valuemax="100">
+                        <span id="audio-sfx-value-pause" class="audio-slider-value">100%</span>
+                    </label>
+                </div>
                 <p class="controls-hint">Press <kbd>Esc</kbd> to resume</p>
+            </div>
+        </div>
+
+        <div id="achievements-overlay" class="overlay" aria-hidden="true">
+            <div class="overlay-content achievements-panel" role="dialog" aria-labelledby="achievements-title">
+                <div class="achievements-panel-header">
+                    <h2 id="achievements-title">Achievements</h2>
+                    <button id="achievements-close" type="button" class="pause-btn achievements-close-btn" aria-label="Close achievements">← Back</button>
+                </div>
+                <p class="achievements-progress" id="achievements-progress"></p>
+                <div id="achievements-grid" class="achievements-grid game-scrollbar" role="list"></div>
             </div>
         </div>
 

@@ -45,12 +45,18 @@ export class GameState {
         this.pauseTime = 0;
         this.currentDifficultyLevel = 0;
         this.currentWave = 1;
+        this.maxWaveReached = 1;
         this.previousDifficultyLevel = -1;
         this.previousWave = 0;
         this.nextEnemyId = 0;
         this.killCount = 0;
         this.itemsLooted = 0;
+        this.elitesKilled = 0;
+        this.bossesKilled = 0;
+        this.maxHpReached = 0;
+        this.finalVictoryAchieved = false;
         this.selectedCharacterName = '';
+        this.selectedModelClass = '';
 
         this.healthRegenTime = 0;
         this.healthRegenInterval = 1000;
@@ -104,7 +110,16 @@ export class GameState {
         this.pendingTimeouts.clear();
     }
 
-    trackAnimation(id) {
+    /**
+     * Track a RAF id. Pass `previousId` when replacing a looping animation
+     * so old ids do not accumulate (critical for long runs / memory).
+     * @param {number} id
+     * @param {number|null} [previousId]
+     */
+    trackAnimation(id, previousId = null) {
+        if (previousId != null && previousId !== id) {
+            this.animationIds.delete(previousId);
+        }
         this.animationIds.add(id);
         return id;
     }

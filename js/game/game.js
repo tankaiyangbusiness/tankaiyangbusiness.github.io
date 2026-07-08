@@ -1,4 +1,5 @@
 import { CHARACTERS } from '../config/characters.js';
+import { usesMeleeBasicAttack } from '../config/combatStyles.js';
 import { buildEnemyStats, pickEnemyType, ENEMY_TYPES } from '../config/enemies.js';
 import { getEnemyTypeColor } from '../config/enemyColors.js';
 import { syncPlayerSkillLevels } from '../config/skills.js';
@@ -22,13 +23,14 @@ import {
 import {
     calculatePlayerDamage,
     calculatePlayerIncomingDamage,
+    calculateReflectDamage,
     calculateLifesteal,
     applyStatUpgrade,
     rollEnemyEvade
 } from '../systems/combat.js';
 import { distanceVw, rollChance } from '../utils/math.js';
 import { deepClone } from '../utils/clone.js';
-import { applyPlayerModel, resetPlayerModel, buildEnemyModelHtml } from '../ui/entityModels.js';
+import { applyPlayerModel, resetPlayerModel, buildEnemyModelHtml, buildTreasureChestModelHtml } from '../ui/entityModels.js';
 import { flashPlayerSprite, shakePlayerAnchor } from '../ui/playerVisuals.js';
 import { SkillRangeDisplay } from '../systems/skillRangeDisplay.js';
 import { PoisonPoolManager } from '../systems/poisonPools.js';
@@ -51,6 +53,15 @@ import {
     rollSwarmGroupSize,
     getEdgeSpawnAnchor
 } from '../systems/enemySpawn.js';
+import { isBossWave, rollBossWaveSwarmCount, BOSS_WAVE_HP_MULT } from '../config/bossWaves.js';
+import {
+    isFinalVictoryWave,
+    applyFinalBossCombatScaling,
+    rollFinalVictorySwarmCount,
+    rollFinalVictoryGruntCount,
+    rollFinalVictoryEliteCount,
+    FINAL_VICTORY_WAVE
+} from '../config/victory.js';
 import { EnemyProjectileManager } from '../systems/enemyProjectiles.js';
 import { EnemyGuidePanel } from '../ui/enemyGuidePanel.js';
 import { shouldDropGear } from '../config/gearRarity.js';
@@ -59,30 +70,58 @@ import { RARITY_CONFIG } from '../config/gearRarity.js';
 import {
     loadMetaProgress,
     evaluateAchievements,
-    updateCharacterRecord
+    updateCharacterRecord,
+    markCharacterVictory
 } from '../systems/metaProgress.js';
+import { AudioManager } from '../systems/audioManager.js';
 
 export class Game {
     constructor() {
         this.state = new GameState();
         this.ui = new UIManager();
+        this.audio = new AudioManager();
         this.effects = null;
         this.meta = loadMetaProgress();
         this.killStreak = new KillStreakTracker();
+        this._treasureGuideArrow = null;
+        this._treasureGuideRing = null;
+        this._pausedByTabHidden = false;
         this._bindEvents();
         this.ui.bindPauseMenu({
             resume: () => this.resumeGame(),
             restart: () => this.restartRun(),
-            characterSelect: () => this.quitToCharacterSelect()
+            characterSelect: () => this.quitToCharacterSelect(),
+            achievements: () => this.ui.openAchievementsPanel(this.meta)
         });
+        this.ui.bindAudioControls(this.audio);
+        this.ui.syncAudioVolumeUi(this.audio);
         this.ui.showCharacterSelection(name => this.selectCharacter(name), this.meta);
     }
 
     _bindEvents() {
         document.addEventListener('keydown', (e) => this._onKeyDown(e));
         document.addEventListener('click', () => {
+            this.audio?.unlock?.();
             if (this.state.gameOver && !this.state.gamePaused) this.restart();
         });
+        document.addEventListener('pointerdown', () => this.audio?.unlock?.(), { once: false });
+        this._onVisibilityChange = () => this._handleVisibilityChange();
+        document.addEventListener('visibilitychange', this._onVisibilityChange);
+    }
+
+    /** Freeze gameplay when the tab is hidden so timers and spawns do not advance in the background. */
+    _handleVisibilityChange() {
+        const s = this.state;
+        if (document.hidden) {
+            if (!s.gamePaused && !s.gameOver && !s.characterSelection) {
+                this._pausedByTabHidden = this.pauseGame({ silent: true });
+            }
+            return;
+        }
+        if (this._pausedByTabHidden) {
+            this._pausedByTabHidden = false;
+            this.resumeGame();
+        }
     }
 
     _onKeyDown(event) {
@@ -91,6 +130,10 @@ export class Game {
             return;
         }
         if (event.key === 'Escape' && !this.state.characterSelection) {
+            if (this.ui.els.achievementsOverlay?.style.display === 'flex') {
+                this.ui.closeAchievementsPanel();
+                return;
+            }
             this.togglePause();
             return;
         }
@@ -151,6 +194,7 @@ export class Game {
     }
 
     selectCharacter(name) {
+        this.audio?.unlock?.();
         const character = CHARACTERS.find(c => c.name === name);
         if (!character) return;
 
@@ -158,6 +202,7 @@ export class Game {
         resetPlayerModel(this.ui.els.player);
         this.state.initForCharacter(deepClone(character.stats));
         this.state.selectedCharacterName = name;
+        this.state.selectedModelClass = character.modelClass;
         this.state.itemsLooted = 0;
         this.killStreak.reset();
         this.gearInventory = new GearInventory();
@@ -199,6 +244,7 @@ export class Game {
         this.ui.els.playerAnchor.style.top = '50vh';
         this.ui.updateAttackRange(this.state.stats.attackRange);
         this.ui.updateStats(this.state.stats, this.state.skillList);
+        this._trackMaxHp();
         this.ui.updateMeta(this.state.killCount, this.state.currentWave, this.killStreak.streak);
         this.ui.showWaveAnnouncement(this.state.currentWave);
         this.state.previousWave = this.state.currentWave;
@@ -248,6 +294,7 @@ export class Game {
             /* record saved above */
         }
         s.fullCleanup();
+        this._clearTreasureGuide();
         this.effects?.cleanup();
         this.poisonPools?.clear();
         this.skillRanges?.clear();
@@ -269,22 +316,33 @@ export class Game {
         else this.pauseGame();
     }
 
-    pauseGame() {
+    /**
+     * @param {{ silent?: boolean }} [opts] silent=true skips the pause overlay (tab-hidden freeze).
+     * @returns {boolean} Whether pause was applied.
+     */
+    pauseGame(opts = {}) {
+        const { silent = false } = opts;
         const s = this.state;
-        if (s.gamePaused || s.gameOver) return;
+        if (s.gamePaused || s.gameOver) return false;
         s.gamePaused = true;
         s.pauseTime = Date.now();
-        this.ui.showPause(true);
+        if (!silent) this.ui.showPause(true);
+        if (s.gameLoopId) {
+            s.cancelAnimation(s.gameLoopId);
+            s.gameLoopId = null;
+        }
         s.cancelAllAnimations();
         this.enemyProjectiles?.clearAll();
         s.enemies.forEach(e => s.cancelAnimation(e.moveAnimationId));
         s.bullets.forEach(b => s.cancelAnimation(b.moveAnimationId));
+        return true;
     }
 
     resumeGame() {
         const s = this.state;
         if (!s.gamePaused) return;
         s.gamePaused = false;
+        this._pausedByTabHidden = false;
         this.ui.showPause(false);
 
         const elapsed = Date.now() - s.pauseTime;
@@ -306,11 +364,15 @@ export class Game {
     }
 
     _startGameLoop() {
-        if (this.state.gameLoopId) cancelAnimationFrame(this.state.gameLoopId);
+        if (this.state.gameLoopId) {
+            this.state.cancelAnimation(this.state.gameLoopId);
+            this.state.gameLoopId = null;
+        }
         const loop = () => {
             this._tick();
+            const prev = this.state.gameLoopId;
             this.state.gameLoopId = requestAnimationFrame(loop);
-            this.state.trackAnimation(this.state.gameLoopId);
+            this.state.trackAnimation(this.state.gameLoopId, prev);
         };
         loop();
     }
@@ -340,7 +402,7 @@ export class Game {
         this.poisonPools?.tick(now);
         this.treasureEvents?.tick(now);
         this.killStreak.tick(now);
-        this.skillRanges?.update(s.skillList);
+        this.skillRanges?.update(s.skillList, s.stats.attackRange);
 
         this.enemyPopulation?.enforceCap(this);
 
@@ -348,6 +410,8 @@ export class Game {
             s.gameOver = true;
             s.cancelAllAnimations();
             this.enemyProjectiles?.clearAll();
+            this.effects?.cleanup();
+            this.skillExecutor?.cleanup();
             updateCharacterRecord(this.meta, {
                 character: s.selectedCharacterName,
                 level: s.stats.level,
@@ -361,13 +425,27 @@ export class Game {
 
         this.ui.updateStats(s.stats, s.skillList);
         this.ui.updateMeta(s.killCount, s.currentWave, this.killStreak.streak);
+        this._trackMaxHp();
         this._checkAchievements();
+    }
+
+    /** Track peak max HP for achievements. */
+    _trackMaxHp() {
+        const s = this.state;
+        if (!s.stats) return;
+        const peak = s.stats.maxHp || 0;
+        if (peak > (s.maxHpReached || 0)) s.maxHpReached = peak;
     }
 
     _checkAchievements() {
         const s = this.state;
         const equipped = this.gearInventory?.equipped || {};
-        const equippedRareCount = Object.values(equipped).filter(i => i && (i.rarity === 'rare' || i.rarity === 'unique')).length;
+        const equippedValues = Object.values(equipped).filter(Boolean);
+        const equippedRareCount = equippedValues.filter(i => i.rarity === 'rare' || i.rarity === 'unique').length;
+        const equippedUniqueCount = equippedValues.filter(i => i.rarity === 'unique').length;
+        const skillEntries = Object.values(s.skillList || {});
+        const skillLevelSum = skillEntries.reduce((sum, sk) => sum + (sk?.level || 0), 0);
+        const skillsAtMax = skillEntries.filter(sk => sk && sk.level >= (sk.maxLevel || 5)).length;
         const unlocked = evaluateAchievements(this.meta, {
             killCount: s.killCount,
             level: s.stats.level,
@@ -376,7 +454,17 @@ export class Game {
             treasuresOpened: this.treasureEvents?.treasuresOpened ?? 0,
             itemsLooted: s.itemsLooted ?? 0,
             equippedRareCount,
-            equippedGearCount: this.gearInventory?.getEquippedCount() ?? 0
+            equippedUniqueCount,
+            equippedGearCount: this.gearInventory?.getEquippedCount() ?? 0,
+            currentWave: s.currentWave,
+            maxWaveReached: s.maxWaveReached ?? s.currentWave,
+            skillLevelSum,
+            skillsAtMax,
+            elitesKilled: s.elitesKilled ?? 0,
+            bossesKilled: s.bossesKilled ?? 0,
+            maxHpReached: s.maxHpReached ?? s.stats.maxHp,
+            maxHp: s.stats.maxHp,
+            finalVictoryAchieved: Boolean(s.finalVictoryAchieved)
         });
         unlocked.forEach(id => this.ui.showAchievementUnlock(id));
     }
@@ -431,6 +519,7 @@ export class Game {
         s.elapsedSeconds = Math.floor((now - s.timerStart) / 1000);
         this.ui.updateTimer(s.elapsedSeconds);
         s.currentWave = getWaveNumber(s.elapsedSeconds);
+        if (s.currentWave > (s.maxWaveReached || 1)) s.maxWaveReached = s.currentWave;
         s.currentDifficultyLevel = getDifficultyIndex(s.elapsedSeconds);
 
         const maxDiff = Math.min(s.currentDifficultyLevel, BALANCE.maxDifficultyForSpawn);
@@ -442,7 +531,102 @@ export class Game {
             s.rareEnemySpawnInterval = getSpawnIntervalMs('rare', maxDiff);
             s.eliteSpawnInterval = getSpawnIntervalMs('elite', maxDiff);
             s.bossSpawnInterval = getSpawnIntervalMs('boss', maxDiff);
+            if (isBossWave(s.currentWave)) {
+                this._spawnBossWaveEvent(s.currentWave);
+            }
         }
+    }
+
+    /**
+     * Landmark boss encounter every 10 waves — bulky boss + mini swarm pack.
+     * Wave 100 uses a unique final boss with a massive escort army.
+     * @param {number} wave
+     */
+    _spawnBossWaveEvent(wave) {
+        if (isFinalVictoryWave(wave)) {
+            this._spawnFinalVictoryBossEvent(wave);
+            return;
+        }
+
+        const boss = this._spawnWithType('boss', pickEnemyType(this.state.currentDifficultyLevel));
+        if (boss?.stats) {
+            boss.stats.hp = Math.floor(boss.stats.hp * BOSS_WAVE_HP_MULT);
+            boss.stats.maxHp = boss.stats.hp;
+            boss.isWaveBoss = true;
+            this._updateEnemyHealthBar(boss);
+        }
+
+        const pack = rollBossWaveSwarmCount();
+        const edge = Math.floor(Math.random() * 4);
+        const anchor = getEdgeSpawnAnchor(edge);
+        for (let i = 0; i < pack; i++) {
+            this._spawnEnemy('normal', 'swarm', {
+                at: {
+                    x: anchor.x + (Math.random() - 0.5) * 8,
+                    y: anchor.y + (Math.random() - 0.5) * 8
+                },
+                skipGroup: true,
+                bypassCap: true
+            });
+        }
+
+        if (this.ui.els?.waveToast) {
+            this.ui.els.waveToast.textContent = `Wave ${wave} Boss — Swarm incoming!`;
+            this.ui.els.waveToast.classList.add('toast-visible');
+            clearTimeout(this.ui._waveTimer);
+            this.ui._waveTimer = setTimeout(() => {
+                this.ui.els.waveToast.classList.remove('toast-visible');
+            }, 2800);
+        }
+    }
+
+    /**
+     * Wave 100 finale — 20× boss HP, 2× damage/armour, and a large multi-edge army.
+     * @param {number} wave
+     */
+    _spawnFinalVictoryBossEvent(wave) {
+        const difficulty = this.state.currentDifficultyLevel;
+        const boss = this._spawnWithType('boss', pickEnemyType(difficulty));
+        if (boss?.stats) {
+            applyFinalBossCombatScaling(boss.stats);
+            boss.isFinalVictoryBoss = true;
+            boss.isWaveBoss = true;
+            this._updateEnemyHealthBar(boss);
+        }
+
+        const edges = [0, 1, 2, 3];
+        this._spawnVictoryArmyPack(edges[0], rollFinalVictorySwarmCount(), 'normal', 'swarm');
+        this._spawnVictoryArmyPack(edges[1], rollFinalVictoryGruntCount(), 'normal', 'grunt');
+        this._spawnVictoryArmyPack(edges[2], rollFinalVictoryEliteCount(), 'elite', pickEnemyType(difficulty));
+        this._spawnVictoryArmyPack(edges[3], rollFinalVictorySwarmCount(), 'normal', 'swarm');
+
+        this.ui.showFinalVictoryBossIncoming(wave);
+    }
+
+    /**
+     * @param {number} edge @param {number} count @param {string} rarity @param {string} enemyType
+     */
+    _spawnVictoryArmyPack(edge, count, rarity, enemyType) {
+        const anchor = getEdgeSpawnAnchor(edge);
+        for (let i = 0; i < count; i++) {
+            this._spawnEnemy(rarity, enemyType, {
+                at: {
+                    x: anchor.x + (Math.random() - 0.5) * 10,
+                    y: anchor.y + (Math.random() - 0.5) * 10
+                },
+                skipGroup: true,
+                bypassCap: true
+            });
+        }
+    }
+
+    _onFinalVictoryBossDefeated() {
+        const s = this.state;
+        if (s.finalVictoryAchieved) return;
+        s.finalVictoryAchieved = true;
+        markCharacterVictory(this.meta, s.selectedCharacterName);
+        this.ui.showFinalVictoryCelebration(s.selectedCharacterName);
+        this._checkAchievements();
     }
 
     _tickSpawns(now) {
@@ -479,7 +663,7 @@ export class Game {
     _spawnSwarmGroup(rarity) {
         const edge = Math.floor(Math.random() * 4);
         const anchor = getEdgeSpawnAnchor(edge);
-        const count = rollSwarmGroupSize();
+        const count = rollSwarmGroupSize(this.state.currentDifficultyLevel);
         const positions = getSwarmGroupPositions(anchor.x, anchor.y, count);
         let lead = null;
         for (const at of positions) {
@@ -523,7 +707,12 @@ export class Game {
             if (status.burn && now < status.burn.endTime) {
                 if (now - status.burn.lastTick >= 500) {
                     status.burn.lastTick = now;
-                    const tickDmg = Math.max(1, Math.floor(status.burn.damagePerTick));
+                    let tickDmg = Math.max(1, Math.floor(status.burn.damagePerTick));
+                    tickDmg = this.characterPassives?.modifySkillDamage(tickDmg, {
+                        element: 'fire',
+                        skillId: 'fireball',
+                        tags: ['fire', 'elemental']
+                    }) ?? tickDmg;
                     enemy.stats.hp -= tickDmg;
                     this.effects.spawnDamageNumber(
                         parseFloat(enemy.element.style.left),
@@ -597,10 +786,23 @@ export class Game {
         el.insertAdjacentHTML('afterbegin', buildEnemyModelHtml(typeConfig));
 
         const healthBar = document.createElement('div');
-        healthBar.className = 'enemy-health-bar';
+        const isBoss = rarity === 'boss';
+        const isElite = rarity === 'elite';
+        healthBar.className = [
+            'enemy-health-bar',
+            isBoss ? 'enemy-health-bar--boss' : '',
+            isElite ? 'enemy-health-bar--elite' : ''
+        ].filter(Boolean).join(' ');
         const healthFill = document.createElement('div');
         healthFill.className = 'enemy-health-bar-fill';
+        healthFill.style.width = '100%';
         healthBar.appendChild(healthFill);
+        if (isBoss) {
+            const bossTag = document.createElement('span');
+            bossTag.className = 'enemy-boss-label';
+            bossTag.textContent = 'BOSS';
+            healthBar.appendChild(bossTag);
+        }
         el.appendChild(healthBar);
 
         this.ui.els.gameContainer.appendChild(el);
@@ -626,25 +828,102 @@ export class Game {
         return enemy;
     }
 
-    /** Spawn a bonus treasure enemy with high rewards. */
+    /** Spawn a bonus treasure enemy within attack range — player is stationary, so chest must come to them. */
     spawnTreasureChest() {
         const s = this.state;
-        const angle = Math.random() * Math.PI * 2;
-        const x = 50 + Math.cos(angle) * 38;
-        const y = 50 + Math.sin(angle) * 38;
+        const { x: px, y: py } = this.ui.getPlayerPosition();
+        const iw = window.innerWidth || 1000;
+        const rangeVw = Math.max(6, (s.stats.attackRange / iw) * 100);
 
-        const enemy = this._spawnEnemy('rare', 'grunt');
+        // Spawn inside attack range so auto-attacks can reach without moving
+        const distVw = Math.max(4, rangeVw * (0.35 + Math.random() * 0.25));
+        const angle = Math.random() * Math.PI * 2;
+        const x = Math.max(8, Math.min(92, px + Math.cos(angle) * distVw));
+        const y = Math.max(12, Math.min(88, py + Math.sin(angle) * distVw));
+
+        const enemy = this._spawnEnemy('rare', 'grunt', { at: { x, y }, bypassCap: true });
         if (!enemy) return;
 
         enemy.isTreasure = true;
         enemy.stats.exp = Math.floor(enemy.stats.exp * 5);
-        enemy.stats.hp = Math.floor(enemy.stats.hp * 0.6);
+        enemy.stats.hp = Math.floor(enemy.stats.hp * 0.55);
         enemy.stats.maxHp = enemy.stats.hp;
+        // Drift toward player faster — you defeat it like any enemy (no movement needed)
+        enemy.stats.moveSpeed = Math.max(enemy.stats.moveSpeed * 1.65, enemy.baseMoveSpeed * 1.4);
+        enemy.baseMoveSpeed = enemy.stats.moveSpeed;
+
+        this._applyTreasureChestVisual(enemy);
         enemy.element.classList.add('enemy-treasure');
-        enemy.element.style.left = `${x}vw`;
-        enemy.element.style.top = `${y}vh`;
-        enemy.element.title = 'Treasure Chest';
-        this.ui.showTreasureHint();
+        enemy.element.style.zIndex = '8';
+        enemy.element.title = 'Treasure Chest — defeat for bonus loot!';
+        enemy.element.setAttribute('aria-label', 'Treasure Chest');
+
+        // Clear chest label (replaces confusing floating beacon)
+        if (!enemy.element.querySelector('.treasure-chest-label')) {
+            const label = document.createElement('span');
+            label.className = 'treasure-chest-label';
+            label.textContent = 'CHEST';
+            enemy.element.appendChild(label);
+        }
+
+        this._showTreasureGuide(px, py, x, y);
+        this.effects?.spawnCastFlash?.(x, y, 'crit');
+        this.ui.showTreasureHint(x, y, distVw);
+    }
+
+    /** Replace grunt model with a dedicated treasure chest sprite. */
+    _applyTreasureChestVisual(enemy) {
+        const el = enemy.element;
+        el.classList.remove('enemy-grunt');
+        el.classList.add('enemy-treasure-chest');
+        el.querySelector('.enemy-model-25d')?.remove();
+        el.querySelector('.enemy-type-badge')?.remove();
+        el.insertAdjacentHTML('afterbegin', buildTreasureChestModelHtml());
+    }
+
+    /**
+     * Arrow from player center toward the chest so stationary players know where to look.
+     * @param {number} px @param {number} py @param {number} tx @param {number} ty
+     */
+    _showTreasureGuide(px, py, tx, ty) {
+        const container = this.ui.els.gameContainer;
+        if (!container) return;
+
+        this._clearTreasureGuide();
+
+        const iw = window.innerWidth || 1000;
+        const ih = window.innerHeight || 1000;
+        const dx = (tx - px) * iw / 100;
+        const dy = (ty - py) * ih / 100;
+        const len = Math.hypot(dx, dy) || 1;
+        const angleDeg = Math.atan2(dy, dx) * 180 / Math.PI;
+
+        const arrow = document.createElement('div');
+        arrow.className = 'treasure-guide-arrow';
+        arrow.style.left = `${px}vw`;
+        arrow.style.top = `${py}vh`;
+        arrow.style.width = `${Math.min(len * 0.55, iw * 0.12)}px`;
+        arrow.style.transform = `translate(-2px, -50%) rotate(${angleDeg}deg)`;
+        arrow.setAttribute('aria-hidden', 'true');
+        container.appendChild(arrow);
+        this._treasureGuideArrow = arrow;
+
+        const ring = document.createElement('div');
+        ring.className = 'treasure-guide-ring';
+        ring.style.left = `${tx}vw`;
+        ring.style.top = `${ty}vh`;
+        ring.setAttribute('aria-hidden', 'true');
+        container.appendChild(ring);
+        this._treasureGuideRing = ring;
+
+        this.state.trackTimeout(setTimeout(() => this._clearTreasureGuide(), 12000));
+    }
+
+    _clearTreasureGuide() {
+        this._treasureGuideArrow?.remove();
+        this._treasureGuideRing?.remove();
+        this._treasureGuideArrow = null;
+        this._treasureGuideRing = null;
     }
 
     _startEnemyMovement(enemy) {
@@ -658,8 +937,9 @@ export class Game {
             if (s.gamePaused || s.gameOver) return;
 
             if (enemy.frozen) {
+                const prevFrozen = enemy.moveAnimationId;
                 enemy.moveAnimationId = requestAnimationFrame(animate);
-                s.trackAnimation(enemy.moveAnimationId);
+                s.trackAnimation(enemy.moveAnimationId, prevFrozen);
                 return;
             }
 
@@ -689,8 +969,9 @@ export class Game {
                 enemy.element.style.top = `${ey}vh`;
             }
 
+            const prevMove = enemy.moveAnimationId;
             enemy.moveAnimationId = requestAnimationFrame(animate);
-            s.trackAnimation(enemy.moveAnimationId);
+            s.trackAnimation(enemy.moveAnimationId, prevMove);
         };
 
         animate();
@@ -698,6 +979,8 @@ export class Game {
 
     _attackNearestEnemy(fromX, fromY, excludeTarget = null, remainingBounce = null, attackOpts = {}) {
         const s = this.state;
+        const rangeX = attackOpts.rangeCenterX ?? fromX;
+        const rangeY = attackOpts.rangeCenterY ?? fromY;
         let nearest = null;
         let minDist = s.stats.attackRange;
 
@@ -705,7 +988,7 @@ export class Game {
             if (excludeTarget && enemy.id === excludeTarget.id) return;
             const ex = parseFloat(enemy.element.style.left);
             const ey = parseFloat(enemy.element.style.top);
-            const dist = distanceVw(fromX, fromY, ex, ey, window.innerWidth, window.innerHeight);
+            const dist = distanceVw(rangeX, rangeY, ex, ey, window.innerWidth, window.innerHeight);
             if (dist <= s.stats.attackRange && dist < minDist) {
                 minDist = dist;
                 nearest = enemy;
@@ -714,10 +997,38 @@ export class Game {
 
         if (!nearest) return;
 
+        const forceProjectile = Boolean(attackOpts.forceProjectile || attackOpts.projectileClass);
+        const isMelee = !forceProjectile && usesMeleeBasicAttack(s.selectedModelClass);
+
         if (!excludeTarget && !attackOpts.skipPlayerAnim) {
             s.lastAttackTime = Date.now();
-            this.effects.triggerAttackAnimation(this.ui.els.player);
+            const tx = parseFloat(nearest.element.style.left);
+            const ty = parseFloat(nearest.element.style.top);
+            if (isMelee) {
+                this.effects.triggerMeleeAttackAnimation(this.ui.els.player, fromX, fromY, tx, ty);
+            } else {
+                this.effects.triggerAttackAnimation(this.ui.els.player);
+            }
             this.effects.flashAttackRange(this.ui.els.attackRange);
+            this.audio?.playSfx?.('attack');
+        }
+
+        if (isMelee) {
+            this._dealDamageToEnemy(
+                nearest,
+                false,
+                Boolean(excludeTarget),
+                attackOpts.damageMultiplier ?? 1
+            );
+            // Bounce still chains with projectiles so chain shots keep working.
+            const bounces = remainingBounce ?? s.abilityList.Bounce.level;
+            if (bounces > 0) {
+                this._attackNearestEnemy(fromX, fromY, nearest, bounces - 1, {
+                    ...attackOpts,
+                    forceProjectile: true
+                });
+            }
+            return;
         }
 
         this._fireBullet(fromX, fromY, nearest, excludeTarget, remainingBounce, attackOpts);
@@ -817,8 +1128,9 @@ export class Game {
                 const idx = s.bullets.indexOf(bullet);
                 if (idx !== -1) s.bullets.splice(idx, 1);
             } else {
+                const prev = bullet.moveAnimationId;
                 bullet.moveAnimationId = requestAnimationFrame(animate);
-                s.trackAnimation(bullet.moveAnimationId);
+                s.trackAnimation(bullet.moveAnimationId, prev);
             }
         };
 
@@ -848,7 +1160,7 @@ export class Game {
 
         const abilities = this._getAbilityLevels();
 
-        const { damage, isCritical } = calculatePlayerDamage({
+        const { damage: rawDamage, isCritical } = calculatePlayerDamage({
             physicalDamage: Math.max(1, Math.floor(s.stats.physicalDamage * damageMultiplier)),
             targetArmour: hitEnemy.stats.armour,
             maxHp: s.stats.maxHp,
@@ -860,13 +1172,15 @@ export class Game {
             abilities
         });
 
+        const damage = this.characterPassives?.modifyPhysicalDamage?.(rawDamage) ?? rawDamage;
+
         hitEnemy.stats.hp -= damage;
         const ex = parseFloat(hitEnemy.element.style.left);
         const ey = parseFloat(hitEnemy.element.style.top);
 
         this.effects.triggerEnemyHitAnimation(hitEnemy.element);
         this.effects.spawnHitEffect(ex, ey, isCritical ? 'crit' : 'physical');
-        this.effects.spawnDamageNumber(ex, ey - 2, damage, isCritical);
+        this.effects.spawnDamageNumber(ex, ey - 2, damage, isCritical, 'physical');
 
         this._updateEnemyHealthBar(hitEnemy);
 
@@ -887,7 +1201,7 @@ export class Game {
     }
 
     /** Skill damage — bypasses bounce penalty, uses element for visuals */
-    _dealSkillDamageToEnemy(hitEnemy, damage, element, isCrit = false) {
+    _dealSkillDamageToEnemy(hitEnemy, damage, element, isCrit = false, skillId = null) {
         const s = this.state;
         if (rollEnemyEvade(hitEnemy.stats.evadeChance)) {
             const ex = parseFloat(hitEnemy.element.style.left);
@@ -896,7 +1210,7 @@ export class Game {
             return { damage: 0, missed: true };
         }
 
-        damage = this.characterPassives?.modifySkillDamage(damage, element) ?? damage;
+        damage = this.characterPassives?.modifySkillDamage(damage, { element, skillId }) ?? damage;
         damage = Math.max(1, Math.floor(damage));
         hitEnemy.stats.hp -= damage;
 
@@ -962,16 +1276,37 @@ export class Game {
                 enemyDamage: enemy.stats.physicalDamage,
                 playerArmour: s.stats.armour,
                 damageReductionLevel: abilities.damageReductionLevel,
-                ignoreArmour: Boolean(enemy.stats.ignoreArmour)
+                ignoreArmour: Boolean(enemy.stats.ignoreArmour),
+                elapsedSeconds: s.elapsedSeconds
             });
 
             s.stats.hp -= this.characterPassives?.absorbDamage(damage) ?? damage;
             this._onPlayerDamaged();
-
-            if (s.abilityList.Reflect.level > 0) {
-                this._dealDamageToEnemy(enemy, true, false);
-            }
+            this._applyReflectDamage(enemy, damage);
         }
+    }
+
+    /**
+     * Return-damage Reflect: deals % of damage just taken back to the attacker.
+     * Works for melee and ranged; does not miss or crit.
+     * @param {object} enemy
+     * @param {number} damageTaken
+     */
+    _applyReflectDamage(enemy, damageTaken) {
+        const s = this.state;
+        if (!enemy || enemy.stats?.hp <= 0) return;
+        const reflectLevel = s.abilityList.Reflect?.level || 0;
+        const reflected = calculateReflectDamage(damageTaken, reflectLevel);
+        if (reflected <= 0) return;
+
+        enemy.stats.hp -= reflected;
+        const ex = parseFloat(enemy.element.style.left);
+        const ey = parseFloat(enemy.element.style.top);
+        this.effects.triggerEnemyHitAnimation(enemy.element);
+        this.effects.spawnHitEffect(ex, ey, 'physical');
+        this.effects.spawnDamageNumber(ex, ey - 2, reflected, false, 'physical');
+        this._updateEnemyHealthBar(enemy);
+        if (enemy.stats.hp <= 0) this._removeEnemy(enemy);
     }
 
     _fireEnemyProjectile(enemy) {
@@ -1004,10 +1339,13 @@ export class Game {
                         enemyDamage: enemy.stats.physicalDamage,
                         playerArmour: s.stats.armour,
                         damageReductionLevel: abilities.damageReductionLevel,
-                        ignoreArmour
+                        ignoreArmour,
+                        elapsedSeconds: s.elapsedSeconds
                     });
                     s.stats.hp -= this.characterPassives?.absorbDamage(damage) ?? damage;
                     this._onPlayerDamaged();
+                    // Reflect works on ranged hits too (same % of damage taken).
+                    if (enemy.stats?.hp > 0) this._applyReflectDamage(enemy, damage);
                 }
                 return false;
             }
@@ -1027,6 +1365,9 @@ export class Game {
 
         if (grantRewards) {
             s.killCount++;
+            if (enemy.rarity === 'elite') s.elitesKilled = (s.elitesKilled || 0) + 1;
+            if (enemy.rarity === 'boss') s.bossesKilled = (s.bossesKilled || 0) + 1;
+            this.audio?.playSfx?.('kill');
             const now = Date.now();
             const streakBonus = this.killStreak.recordKill(
                 now,
@@ -1046,7 +1387,13 @@ export class Game {
             this.effects.spawnExpOrbs(ex, ey);
             this.ui.flashHudBar('exp');
 
-            if (enemy.isTreasure) this.treasureEvents?.recordOpen();
+            if (enemy.isTreasure) {
+                this.treasureEvents?.recordOpen();
+                this._clearTreasureGuide();
+            }
+            if (enemy.isFinalVictoryBoss) {
+                this._onFinalVictoryBossDefeated();
+            }
             this._tryDropGear(enemy, ex, ey);
 
             if (s.stats.exp >= s.stats.expThreshold) this._afterExpChange();
@@ -1068,7 +1415,7 @@ export class Game {
     /** @param {object} enemy @param {number} x @param {number} y */
     _tryDropGear(enemy, x, y) {
         const category = enemy.isTreasure ? 'treasure' : enemy.rarity;
-        if (!shouldDropGear(category)) return;
+        if (!shouldDropGear(category, this.state.currentWave)) return;
 
         const ilvl = computeDropIlvl(
             this.state.stats.level,
@@ -1084,6 +1431,7 @@ export class Game {
 
         this.state.itemsLooted += 1;
         this.effects.spawnLootBurst(x, y);
+        this.audio?.playSfx?.('loot');
         const r = RARITY_CONFIG[item.rarity];
         this.ui.showGearLoot(item.name, r.cssClass);
         this.gearPanel?.pulseNewLoot();
@@ -1094,6 +1442,7 @@ export class Game {
         flashPlayerSprite(this.ui.els.player, 'player-hit', 200);
         shakePlayerAnchor(this.ui.els.playerAnchor);
         this.ui.flashHudBar('hp');
+        this.audio?.playSfx?.('hurt');
     }
 
     _equipGear(itemId) {
@@ -1124,7 +1473,11 @@ export class Game {
     /** Bank earned levels and refresh the non-blocking upgrade panel. */
     _afterExpChange() {
         const s = this.state;
+        const before = s.pendingUpgrades?.length || 0;
         bankExpLevelUps(s);
+        if ((s.pendingUpgrades?.length || 0) > before) {
+            this.audio?.playSfx?.('levelup');
+        }
         this._refreshUpgradePanel();
         this.ui.updateStats(s.stats, s.skillList);
     }

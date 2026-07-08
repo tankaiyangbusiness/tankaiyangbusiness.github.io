@@ -200,12 +200,21 @@
 
 .passive-minion-attack .companion-sprite,
 .illusion-attacking .companion-sprite {
-    animation: companion-jab 0.2s linear;
+    animation: companion-melee-lunge 0.26s ease-out;
 }
 
 @keyframes companion-jab {
     0%, 100% { transform: translateX(0); }
     50% { transform: translateX(6px) scale(1.06); }
+}
+
+@keyframes companion-melee-lunge {
+    0% { transform: translate(0, 0) scale(1); }
+    45% {
+        transform: translate(var(--melee-lunge-x, 8px), var(--melee-lunge-y, 0)) scale(1.1);
+        filter: brightness(1.15);
+    }
+    100% { transform: translate(0, 0) scale(1); }
 }
 
 .character-passive-btn.passive-frenzy-active {

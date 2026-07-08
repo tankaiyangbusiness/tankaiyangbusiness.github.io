@@ -17,10 +17,13 @@ import {
     rarityFromAffixCount,
     rollAffixCount,
     shouldDropGear,
+    getDropChance,
     DROP_RATE_MULTIPLIER,
     DROP_CHANCE,
     getAdjustedAffixWeights,
-    AFFIX_COUNT_WEIGHTS
+    AFFIX_COUNT_WEIGHTS,
+    getGearRarityDropRates,
+    getAbsoluteRarityDropRates
 } from '../js/config/gearRarity.js';
 import { getAffixTierBand, TIERED_PREFIXES } from '../js/config/gearAffixTiers.js';
 import { GEAR_SLOTS } from '../js/config/gearSlots.js';
@@ -201,10 +204,17 @@ describe('gear drop', () => {
         expect(typeof shouldDropGear('boss')).toBe('boolean');
     });
 
-    it('applies 50% drop rate reduction via multiplier', () => {
-        expect(DROP_RATE_MULTIPLIER).toBe(0.36);
+    it('applies −30% drop rate via multiplier (0.3762 × 0.7)', () => {
+        expect(DROP_RATE_MULTIPLIER).toBeCloseTo(0.26334, 4);
         expect(DROP_CHANCE.normal).toBeCloseTo(0.06 * DROP_RATE_MULTIPLIER, 4);
         expect(DROP_CHANCE.boss).toBeCloseTo(0.45 * DROP_RATE_MULTIPLIER, 4);
+    });
+
+    it('scales drop chance down in late waves', () => {
+        const early = getDropChance('normal', 5);
+        const late = getDropChance('normal', 25);
+        expect(late).toBeLessThan(early);
+        expect(late / early).toBeLessThan(0.55);
     });
 
     it('favors zero-affix normal drops from normal enemies', () => {
@@ -218,6 +228,24 @@ describe('gear drop', () => {
     it('returns unmodified affix weights per enemy category', () => {
         const adjusted = getAdjustedAffixWeights('normal');
         expect(adjusted).toEqual(AFFIX_COUNT_WEIGHTS.normal);
+    });
+
+    it('exposes gear rarity rates (not enemy category) that sum to ~1', () => {
+        const rates = getGearRarityDropRates('normal');
+        expect(rates.normal).toBeCloseTo(0.62, 2);
+        expect(rates.magic).toBeCloseTo(0.35, 2);
+        expect(rates.rare).toBeCloseTo(0.03, 2);
+        expect(rates.unique).toBe(0);
+        const sum = rates.normal + rates.magic + rates.rare + rates.unique;
+        expect(sum).toBeCloseTo(1, 5);
+    });
+
+    it('absolute rarity rates = drop chance × conditional rarity', () => {
+        const abs = getAbsoluteRarityDropRates('boss', 1);
+        const drop = getDropChance('boss', 1);
+        const cond = getGearRarityDropRates('boss');
+        expect(abs.rare).toBeCloseTo(drop * cond.rare, 6);
+        expect(abs.unique).toBeCloseTo(drop * cond.unique, 6);
     });
 
     it('returns item with valid slot and ilvl', () => {

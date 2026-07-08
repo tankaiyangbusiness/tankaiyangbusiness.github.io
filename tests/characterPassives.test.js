@@ -33,6 +33,7 @@ describe('character passives config', () => {
         expect(ELEMENTALIST_ELEMENTS.has('cold')).toBe(true);
         expect(ELEMENTALIST_ELEMENTS.has('lightning')).toBe(true);
         expect(ELEMENTALIST_ELEMENTS.has('poison')).toBe(false);
+        expect(ELEMENTALIST_ELEMENTS.has('chaos')).toBe(false);
     });
 });
 
@@ -82,8 +83,22 @@ describe('CharacterPassiveManager', () => {
         const game = createMockGame();
         const mgr = new CharacterPassiveManager(game);
         mgr.activate('Elementalist');
-        expect(mgr.modifySkillDamage(100, 'fire')).toBe(150);
-        expect(mgr.modifySkillDamage(100, 'poison')).toBe(100);
+        expect(mgr.modifySkillDamage(100, { skillId: 'fireball' })).toBe(150);
+        expect(mgr.modifySkillDamage(100, { skillId: 'spark' })).toBe(150);
+        expect(mgr.modifySkillDamage(100, { skillId: 'poisonBottle' })).toBe(100);
+        expect(mgr.modifySkillDamage(100, { skillId: 'poisonDagger' })).toBe(100);
+        expect(mgr.modifySkillDamage(100, { element: 'fire' })).toBe(150);
+        mgr.cleanup();
+    });
+
+    it('boosts slayer physical skill and basic damage', () => {
+        const game = createMockGame();
+        const mgr = new CharacterPassiveManager(game);
+        mgr.activate('Slayer');
+        expect(mgr.modifySkillDamage(100, { skillId: 'hammerSweep' })).toBe(150);
+        expect(mgr.modifySkillDamage(100, { skillId: 'throwSpear' })).toBe(150);
+        expect(mgr.modifySkillDamage(100, { skillId: 'fireball' })).toBe(100);
+        expect(mgr.modifyPhysicalDamage(100)).toBe(150);
         mgr.cleanup();
     });
 
@@ -107,5 +122,13 @@ describe('CharacterPassiveManager', () => {
         expect(getCharacterPassive('Summoner').params.damagePercent).toBe(30);
         expect(getCharacterPassive('Necromancer').params.damagePercent).toBe(100);
         expect(getCharacterPassive('Ranger').params.damagePercent).toBe(60);
+    });
+
+    it('paladin shield repairs every 15 seconds', () => {
+        expect(getCharacterPassive('Paladin').params.repairIntervalMs).toBe(15000);
+    });
+
+    it('necromancer zombie lasts longer than before', () => {
+        expect(getCharacterPassive('Necromancer').params.durationMs).toBeGreaterThanOrEqual(12000);
     });
 });

@@ -29,8 +29,9 @@ export class EnemyProjectileManager {
                 this._removeEntry(entry);
                 return;
             }
+            const prev = entry.animId;
             entry.animId = requestAnimationFrame(step);
-            this.state.trackAnimation(entry.animId);
+            this.state.trackAnimation(entry.animId, prev);
         };
 
         entry.animId = requestAnimationFrame(step);

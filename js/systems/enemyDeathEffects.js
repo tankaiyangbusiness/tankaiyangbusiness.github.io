@@ -57,7 +57,8 @@ export function triggerBomberExplosion(game, enemy, ex, ey) {
         enemyDamage: damage,
         playerArmour: s.stats.armour,
         damageReductionLevel: abilities.damageReductionLevel,
-        ignoreArmour: false
+        ignoreArmour: false,
+        elapsedSeconds: s.elapsedSeconds
     });
 
     s.stats.hp -= game.characterPassives?.absorbDamage(dealt) ?? dealt;

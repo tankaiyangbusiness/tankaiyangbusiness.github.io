@@ -2,6 +2,9 @@ import { ACHIEVEMENTS } from '../config/achievements.js';
 
 const STORAGE_KEY = 'survivor-arena-meta';
 
+/** localStorage key for best runs, per-character records, and achievements. */
+export const META_STORAGE_KEY = STORAGE_KEY;
+
 /** @returns {object} */
 export function createDefaultMeta() {
     return {
@@ -35,7 +38,23 @@ export function saveMetaProgress(meta) {
 
 /** @param {ReturnType<typeof createDefaultMeta>} meta @param {string} characterName */
 export function getCharacterRecord(meta, characterName) {
-    return meta.characterRecords[characterName] || { level: 0, time: 0, kills: 0, wave: 0 };
+    return meta.characterRecords[characterName] || { level: 0, time: 0, kills: 0, wave: 0, beatGame: false };
+}
+
+/** @param {ReturnType<typeof createDefaultMeta>} meta @param {string} characterName */
+export function hasCharacterBeatGame(meta, characterName) {
+    return Boolean(getCharacterRecord(meta, characterName).beatGame);
+}
+
+/**
+ * Mark a character as having defeated the Wave 100 final boss.
+ * @param {ReturnType<typeof createDefaultMeta>} meta @param {string} characterName
+ */
+export function markCharacterVictory(meta, characterName) {
+    if (!characterName) return;
+    const prev = getCharacterRecord(meta, characterName);
+    meta.characterRecords[characterName] = { ...prev, beatGame: true };
+    saveMetaProgress(meta);
 }
 
 /**
@@ -85,6 +104,14 @@ export function evaluateAchievements(meta, ctx) {
 /** @param {string} id */
 export function getAchievementById(id) {
     return ACHIEVEMENTS.find(a => a.id === id);
+}
+
+/** Wipes saved best runs, character records, and achievements from localStorage. */
+export function clearMetaProgress() {
+    try {
+        localStorage.removeItem(STORAGE_KEY);
+    } catch { /* noop */ }
+    return createDefaultMeta();
 }
 
 /** @deprecated use updateCharacterRecord */

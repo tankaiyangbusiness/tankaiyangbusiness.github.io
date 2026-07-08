@@ -53,3 +53,15 @@ export function projectileSegmentHitsEnemy(x0, y0, x1, y1, enemy, innerWidth, in
     const closestY = ay + t * dy;
     return Math.hypot(cx - closestX, cy - closestY) <= radiusPx;
 }
+
+/**
+ * Whether a projectile has used its pierce budget.
+ * maxPierce = how many *additional* enemies after the first may be hit.
+ * So 0 → die on first hit; 1 → die after 2 unique hits; Infinity → unlimited.
+ * @param {number} hitCount unique enemies hit so far (after adding the latest)
+ * @param {number} maxPierce
+ */
+export function hasExhaustedPierce(hitCount, maxPierce) {
+    if (maxPierce == null || maxPierce === Infinity) return false;
+    return hitCount > maxPierce;
+}

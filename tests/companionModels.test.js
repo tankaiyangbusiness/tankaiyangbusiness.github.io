@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { getCompanionSvg, COMPANION_SVGS } from '../js/ui/svgSprites.js';
-import { buildCompanionModelHtml } from '../js/ui/entityModels.js';
+import { getCompanionSvg, COMPANION_SVGS, getTreasureChestSvg } from '../js/ui/svgSprites.js';
+import { buildCompanionModelHtml, buildTreasureChestModelHtml } from '../js/ui/entityModels.js';
 
 describe('companion models', () => {
     it('provides svg for zombie, bear, and illusion', () => {
@@ -24,5 +24,16 @@ describe('companion models', () => {
         const illu = buildCompanionModelHtml('illusion', { ranger: true });
         expect(illu).toContain('companion-illusion');
         expect(illu).toContain('companion-illusion-ranger');
+    });
+
+    it('builds treasure chest model html with dedicated sprite', () => {
+        const svg = getTreasureChestSvg();
+        expect(svg).toContain('<svg');
+        expect(svg).toContain('entity-svg');
+
+        const html = buildTreasureChestModelHtml();
+        expect(html).toContain('enemy-type-treasure');
+        expect(html).toContain('enemy-sprite-treasure');
+        expect(html).toContain('<svg');
     });
 });

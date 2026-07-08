@@ -38,8 +38,24 @@ const BASE_DROP_CHANCE = {
     treasure: 0.65
 };
 
-/** Global drop-rate multiplier — 0.36 = 50% fewer drops than prior 0.72 tuning. */
-export const DROP_RATE_MULTIPLIER = 0.36;
+/**
+ * Global multiplier for whether any gear drops on kill.
+ * Prior 0.3762 × 0.70 (−30% all enemy drop rates) ≈ 0.26334.
+ */
+export const DROP_RATE_MULTIPLIER = 0.26334;
+
+/**
+ * Effective kill→drop chances by enemy category (BASE × DROP_RATE_MULTIPLIER):
+ * | Category  | Chance  |
+ * |-----------|---------|
+ * | normal    | ~1.580% |
+ * | rare      | ~3.160% |
+ * | elite     | ~5.793% |
+ * | boss      | ~11.85% |
+ * | treasure  | ~17.12% |
+ *
+ * Late waves (wave > 8) further scale down via getDropChance().
+ */
 
 /** Effective drop chance per category (base × multiplier). */
 export const DROP_CHANCE = Object.fromEntries(
@@ -57,6 +73,60 @@ export const AFFIX_COUNT_WEIGHTS = {
     boss: [10, 14, 18, 20, 16, 12, 6, 3, 1],
     treasure: [12, 18, 22, 20, 14, 8, 4, 1, 1]
 };
+
+/** Rarity bands from affix count (same as rarityFromAffixCount). */
+const RARITY_AFFIX_BANDS = {
+    normal: { min: 0, max: 0 },
+    magic: { min: 1, max: 2 },
+    rare: { min: 3, max: 6 },
+    unique: { min: 7, max: 8 }
+};
+
+/**
+ * Conditional gear-rarity rates when a drop already happened (from AFFIX_COUNT_WEIGHTS).
+ * This is what designers / UI should cite — not enemy category drop %.
+ *
+ * Approximate shares across categories (weight sum per rarity / total):
+ * | Source enemy | Normal | Magic | Rare | Unique |
+ * |--------------|--------|-------|------|--------|
+ * | normal       | 62%    | 35%   | 3%   | 0%     |
+ * | rare         | 38%    | 48%   | 14%  | 0%     |
+ * | elite        | 20%    | 46%   | 33%  | 1%     |
+ * | boss         | 10%    | 32%   | 54%  | 4%     |
+ * | treasure     | 12%    | 40%   | 46%  | 2%     |
+ *
+ * @param {string} enemyRarity
+ * @returns {{ normal: number, magic: number, rare: number, unique: number }} fractions 0–1
+ */
+export function getGearRarityDropRates(enemyRarity = 'normal') {
+    const weights = AFFIX_COUNT_WEIGHTS[enemyRarity] || AFFIX_COUNT_WEIGHTS.normal;
+    const total = weights.reduce((a, b) => a + b, 0) || 1;
+    /** @type {{ normal: number, magic: number, rare: number, unique: number }} */
+    const out = { normal: 0, magic: 0, rare: 0, unique: 0 };
+    for (const [rarity, band] of Object.entries(RARITY_AFFIX_BANDS)) {
+        let sum = 0;
+        for (let i = band.min; i <= band.max; i++) sum += weights[i] || 0;
+        out[/** @type {GearRarity} */ (rarity)] = sum / total;
+    }
+    return out;
+}
+
+/**
+ * Overall P(gear rarity | kill) = P(drop) × P(rarity | drop) at wave ≤ 8.
+ * @param {string} enemyRarity
+ * @param {number} [wave=0]
+ * @returns {{ normal: number, magic: number, rare: number, unique: number }}
+ */
+export function getAbsoluteRarityDropRates(enemyRarity = 'normal', wave = 0) {
+    const drop = getDropChance(enemyRarity, wave);
+    const conditional = getGearRarityDropRates(enemyRarity);
+    return {
+        normal: drop * conditional.normal,
+        magic: drop * conditional.magic,
+        rare: drop * conditional.rare,
+        unique: drop * conditional.unique
+    };
+}
 
 /** @param {number} affixCount */
 export function rarityFromAffixCount(affixCount) {
@@ -84,9 +154,18 @@ export function rollAffixCount(enemyRarity) {
     return 0;
 }
 
-/** @param {string} enemyRarity */
-export function shouldDropGear(enemyRarity) {
-    return Math.random() < (DROP_CHANCE[enemyRarity] || DROP_CHANCE.normal);
+/** @param {string} enemyRarity @param {number} [wave=0] 1-based wave for late-game drop scaling */
+export function getDropChance(enemyRarity, wave = 0) {
+    const base = DROP_CHANCE[enemyRarity] || DROP_CHANCE.normal;
+    if (wave <= 8) return base;
+    // Late game: fewer drops as monster count rises (wave 20 ≈ 66%, wave 35 ≈ 24%)
+    const lateScale = Math.max(0.12, 1 - (wave - 8) * 0.032);
+    return base * lateScale;
+}
+
+/** @param {string} enemyRarity @param {number} [wave=0] */
+export function shouldDropGear(enemyRarity, wave = 0) {
+    return Math.random() < getDropChance(enemyRarity, wave);
 }
 
 /** @deprecated Use rarityFromAffixCount */

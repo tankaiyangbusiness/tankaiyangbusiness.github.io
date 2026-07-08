@@ -17,6 +17,7 @@ import {
     formatAbilityDescription
 } from '../js/systems/levelUp.js';
 import { createAbilityLevelThresholds, createDefaultStatsList } from '../js/config/progression.js';
+import { createDefaultSkillList } from '../js/config/skills.js';
 import { calculateExpThreshold } from '../js/utils/math.js';
 
 function createMockState(overrides = {}) {
@@ -36,7 +37,11 @@ function createMockState(overrides = {}) {
         critMultiplier: 150,
         expGain: 1.2,
         buffList: {},
-        skills: { fireball: 0, iceNova: 0, lightningArc: 0, poisonBottle: 0, healingWave: 0, frostbolt: 0, righteousFire: 0, spark: 0, illusion: 0 },
+        skills: {
+            fireball: 0, iceNova: 0, lightningArc: 0, poisonBottle: 0, healingWave: 0,
+            frostbolt: 0, righteousFire: 0, spark: 0, illusion: 0,
+            poisonDagger: 0, hammerSweep: 0, throwSpear: 0
+        },
         ...overrides.stats
     };
 
@@ -53,7 +58,10 @@ function createMockState(overrides = {}) {
             frostbolt: { level: 0, maxLevel: 5 },
             righteousFire: { level: 0, maxLevel: 5 },
             spark: { level: 0, maxLevel: 5 },
-            illusion: { level: 0, maxLevel: 5 }
+            illusion: { level: 0, maxLevel: 5 },
+            poisonDagger: { level: 0, maxLevel: 5 },
+            hammerSweep: { level: 0, maxLevel: 5 },
+            throwSpear: { level: 0, maxLevel: 5 }
         },
         abilityLevelThreshold: createAbilityLevelThresholds(),
         pendingUpgrades: [],
@@ -180,7 +188,10 @@ describe('buildSkillUpgradeOptionsFromKeys', () => {
             frostbolt: { level: 0, maxLevel: 5 },
             righteousFire: { level: 0, maxLevel: 5 },
             spark: { level: 0, maxLevel: 5 },
-            illusion: { level: 0, maxLevel: 5 }
+            illusion: { level: 0, maxLevel: 5 },
+            poisonDagger: { level: 0, maxLevel: 5 },
+            hammerSweep: { level: 0, maxLevel: 5 },
+            throwSpear: { level: 0, maxLevel: 5 }
         };
         const keys = rollSkillUpgradeKeys(skillList);
         const first = buildSkillUpgradeOptionsFromKeys(skillList, keys).map(o => o.key);
@@ -191,7 +202,13 @@ describe('buildSkillUpgradeOptionsFromKeys', () => {
 });
 
 describe('buildSkillUpgradeOptions', () => {
-    it('returns up to three random unlockable skills', () => {
+    it('returns up to five random unlockable skills', () => {
+        const skillList = createDefaultSkillList();
+        const options = buildSkillUpgradeOptions(skillList);
+        expect(options.length).toBe(5);
+    });
+
+    it('returns all available when fewer than five unlockable', () => {
         const skillList = {
             fireball: { level: 0, maxLevel: 5 },
             iceNova: { level: 0, maxLevel: 5 },
@@ -199,7 +216,7 @@ describe('buildSkillUpgradeOptions', () => {
             poisonBottle: { level: 0, maxLevel: 5 }
         };
         const options = buildSkillUpgradeOptions(skillList);
-        expect(options.length).toBe(3);
+        expect(options.length).toBe(4);
     });
 });
 

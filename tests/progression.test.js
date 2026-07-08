@@ -1,14 +1,24 @@
 import { describe, it, expect } from 'vitest';
-import { getLevelUpType, isSkillLevel } from '../js/systems/progression.js';
+import {
+    getLevelUpType,
+    isSkillLevel,
+    createSkillLevelThresholds
+} from '../js/systems/progression.js';
 import { createAbilityLevelThresholds } from '../js/config/progression.js';
 
 describe('getLevelUpType', () => {
     const abilityThresholds = createAbilityLevelThresholds();
 
-    it('returns skill when next level is multiple of 5', () => {
+    it('returns skill at 5, 15, 25, 35 (not every 5)', () => {
         expect(getLevelUpType(4, abilityThresholds)).toBe('skill');
-        expect(getLevelUpType(9, abilityThresholds)).toBe('skill');
         expect(getLevelUpType(14, abilityThresholds)).toBe('skill');
+        expect(getLevelUpType(24, abilityThresholds)).toBe('skill');
+        expect(getLevelUpType(34, abilityThresholds)).toBe('skill');
+    });
+
+    it('does not treat level 10 as a skill milestone', () => {
+        expect(getLevelUpType(9, abilityThresholds)).toBe('stat');
+        expect(isSkillLevel(10)).toBe(false);
     });
 
     it('returns ability when next level is 9, 19, 29', () => {
@@ -21,16 +31,22 @@ describe('getLevelUpType', () => {
         expect(getLevelUpType(6, abilityThresholds)).toBe('stat');
         expect(getLevelUpType(12, abilityThresholds)).toBe('stat');
     });
-
-    it('skill takes priority over stat at level 5 milestones', () => {
-        expect(getLevelUpType(4, abilityThresholds)).toBe('skill');
-    });
 });
 
 describe('isSkillLevel', () => {
-    it('identifies skill milestone levels', () => {
+    it('identifies skill milestone levels 5 + 10n', () => {
         expect(isSkillLevel(5)).toBe(true);
-        expect(isSkillLevel(10)).toBe(true);
+        expect(isSkillLevel(15)).toBe(true);
+        expect(isSkillLevel(25)).toBe(true);
+        expect(isSkillLevel(10)).toBe(false);
         expect(isSkillLevel(7)).toBe(false);
+        expect(isSkillLevel(0)).toBe(false);
+    });
+});
+
+describe('createSkillLevelThresholds', () => {
+    it('starts at 5 then steps by 10', () => {
+        const t = createSkillLevelThresholds(4);
+        expect(t).toEqual([5, 15, 25, 35]);
     });
 });

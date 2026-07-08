@@ -15,7 +15,7 @@ export function createDefaultStatsList() {
 export function createDefaultAbilityList() {
     return {
         Reflect: {
-            text: 'Return ??%(25%) damage to the enemy',
+            text: 'Return ??%(25%) of damage taken to the attacker',
             progression: ['5', '10', '15', '20', '25'],
             level: 0, maxLevel: 5
         },

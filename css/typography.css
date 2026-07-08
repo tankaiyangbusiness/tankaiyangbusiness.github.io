@@ -1,0 +1,16 @@
+/**
+ * Global typography scale — bumps UI text ~1 step (16px → 17px base).
+ * Rem-based sizes inherit automatically; clamp() values in panels were nudged separately.
+ */
+:root {
+    --ui-font-scale: 1.0625;
+}
+
+html {
+    font-size: calc(16px * var(--ui-font-scale));
+}
+
+body {
+    font-size: 1rem;
+    line-height: 1.45;
+}

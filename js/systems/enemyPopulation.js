@@ -54,13 +54,24 @@ export class EnemyPopulationManager {
         }
     }
 
-    /** Spawn rate multiplier based on elapsed time (warmup). */
+    /**
+     * Spawn rate multiplier during warmup — ease-out so early waves get denser
+     * packs while post-warmup (elapsed ≥ warmupSeconds) stays exactly 1.0.
+     *
+     * mult(t) = floor + (1 − floor) × t^ease
+     * where t ∈ [0,1], floor = warmupSpawnMultiplier, ease ∈ (0,1] (default 0.62).
+     *
+     * @param {number} elapsedSeconds
+     * @returns {number} in [warmupSpawnMultiplier, 1]
+     */
     getSpawnMultiplier(elapsedSeconds) {
-        if (elapsedSeconds < BALANCE.warmupSeconds) {
-            const t = elapsedSeconds / BALANCE.warmupSeconds;
-            return BALANCE.warmupSpawnMultiplier + (1 - BALANCE.warmupSpawnMultiplier) * t;
-        }
-        return 1;
+        const warmup = BALANCE.warmupSeconds || 180;
+        if (elapsedSeconds >= warmup) return 1;
+        const floor = BALANCE.warmupSpawnMultiplier ?? 0.52;
+        const ease = BALANCE.warmupSpawnEase ?? 0.62;
+        const t = Math.max(0, Math.min(1, elapsedSeconds / warmup));
+        const shaped = Math.pow(t, ease);
+        return floor + (1 - floor) * shaped;
     }
 
     /** Whether a spawn tick should fire this frame. @param {number} now */

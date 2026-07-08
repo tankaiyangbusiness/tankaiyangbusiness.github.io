@@ -41,7 +41,7 @@ export class PoisonPoolManager {
         };
 
         this.pools.push(pool);
-        this.game.skillRanges?.showImpactArea(x, y, cfg.poolRadius, 'poison', cfg.poolDuration);
+        this.game.skillRanges?.showImpactArea(x, y, cfg.poolRadius, 'chaos', cfg.poolDuration);
         requestAnimationFrame(() => el.classList.add('poison-pool-active'));
         return pool;
     }
@@ -83,9 +83,9 @@ export class PoisonPoolManager {
 
         targets.forEach(t => {
             if (t.ref) {
-                this.game._dealSkillDamageToEnemy(t.ref, pool.tickDamage, 'poison', false);
-                t.ref.element.classList.add('enemy-poisoned');
-                const tOut = setTimeout(() => t.ref.element.classList.remove('enemy-poisoned'), 300);
+                this.game._dealSkillDamageToEnemy(t.ref, pool.tickDamage, 'chaos', false, 'poisonBottle');
+                t.ref.element.classList.add('enemy-chaos-dot');
+                const tOut = setTimeout(() => t.ref.element.classList.remove('enemy-chaos-dot'), 300);
                 s.trackTimeout(tOut);
             }
         });

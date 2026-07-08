@@ -3,7 +3,7 @@
  * Tunable numbers live here so future balance changes stay localized.
  */
 
-/** @typedef {'adventurer'|'warrior'|'ranger'|'assassin'|'healer'|'necromancer'|'paladin'|'berserker'|'elementalist'|'summoner'|'capybara'} CharacterPassiveId */
+/** @typedef {'adventurer'|'warrior'|'ranger'|'assassin'|'healer'|'necromancer'|'paladin'|'berserker'|'elementalist'|'summoner'|'capybara'|'slayer'} CharacterPassiveId */
 
 /**
  * @typedef {object} CharacterPassiveDef
@@ -58,7 +58,7 @@ export const CHARACTER_PASSIVES = {
         description: 'Raises a melee zombie that deals 100% of your damage for a duration.',
         params: {
             cooldownMs: 12000,
-            durationMs: 8000,
+            durationMs: 14000,
             damagePercent: 100,
             moveSpeed: 0.55,
             attackIntervalMs: 900,
@@ -69,8 +69,8 @@ export const CHARACTER_PASSIVES = {
         id: 'paladin',
         name: 'Aegis of Faith',
         icon: '🛡️',
-        description: 'Gain a shield equal to 10% max HP; fully repaired every 10s.',
-        params: { shieldPercent: 10, repairIntervalMs: 10000 }
+        description: 'Gain a shield equal to 10% max HP; fully repaired every 15s.',
+        params: { shieldPercent: 10, repairIntervalMs: 15000 }
     },
     Berserker: {
         id: 'berserker',
@@ -116,6 +116,13 @@ export const CHARACTER_PASSIVES = {
             chillPercent: 25,
             chillDurationMs: 1800
         }
+    },
+    Slayer: {
+        id: 'slayer',
+        name: 'Weapon Mastery',
+        icon: '⚔️',
+        description: 'All physical damage deals +50% more (skills and basic attacks).',
+        params: { physicalBonus: 0.5 }
     }
 };
 

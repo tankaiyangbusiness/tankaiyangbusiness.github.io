@@ -11,7 +11,10 @@
       "frostbolt",
       "righteousFire",
       "spark",
-      "illusion"
+      "illusion",
+      "poisonDagger",
+      "hammerSweep",
+      "throwSpear"
     ]
   );
   function createDefaultSkillList() {
@@ -24,7 +27,10 @@
       frostbolt: { level: 0, maxLevel: 5 },
       righteousFire: { level: 0, maxLevel: 5 },
       spark: { level: 0, maxLevel: 5 },
-      illusion: { level: 0, maxLevel: 5 }
+      illusion: { level: 0, maxLevel: 5 },
+      poisonDagger: { level: 0, maxLevel: 5 },
+      hammerSweep: { level: 0, maxLevel: 5 },
+      throwSpear: { level: 0, maxLevel: 5 }
     };
   }
   function createInitialPlayerSkills() {
@@ -37,7 +43,10 @@
       frostbolt: 0,
       righteousFire: 0,
       spark: 0,
-      illusion: 0
+      illusion: 0,
+      poisonDagger: 0,
+      hammerSweep: 0,
+      throwSpear: 0
     };
   }
   function createSkillCooldowns() {
@@ -50,15 +59,36 @@
       frostbolt: 0,
       righteousFire: 0,
       spark: 0,
-      illusion: 0
+      illusion: 0,
+      poisonDagger: 0,
+      hammerSweep: 0,
+      throwSpear: 0
     };
   }
+  var SKILL_TAG_LABELS = {
+    fire: "Fire",
+    cold: "Cold",
+    lightning: "Lightning",
+    chaos: "Chaos",
+    holy: "Holy",
+    arcane: "Arcane",
+    physical: "Physical",
+    elemental: "Elemental",
+    healing: "Healing",
+    area: "Area",
+    projectile: "Projectile",
+    chain: "Chain",
+    fork: "Fork",
+    aura: "Aura",
+    minion: "Minion"
+  };
   var SKILL_DEFINITIONS = {
     fireball: {
       id: "fireball",
       name: "Fireball",
       icon: "\u{1F525}",
       element: "fire",
+      tags: ["fire", "elemental", "projectile", "area"],
       rangeType: "cast",
       description: "Hurls an explosive fireball. Direct hit + AoE splash + burn DoT.",
       formatText(level, nextLevel) {
@@ -71,6 +101,7 @@
       name: "Ice Nova",
       icon: "\u2744\uFE0F",
       element: "cold",
+      tags: ["cold", "elemental", "area"],
       rangeType: "area",
       description: "Freezing wave around you. Damages all nearby enemies and slows them.",
       formatText(level, nextLevel) {
@@ -84,6 +115,7 @@
       name: "Lightning Arc",
       icon: "\u26A1",
       element: "lightning",
+      tags: ["lightning", "elemental", "chain"],
       rangeType: "cast",
       description: "Instant arc that chains through multiple enemies.",
       formatText(level, nextLevel) {
@@ -93,21 +125,23 @@
     },
     poisonBottle: {
       id: "poisonBottle",
-      name: "Poison Bottle",
+      name: "Chaos Bottle",
       icon: "\u{1F9EA}",
-      element: "poison",
+      element: "chaos",
+      tags: ["chaos", "projectile", "area"],
       rangeType: "cast",
-      description: "Throws a toxic bottle that shatters into a poison pool on the ground.",
+      description: "Throws a chaos flask that shatters into a toxic ground pool.",
       formatText(level, nextLevel) {
         const cfg = getPoisonBottleConfig(nextLevel);
-        return `Poison Bottle Lv.${nextLevel}: ${Math.round(cfg.directDamageMult * 100)}% impact, pool ${cfg.poolDuration / 1e3}s, ${Math.round(cfg.tickDamageMult * 100)}%/tick. Pool r${cfg.poolRadius}px`;
+        return `Chaos Bottle Lv.${nextLevel}: ${Math.round(cfg.directDamageMult * 100)}% impact, pool ${cfg.poolDuration / 1e3}s, ${Math.round(cfg.tickDamageMult * 100)}%/tick. Pool r${cfg.poolRadius}px`;
       }
     },
     healingWave: {
       id: "healingWave",
       name: "Healing Wave",
       icon: "\u{1F49A}",
-      element: "holy",
+      element: "heal",
+      tags: ["holy", "healing"],
       rangeType: "self",
       description: "Restores a portion of your max HP. Auto-casts when injured.",
       formatText(level, nextLevel) {
@@ -120,11 +154,12 @@
       name: "Frostbolt",
       icon: "\u{1F9CA}",
       element: "cold",
+      tags: ["cold", "elemental", "projectile"],
       rangeType: "cast",
       description: "Slow frost shard \u2014 pierces every enemy in its path (once each). Long cooldown.",
       formatText(level, nextLevel) {
         const cfg = getFrostboltConfig(nextLevel);
-        return `Frostbolt Lv.${nextLevel}: ${Math.round(cfg.damageMult * 100)}% cold, range ${cfg.castRange}px`;
+        return `Frostbolt Lv.${nextLevel}: ${Math.round(cfg.damageMult * 100)}% cold, unlimited pierce, range ${cfg.castRange}px`;
       }
     },
     righteousFire: {
@@ -132,6 +167,7 @@
       name: "Righteous Fire",
       icon: "\u{1F525}",
       element: "fire",
+      tags: ["fire", "elemental", "aura", "area"],
       rangeType: "aura",
       description: "PoE-style burning aura \u2014 constant fire DoT around you while active.",
       formatText(level, nextLevel) {
@@ -144,11 +180,12 @@
       name: "Spark",
       icon: "\u2728",
       element: "lightning",
+      tags: ["lightning", "elemental", "projectile"],
       rangeType: "cast",
-      description: "Slow magenta arc sparks \u2014 wander with random turns and zap on contact.",
+      description: "PoE-style sparks from your center \u2014 spider out in random directions with a large hit bubble. Pierce 2.",
       formatText(level, nextLevel) {
         const cfg = getSparkConfig(nextLevel);
-        return `Spark Lv.${nextLevel}: ${cfg.sparkCount} sparks, ${Math.round(cfg.damageMult * 100)}% dmg, ${cfg.duration / 1e3}s`;
+        return `Spark Lv.${nextLevel}: ${cfg.sparkCount} sparks, ${Math.round(cfg.damageMult * 100)}% dmg, pierce ${cfg.maxPierce}, AOE ${cfg.hitRadiusVw.toFixed(1)}vw`;
       }
     },
     illusion: {
@@ -156,17 +193,57 @@
       name: "Illusion",
       icon: "\u25C8",
       element: "arcane",
+      tags: ["arcane", "minion"],
       rangeType: "self",
-      description: "Summons an invulnerable clone beside you. Mirrors your basic attacks at reduced damage with your passives.",
+      description: "Summons an invulnerable clone beside you. Mirrors your basic attacks at reduced damage within your attack range (AOE).",
       formatText(level, nextLevel) {
         const cfg = getIllusionConfig(nextLevel);
-        return `Illusion Lv.${nextLevel}: ${cfg.damagePercent}% clone damage, ${(cfg.duration / 1e3).toFixed(1)}s duration, ${(cfg.cooldown / 1e3).toFixed(1)}s cooldown`;
+        return `Illusion Lv.${nextLevel}: ${cfg.damagePercent}% clone damage, your AOE range, ${(cfg.duration / 1e3).toFixed(1)}s duration, ${(cfg.cooldown / 1e3).toFixed(1)}s cooldown`;
+      }
+    },
+    poisonDagger: {
+      id: "poisonDagger",
+      name: "Poison Dagger",
+      icon: "\u{1F5E1}\uFE0F",
+      element: "chaos",
+      tags: ["chaos", "projectile", "fork"],
+      rangeType: "cast",
+      description: "Throws a chaos dagger. On hit, forks into extra angled daggers that continue traveling.",
+      formatText(level, nextLevel) {
+        const cfg = getPoisonDaggerConfig(nextLevel);
+        return `Poison Dagger Lv.${nextLevel}: ${Math.round(cfg.damageMult * 100)}% hit, fork \xD7${cfg.forkCount}, ${Math.round(cfg.forkDamageMult * 100)}% fork dmg. Range ${cfg.castRange}px`;
+      }
+    },
+    hammerSweep: {
+      id: "hammerSweep",
+      name: "Hammer Sweep",
+      icon: "\u{1F528}",
+      element: "physical",
+      tags: ["physical", "area"],
+      rangeType: "area",
+      description: "Sweeping hammer smash \u2014 deals physical damage to all enemies around you.",
+      formatText(level, nextLevel) {
+        const cfg = getHammerSweepConfig(nextLevel);
+        return `Hammer Sweep Lv.${nextLevel}: ${Math.round(cfg.damageMult * 100)}% physical AoE. Radius ${cfg.radius}px`;
+      }
+    },
+    throwSpear: {
+      id: "throwSpear",
+      name: "Throw Spear",
+      icon: "\u{1F531}",
+      element: "physical",
+      tags: ["physical", "projectile"],
+      rangeType: "cast",
+      description: "Hurls a spear in a straight line. Pierces up to 6 enemies beyond the first (7 unique hits max).",
+      formatText(level, nextLevel) {
+        const cfg = getThrowSpearConfig(nextLevel);
+        return `Throw Spear Lv.${nextLevel}: ${Math.round(cfg.damageMult * 100)}% physical, pierce ${cfg.maxPierce}, range ${cfg.castRange}px`;
       }
     }
   };
   function getFireballConfig(level) {
     if (level <= 0) {
-      return { cooldown: Infinity, castRange: 0, directDamageMult: 0, splashRadius: 0, splashDamageMult: 0, burnTotalMult: 0, burnDuration: 0, projectileSpeed: 0 };
+      return { cooldown: Infinity, castRange: 0, directDamageMult: 0, splashRadius: 0, splashDamageMult: 0, burnTotalMult: 0, burnDuration: 0, projectileSpeed: 0, maxPierce: 0 };
     }
     return {
       cooldown: Math.max(1200, 2500 - level * 200),
@@ -176,7 +253,9 @@
       splashDamageMult: 0.32 + level * 0.06,
       burnTotalMult: 0.12 + level * 0.05,
       burnDuration: 3500,
-      projectileSpeed: 0.95 + level * 0.06
+      projectileSpeed: 0.95 + level * 0.06,
+      /** No pierce — first hit explodes */
+      maxPierce: 0
     };
   }
   function getIceNovaConfig(level) {
@@ -230,14 +309,16 @@
   }
   function getFrostboltConfig(level) {
     if (level <= 0) {
-      return { cooldown: Infinity, castRange: 0, damageMult: 0, projectileSpeed: 0, maxTravel: 0 };
+      return { cooldown: Infinity, castRange: 0, damageMult: 0, projectileSpeed: 0, maxTravel: 0, maxPierce: 0 };
     }
     return {
       cooldown: Math.max(2800, 4800 - level * 320),
       castRange: 200 + level * 35,
       damageMult: 0.55 + level * 0.1,
-      projectileSpeed: 0.32 + level * 0.04,
-      maxTravel: 420 + level * 55,
+      projectileSpeed: 0.55 + level * 0.05,
+      maxTravel: 55 + level * 8,
+      /** Unlimited pierce — travel distance ends the bolt */
+      maxPierce: Infinity,
       pierceAll: true
     };
   }
@@ -245,24 +326,32 @@
     if (level <= 0) {
       return { radius: 0, tickDamageMult: 0, tickInterval: 0 };
     }
+    const baseRadius = 55 + level * 18;
     return {
-      radius: 55 + level * 18,
-      tickDamageMult: 0.06 + level * 0.025,
+      radius: Math.round(baseRadius * 1.5),
+      /** Lv.1 = 12%, then +2.5% per level */
+      tickDamageMult: 0.095 + level * 0.025,
       tickInterval: Math.max(400, 650 - level * 40)
     };
   }
   function getSparkConfig(level) {
     if (level <= 0) {
-      return { cooldown: Infinity, sparkCount: 0, damageMult: 0, duration: 0, speed: 0 };
+      return { cooldown: Infinity, sparkCount: 0, damageMult: 0, duration: 0, speed: 0, hitRadiusVw: 0, maxPierce: 0 };
     }
     return {
       cooldown: Math.max(1600, 3e3 - level * 240),
-      sparkCount: 2 + level,
+      /** PoE-style swarm from center */
+      sparkCount: 4 + level,
       damageMult: 0.28 + level * 0.06,
-      duration: 2400 + level * 380,
-      speed: 0.55 + level * 0.06,
-      wanderChance: 0.28,
-      wanderTurn: 1.8
+      duration: 2800 + level * 400,
+      /** Slowish spider crawl */
+      speed: 0.42 + level * 0.045,
+      wanderChance: 0.38,
+      wanderTurn: 2.2,
+      /** Large hit bubble (vw) — PoE Spark AOE feel */
+      hitRadiusVw: 6.8 + level * 0.55,
+      /** Pierce 2: dies after 3 unique enemy hits */
+      maxPierce: 2
     };
   }
   function getIllusionConfig(level) {
@@ -270,11 +359,65 @@
       return { cooldown: Infinity, duration: 0, damagePercent: 0, offsetVw: 0 };
     }
     return {
-      cooldown: Math.max(8e3, 16e3 - level * 1400),
+      /** Faster resummon — ~9.8s at Lv.1 down to 5s floor at Lv.5 */
+      cooldown: Math.max(5e3, 11e3 - level * 1200),
       duration: 4500 + level * 900,
       /** 30% at Lv.1 → 60% at Lv.5 */
       damagePercent: 30 + (level - 1) * 7.5,
       offsetVw: 4.5
+    };
+  }
+  function getPoisonDaggerConfig(level) {
+    if (level <= 0) {
+      return {
+        cooldown: Infinity,
+        castRange: 0,
+        damageMult: 0,
+        forkCount: 0,
+        forkDamageMult: 0,
+        projectileSpeed: 0,
+        forkTravel: 0,
+        hitRadiusVw: 0
+      };
+    }
+    return {
+      cooldown: Math.max(1400, 2800 - level * 220),
+      castRange: 190 + level * 30,
+      damageMult: 0.5 + level * 0.09,
+      /** Primary dagger forks into this many secondary blades on first hit */
+      forkCount: 1 + level,
+      forkDamageMult: 0.32 + level * 0.06,
+      forkSpreadRad: 0.55,
+      projectileSpeed: 0.85 + level * 0.05,
+      maxTravel: 48 + level * 6,
+      forkTravel: 28 + level * 4,
+      hitRadiusVw: 2.4 + level * 0.15
+    };
+  }
+  function getHammerSweepConfig(level) {
+    if (level <= 0) {
+      return { cooldown: Infinity, radius: 0, damageMult: 0 };
+    }
+    return {
+      cooldown: Math.max(1800, 3600 - level * 280),
+      radius: 75 + level * 20,
+      /** Lv.1 = 96%, then +12% per level */
+      damageMult: 0.84 + level * 0.12
+    };
+  }
+  function getThrowSpearConfig(level) {
+    if (level <= 0) {
+      return { cooldown: Infinity, castRange: 0, damageMult: 0, projectileSpeed: 0, maxTravel: 0, hitRadiusVw: 0, maxPierce: 0 };
+    }
+    return {
+      cooldown: Math.max(1600, 3200 - level * 250),
+      castRange: 220 + level * 35,
+      damageMult: 0.62 + level * 0.1,
+      projectileSpeed: 0.72 + level * 0.05,
+      maxTravel: 58 + level * 8,
+      hitRadiusVw: 2.6 + level * 0.2,
+      /** Pierce 6: disappears after hitting a 7th unique enemy */
+      maxPierce: 6
     };
   }
   function getSkillConfig(id, level) {
@@ -297,17 +440,28 @@
         return getSparkConfig(level);
       case "illusion":
         return getIllusionConfig(level);
+      case "poisonDagger":
+        return getPoisonDaggerConfig(level);
+      case "hammerSweep":
+        return getHammerSweepConfig(level);
+      case "throwSpear":
+        return getThrowSpearConfig(level);
       default:
         return {};
     }
   }
-  function getSkillDisplayRadius(id, level) {
+  function getSkillDisplayRadius(id, level, playerAttackRange = 0) {
     const cfg = getSkillConfig(id, level);
-    if (id === "iceNova") return cfg.radius;
+    if (id === "illusion") return Math.max(0, Number(playerAttackRange) || 0);
+    if (id === "iceNova" || id === "hammerSweep") return cfg.radius;
     if (id === "righteousFire") return cfg.radius;
     if (id === "healingWave") return 0;
-    if (id === "illusion") return 0;
-    if (id === "fireball" || id === "lightningArc" || id === "poisonBottle" || id === "frostbolt") return cfg.castRange;
+    if (id === "spark") {
+      return (cfg.hitRadiusVw || 0) * (typeof window !== "undefined" ? window.innerWidth : 1e3) / 100;
+    }
+    if (id === "fireball" || id === "lightningArc" || id === "poisonBottle" || id === "frostbolt" || id === "poisonDagger" || id === "throwSpear") {
+      return cfg.castRange;
+    }
     return 0;
   }
   function findEnemiesInRadius(enemies, cx, cy, radiusPx, innerWidth, innerHeight, excludeId = null) {
@@ -340,7 +494,14 @@
     if (id === "frostbolt") return Math.floor(baseDamage * cfg.damageMult);
     if (id === "spark") return Math.floor(baseDamage * cfg.damageMult);
     if (id === "righteousFire") return Math.max(1, Math.floor(baseDamage * cfg.tickDamageMult));
+    if (id === "poisonDagger") return Math.floor(baseDamage * cfg.damageMult);
+    if (id === "hammerSweep") return Math.floor(baseDamage * cfg.damageMult);
+    if (id === "throwSpear") return Math.floor(baseDamage * cfg.damageMult);
     return 0;
+  }
+  function computePoisonDaggerForkDamage(baseDamage, level) {
+    const cfg = getPoisonDaggerConfig(level);
+    return Math.max(1, Math.floor(baseDamage * cfg.forkDamageMult));
   }
   function computeSplashDamage(baseDamage, level) {
     return Math.floor(baseDamage * getFireballConfig(level).splashDamageMult);
@@ -351,40 +512,93 @@
   function computePoisonTickDamage(baseDamage, level) {
     return Math.max(1, Math.floor(baseDamage * getPoisonBottleConfig(level).tickDamageMult));
   }
+  function getSkillTags(skillId) {
+    return SKILL_DEFINITIONS[skillId]?.tags || [];
+  }
+  function formatSkillTagsHtml(tags = []) {
+    if (!tags.length) return "";
+    return tags.map((tag) => {
+      const label = SKILL_TAG_LABELS[tag] || tag;
+      return `<span class="skill-tag skill-tag-${tag}">${label}</span>`;
+    }).join("");
+  }
+  function formatSkillTooltipHtml(def, level = 0) {
+    if (!def) return "";
+    const tagsHtml = formatSkillTagsHtml(def.tags || []);
+    const statsLine = level > 0 && def.formatText ? def.formatText(level, level) : "";
+    return `
+        <strong class="skill-tip-name">${def.name}</strong>
+        ${tagsHtml ? `<div class="skill-tip-tags">${tagsHtml}</div>` : ""}
+        <p class="skill-tip-desc">${def.description}</p>
+        ${statsLine ? `<p class="skill-tip-stats">${statsLine}</p>` : ""}
+        ${level <= 0 ? '<p class="skill-tip-locked">Not learned \u2014 level up to unlock</p>' : ""}
+    `;
+  }
 
   // js/config/balance.js
   var BALANCE = {
     /** Seconds before difficulty tier increases — slower ramp for longer runs */
     difficultyIntervalSec: 20,
     /** Extended warmup — gentler first ~3 minutes */
+    /**
+     * Warmup spawn curve — higher early density, identical asymptote (≥ warmupSeconds → 1.0).
+     * Ease-out exponent (< 1) raises early waves without changing late/end-game rates.
+     */
     warmupSeconds: 180,
-    warmupSpawnMultiplier: 0.3,
-    maxEnemiesOnScreen: 70,
-    /** Enemy damage reduced through early waves (0–11) */
+    warmupSpawnMultiplier: 0.52,
+    /** Curve power for early ramp: t^k with k&lt;1 → more enemies earlier, still hits 1.0 at end of warmup */
+    warmupSpawnEase: 0.62,
+    /** Hard cap — raised slightly, still capped to protect FPS/memory */
+    maxEnemiesOnScreen: 55,
+    /** Enemy damage reduced through early waves (0–11) — HP/EXP only; attack uses enemyAttackTime */
     earlyWaveCap: 12,
+    /** @deprecated Wave-based damage reduction — use enemyAttackTime scaling at hit time instead */
     earlyWaveDamageMultiplier: 0.5,
+    /**
+     * Time-based enemy attack damage curve (uses run elapsedSeconds).
+     * 0s: −10% damage → 8min: normal → +10% every 8min thereafter (16m +10%, 24m +20%…).
+     */
+    enemyAttackTime: {
+      earlyPenalty: 0.1,
+      normalizeAtSec: 480,
+      rampIntervalSec: 480,
+      rampStep: 0.1
+    },
     /** Early-wave HP reduction (−30% through wave 11) */
     earlyWaveHpMultiplier: 0.7,
     /** Early-wave EXP bonus (+50% through wave 11) */
     earlyWaveExpMultiplier: 1.5,
+    /**
+     * Every N completed 1-based waves, non-HP / non-moveSpeed combat stats ×(1+bonus).
+     * Applied as floor(wave / interval) stacks (waves 12, 24, 36…).
+     */
+    waveStatBoostInterval: 12,
+    waveStatBoostBonus: 0.25,
     spawnsPerMinute: {
-      normal: 27.5,
-      rare: 10.5,
-      elite: 2.2,
-      boss: 0.65
+      normal: 30,
+      rare: 11.5,
+      elite: 2.4,
+      boss: 0.7
     },
     spawnScaling: {
-      normal: 2.6,
-      rare: 1.2,
-      elite: 0.45,
-      boss: 0.035
+      normal: 2.9,
+      rare: 1.35,
+      elite: 0.5,
+      boss: 0.04
     },
     maxDifficultyForSpawn: 300,
-    enemyHpScale: 0.6,
-    /** Tuned down for ~20 min average survival */
-    enemyDamageScale: 0.55,
+    enemyHpScale: 0.63,
+    /** Prior patch damage scale — starting +20% combat boost is applied separately; +5% global HP patch */
+    enemyDamageScale: 0.7686525,
     /** +10% exp vs prior patch (0.842 × 1.1) */
     enemyExpScale: 0.926,
+    /**
+     * Flat multipliers from the start (not HP / moveSpeed).
+     * Damage & attackSpeed +20%; armour +10%. Archer range bumped in ENEMY_TYPES.
+     */
+    enemyBaseDamageBonus: 1.2,
+    enemyBaseAttackSpeedBonus: 1.2,
+    enemyBaseArmourBonus: 1.1,
     playerPressure: {
       moveSpeedPerTier: 8e-3,
       moveSpeedCap: 1.28
@@ -409,9 +623,20 @@
     );
     return baseMoveSpeed * bonus;
   }
-  function applyEarlyWaveDamageReduction(damage, difficultyWave) {
-    if (difficultyWave >= BALANCE.earlyWaveCap) return damage;
-    return Math.max(1, Math.floor(damage * BALANCE.earlyWaveDamageMultiplier));
+  function getEnemyAttackTimeMultiplier(elapsedSeconds) {
+    const cfg = BALANCE.enemyAttackTime;
+    const t = Math.max(0, Number(elapsedSeconds) || 0);
+    const { earlyPenalty, normalizeAtSec, rampIntervalSec, rampStep } = cfg;
+    if (t < normalizeAtSec) {
+      const progress = t / normalizeAtSec;
+      return 1 - earlyPenalty + earlyPenalty * progress;
+    }
+    const blocksAfterNormalize = Math.floor((t - normalizeAtSec) / rampIntervalSec);
+    return 1 + blocksAfterNormalize * rampStep;
+  }
+  function scaleEnemyAttackDamageForElapsed(baseDamage, elapsedSeconds) {
+    const mult = getEnemyAttackTimeMultiplier(elapsedSeconds);
+    return Math.max(1, Math.floor(baseDamage * mult + 1e-9));
   }
   function applyEarlyWaveHpReduction(hp, difficultyWave) {
     if (difficultyWave >= BALANCE.earlyWaveCap) return hp;
@@ -420,6 +645,42 @@
   function applyEarlyWaveExpBonus(exp, difficultyWave) {
     if (difficultyWave >= BALANCE.earlyWaveCap) return exp;
     return Math.max(1, Math.floor(exp * BALANCE.earlyWaveExpMultiplier));
+  }
+  function getWaveStatBoostStacks(wave) {
+    const w = Math.max(0, Math.floor(Number(wave) || 0));
+    const interval = BALANCE.waveStatBoostInterval || 12;
+    return Math.floor(w / interval);
+  }
+  function applyWaveStatBoost(stats, wave) {
+    const stacks = getWaveStatBoostStacks(wave);
+    if (stacks <= 0 || !stats) return stats;
+    const mult = 1 + stacks * (BALANCE.waveStatBoostBonus || 0.25);
+    if (typeof stats.physicalDamage === "number") {
+      stats.physicalDamage = Math.max(1, Math.floor(stats.physicalDamage * mult + 1e-9));
+    }
+    if (typeof stats.armour === "number") {
+      stats.armour = Math.max(0, Math.floor(stats.armour * mult + 1e-9));
+    }
+    if (typeof stats.attackSpeed === "number") {
+      stats.attackSpeed = Math.max(0.1, Number((stats.attackSpeed * mult).toFixed(3)));
+    }
+    return stats;
+  }
+  function applyEnemyStartingCombatBoost(stats) {
+    if (!stats) return stats;
+    const dmgMult = BALANCE.enemyBaseDamageBonus || 1.2;
+    const asMult = BALANCE.enemyBaseAttackSpeedBonus || 1.2;
+    const armMult = BALANCE.enemyBaseArmourBonus || 1.1;
+    if (typeof stats.physicalDamage === "number") {
+      stats.physicalDamage = Math.max(1, Math.floor(stats.physicalDamage * dmgMult + 1e-9));
+    }
+    if (typeof stats.attackSpeed === "number") {
+      stats.attackSpeed = Math.max(0.1, Number((stats.attackSpeed * asMult).toFixed(3)));
+    }
+    if (typeof stats.armour === "number" && stats.armour > 0) {
+      stats.armour = Math.max(0, Math.floor(stats.armour * armMult + 1e-9));
+    }
+    return stats;
   }
 
   // js/config/expProgression.js
@@ -610,7 +871,7 @@
       name: "Necromancer",
       role: "DoT",
       modelClass: "necromancer",
-      description: "Master of poison and decay. Synergizes with Poison Bottle.",
+      description: "Master of chaos and decay. Synergizes with Chaos Bottle & Poison Dagger.",
       stats: {
         hp: 340,
         maxHp: 340,
@@ -749,8 +1010,46 @@
         buffList: {},
         skills: baseSkills()
       }
+    },
+    {
+      name: "Slayer",
+      role: "Physical",
+      modelClass: "slayer",
+      description: "Weapon specialist. Physical hits and skills strike much harder.",
+      stats: {
+        hp: 520,
+        maxHp: 520,
+        physicalDamage: 40,
+        attackSpeed: 1.85,
+        attackRange: 120,
+        critChance: 10,
+        critMultiplier: 175,
+        armour: 22,
+        evade: 12,
+        hpRegen: 3,
+        level: 1,
+        exp: 0,
+        expGain: 1,
+        expThreshold: BASE_EXP,
+        buffList: {},
+        skills: baseSkills()
+      }
     }
   ];
+
+  // js/config/combatStyles.js
+  var MELEE_MODEL_CLASSES = /* @__PURE__ */ new Set([
+    "adventurer",
+    "warrior",
+    "assassin",
+    "berserker",
+    "paladin",
+    "slayer",
+    "capybara"
+  ]);
+  function usesMeleeBasicAttack(modelClass) {
+    return MELEE_MODEL_CLASSES.has(modelClass);
+  }
 
   // js/config/enemies.js
   var BASE_ENEMY_STATS = {
@@ -809,7 +1108,7 @@
       moveSpeedMult: 0.7,
       behavior: "ranged",
       label: "Archer",
-      rangedRange: 220
+      rangedRange: 260
     },
     dasher: {
       type: "dasher",
@@ -909,10 +1208,7 @@
       ...base,
       hp: applyEarlyWaveHpReduction(applyBalanceScale(Math.floor(hp), "hp"), difficulty),
       maxHp: applyEarlyWaveHpReduction(applyBalanceScale(Math.floor(hp), "hp"), difficulty),
-      physicalDamage: applyEarlyWaveDamageReduction(
-        applyBalanceScale(Math.floor(damage), "damage"),
-        difficulty
-      ),
+      physicalDamage: applyBalanceScale(Math.floor(damage), "damage"),
       exp: finalizeEnemyExpStat(
         applyEarlyWaveExpBonus(applyBalanceScale(Math.floor(exp), "exp"), difficulty),
         typeConfig.type,
@@ -927,6 +1223,8 @@
     if (typeConfig.behavior === "ranged") {
       stats.attackRange = typeConfig.rangedRange || 180;
     }
+    applyEnemyStartingCombatBoost(stats);
+    applyWaveStatBoost(stats, difficulty + 1);
     return { stats, typeConfig, rarityConfig };
   }
   function scaleEnemyHp(base, difficulty) {
@@ -945,9 +1243,16 @@
     const lateExtra = base * (d - 50) * 0.035;
     return midCap + lateExtra;
   }
+  var SWARM_UNLOCK_DIFFICULTY = 6;
   function pickEnemyType(difficulty) {
-    const pool = ["grunt", "grunt", "grunt"];
-    if (difficulty >= 2) pool.push("swarm", "swarm", "swarm");
+    const pool = ["grunt", "grunt", "grunt", "grunt"];
+    if (difficulty >= SWARM_UNLOCK_DIFFICULTY && difficulty < 10) {
+      pool.push("swarm");
+    } else if (difficulty >= 10 && difficulty < 16) {
+      pool.push("swarm", "swarm");
+    } else if (difficulty >= 16) {
+      pool.push("swarm", "swarm", "swarm");
+    }
     if (difficulty >= 5) pool.push("tank", "archer");
     if (difficulty >= 10) pool.push("dasher", "splitter");
     if (difficulty >= 12) pool.push("wraith", "wraith");
@@ -994,7 +1299,7 @@
   function createDefaultAbilityList() {
     return {
       Reflect: {
-        text: "Return ??%(25%) damage to the enemy",
+        text: "Return ??%(25%) of damage taken to the attacker",
         progression: ["5", "10", "15", "20", "25"],
         level: 0,
         maxLevel: 5
@@ -1081,12 +1386,18 @@
       this.pauseTime = 0;
       this.currentDifficultyLevel = 0;
       this.currentWave = 1;
+      this.maxWaveReached = 1;
       this.previousDifficultyLevel = -1;
       this.previousWave = 0;
       this.nextEnemyId = 0;
       this.killCount = 0;
       this.itemsLooted = 0;
+      this.elitesKilled = 0;
+      this.bossesKilled = 0;
+      this.maxHpReached = 0;
+      this.finalVictoryAchieved = false;
       this.selectedCharacterName = "";
+      this.selectedModelClass = "";
       this.healthRegenTime = 0;
       this.healthRegenInterval = 1e3;
       this.normalSpawnTime = 0;
@@ -1133,7 +1444,16 @@
       this.pendingTimeouts.forEach((id) => clearTimeout(id));
       this.pendingTimeouts.clear();
     }
-    trackAnimation(id) {
+    /**
+     * Track a RAF id. Pass `previousId` when replacing a looping animation
+     * so old ids do not accumulate (critical for long runs / memory).
+     * @param {number} id
+     * @param {number|null} [previousId]
+     */
+    trackAnimation(id, previousId = null) {
+      if (previousId != null && previousId !== id) {
+        this.animationIds.delete(previousId);
+      }
       this.animationIds.add(id);
       return id;
     }
@@ -1287,6 +1607,15 @@
         <ellipse cx="32" cy="26" rx="4" ry="2.5" fill="#78350f"/>
         <ellipse cx="14" cy="38" rx="5" ry="3" fill="#92400e"/>
         <ellipse cx="50" cy="38" rx="5" ry="3" fill="#92400e"/>
+    `),
+    slayer: SVG_WRAP(`
+        <defs><linearGradient id="slayer-armor" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#e2e8f0"/><stop offset="100%" stop-color="#64748b"/></linearGradient></defs>
+        <ellipse cx="32" cy="40" rx="16" ry="18" fill="url(#slayer-armor)" stroke="#94a3b8" stroke-width="2"/>
+        <circle cx="32" cy="17" r="11" fill="#f1f5f9" stroke="#64748b" stroke-width="1.5"/>
+        <path d="M22 8 L42 8 L32 16 Z" fill="#334155"/>
+        <path d="M48 22 L60 14 L58 34 L50 36 Z" fill="#cbd5e1" stroke="#64748b"/>
+        <line x1="52" y1="16" x2="54" y2="48" stroke="#e2e8f0" stroke-width="3.5" stroke-linecap="round"/>
+        <path d="M10 36 L18 30 L16 44 Z" fill="#94a3b8" stroke="#475569"/>
     `)
   };
   var ENEMY_SVGS = {
@@ -1360,6 +1689,28 @@
         <ellipse cx="26" cy="28" rx="4" ry="5" fill="#0f172a" opacity="0.7"/>
         <ellipse cx="38" cy="28" rx="4" ry="5" fill="#0f172a" opacity="0.7"/>
         <path d="M28 38 Q32 42 36 38" fill="none" stroke="#94a3b8" stroke-width="1.5"/>
+    `),
+    treasureChest: SVG_WRAP(`
+        <defs>
+            <linearGradient id="chest-gold" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="#fde68a"/>
+                <stop offset="55%" stop-color="#f59e0b"/>
+                <stop offset="100%" stop-color="#b45309"/>
+            </linearGradient>
+            <linearGradient id="chest-lid" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="#fef3c7"/>
+                <stop offset="100%" stop-color="#d97706"/>
+            </linearGradient>
+        </defs>
+        <ellipse cx="32" cy="54" rx="22" ry="6" fill="#000" opacity="0.35"/>
+        <rect x="12" y="30" width="40" height="22" rx="4" fill="url(#chest-gold)" stroke="#92400e" stroke-width="2"/>
+        <path d="M12 34 L52 34" stroke="#78350f" stroke-width="2"/>
+        <rect x="10" y="18" width="44" height="18" rx="6" fill="url(#chest-lid)" stroke="#92400e" stroke-width="2"/>
+        <rect x="28" y="26" width="8" height="14" rx="2" fill="#451a03"/>
+        <circle cx="32" cy="33" r="3.5" fill="#fde68a" stroke="#b45309" stroke-width="1.5"/>
+        <path d="M16 22 Q32 12 48 22" fill="none" stroke="#fef08a" stroke-width="2" opacity="0.85"/>
+        <circle cx="20" cy="24" r="2" fill="#fef9c3" opacity="0.9"/>
+        <circle cx="44" cy="24" r="2" fill="#fef9c3" opacity="0.9"/>
     `)
   };
   var COMPANION_SVGS = {
@@ -1415,6 +1766,9 @@
   function getEnemySvg(enemyType) {
     return ENEMY_SVGS[enemyType] || ENEMY_SVGS.grunt;
   }
+  function getTreasureChestSvg() {
+    return ENEMY_SVGS.treasureChest;
+  }
   function getCompanionSvg(type) {
     return COMPANION_SVGS[type] || COMPANION_SVGS.illusion;
   }
@@ -1442,6 +1796,14 @@
             <div class="enemy-ground-shadow" aria-hidden="true"></div>
             <div class="enemy-sprite enemy-sprite-${typeConfig.type}">${getEnemySvg(typeConfig.type)}</div>
             <span class="enemy-type-badge enemy-type-cube" title="${label}" aria-label="${label}"></span>
+        </div>
+    `;
+  }
+  function buildTreasureChestModelHtml() {
+    return `
+        <div class="enemy-model-25d enemy-type-treasure">
+            <div class="enemy-ground-shadow treasure-chest-shadow" aria-hidden="true"></div>
+            <div class="enemy-sprite enemy-sprite-treasure">${getTreasureChestSvg()}</div>
         </div>
     `;
   }
@@ -1478,86 +1840,96 @@
   }
 
   // js/config/achievements.js
+  function ach(id, title, description, icon, check) {
+    return { id, title, description, icon, check };
+  }
   var ACHIEVEMENTS = [
-    {
-      id: "first_blood",
-      title: "First Blood",
-      description: "Defeat your first enemy.",
-      check: (ctx) => ctx.killCount >= 1
-    },
-    {
-      id: "slayer_100",
-      title: "Centurion",
-      description: "Defeat 100 enemies in one run.",
-      check: (ctx) => ctx.killCount >= 100
-    },
-    {
-      id: "slayer_500",
-      title: "Exterminator",
-      description: "Defeat 500 enemies in one run.",
-      check: (ctx) => ctx.killCount >= 500
-    },
-    {
-      id: "level_10",
-      title: "Rising Star",
-      description: "Reach level 10 in one run.",
-      check: (ctx) => ctx.level >= 10
-    },
-    {
-      id: "level_25",
-      title: "Veteran",
-      description: "Reach level 25 in one run.",
-      check: (ctx) => ctx.level >= 25
-    },
-    {
-      id: "level_50",
-      title: "Elite Hunter",
-      description: "Reach level 50 in one run.",
-      check: (ctx) => ctx.level >= 50
-    },
-    {
-      id: "survive_5m",
-      title: "Still Standing",
-      description: "Survive 5 minutes.",
-      check: (ctx) => ctx.elapsedSeconds >= 300
-    },
-    {
-      id: "survive_15m",
-      title: "Iron Will",
-      description: "Survive 15 minutes.",
-      check: (ctx) => ctx.elapsedSeconds >= 900
-    },
-    {
-      id: "streak_25",
-      title: "Unstoppable",
-      description: "Reach a 25 kill streak.",
-      check: (ctx) => ctx.bestStreak >= 25
-    },
-    {
-      id: "treasure_5",
-      title: "Treasure Hunter",
-      description: "Open 5 treasure chests in one run.",
-      check: (ctx) => ctx.treasuresOpened >= 5
-    },
-    {
-      id: "gear_rare",
-      title: "Well Equipped",
-      description: "Equip a rare item.",
-      check: (ctx) => ctx.equippedRareCount >= 1
-    },
-    {
-      id: "gear_full",
-      title: "Fully Loaded",
-      description: "Equip items in all 7 slots.",
-      check: (ctx) => ctx.equippedGearCount >= 7
-    },
-    {
-      id: "loot_20",
-      title: "Collector",
-      description: "Pick up 20 items in one run.",
-      check: (ctx) => ctx.itemsLooted >= 20
-    }
+    // —— Combat kills ——
+    ach("first_blood", "First Blood", "Defeat your first enemy.", "\u{1FA78}", (ctx) => ctx.killCount >= 1),
+    ach("slayer_10", "Warm-Up", "Defeat 10 enemies in one run.", "\u{1F5E1}\uFE0F", (ctx) => ctx.killCount >= 10),
+    ach("slayer_25", "Skirmisher", "Defeat 25 enemies in one run.", "\u2694\uFE0F", (ctx) => ctx.killCount >= 25),
+    ach("slayer_50", "Battler", "Defeat 50 enemies in one run.", "\u{1F6E1}\uFE0F", (ctx) => ctx.killCount >= 50),
+    ach("slayer_100", "Centurion", "Defeat 100 enemies in one run.", "\u{1F4AF}", (ctx) => ctx.killCount >= 100),
+    ach("slayer_250", "Raid Leader", "Defeat 250 enemies in one run.", "\u{1F3F9}", (ctx) => ctx.killCount >= 250),
+    ach("slayer_500", "Exterminator", "Defeat 500 enemies in one run.", "\u{1F480}", (ctx) => ctx.killCount >= 500),
+    ach("slayer_1000", "Legend Slayer", "Defeat 1000 enemies in one run.", "\u{1F3C6}", (ctx) => ctx.killCount >= 1e3),
+    ach("slayer_2000", "Arena Nightmare", "Defeat 2000 enemies in one run.", "\u{1F479}", (ctx) => ctx.killCount >= 2e3),
+    ach("slayer_10000", "Apocalypse", "Defeat 10,000 enemies in one run.", "\u2604\uFE0F", (ctx) => ctx.killCount >= 1e4),
+    // —— Levels ——
+    ach("level_5", "Getting Started", "Reach level 5 in one run.", "\u{1F331}", (ctx) => ctx.level >= 5),
+    ach("level_10", "Rising Star", "Reach level 10 in one run.", "\u2B50", (ctx) => ctx.level >= 10),
+    ach("level_15", "Seasoned", "Reach level 15 in one run.", "\u{1F320}", (ctx) => ctx.level >= 15),
+    ach("level_25", "Veteran", "Reach level 25 in one run.", "\u{1F396}\uFE0F", (ctx) => ctx.level >= 25),
+    ach("level_35", "Warlord", "Reach level 35 in one run.", "\u{1F451}", (ctx) => ctx.level >= 35),
+    ach("level_50", "Elite Hunter", "Reach level 50 in one run.", "\u{1F48E}", (ctx) => ctx.level >= 50),
+    ach("level_75", "Apex Predator", "Reach level 75 in one run.", "\u{1F406}", (ctx) => ctx.level >= 75),
+    // —— Survival time ——
+    ach("survive_1m", "One Minute", "Survive 1 minute.", "\u23F1\uFE0F", (ctx) => ctx.elapsedSeconds >= 60),
+    ach("survive_3m", "Holding On", "Survive 3 minutes.", "\u23F3", (ctx) => ctx.elapsedSeconds >= 180),
+    ach("survive_5m", "Still Standing", "Survive 5 minutes.", "\u{1F9CD}", (ctx) => ctx.elapsedSeconds >= 300),
+    ach("survive_10m", "Tenacious", "Survive 10 minutes.", "\u{1F9F1}", (ctx) => ctx.elapsedSeconds >= 600),
+    ach("survive_15m", "Iron Will", "Survive 15 minutes.", "\u{1F4AA}", (ctx) => ctx.elapsedSeconds >= 900),
+    ach("survive_20m", "Endurance Ace", "Survive 20 minutes.", "\u{1F3C3}", (ctx) => ctx.elapsedSeconds >= 1200),
+    ach("survive_30m", "Marathon Runner", "Survive 30 minutes.", "\u{1F3C5}", (ctx) => ctx.elapsedSeconds >= 1800),
+    // —— Waves ——
+    ach("wave_3", "Wave Rider", "Reach wave 3.", "\u{1F30A}", (ctx) => (ctx.maxWaveReached ?? ctx.currentWave ?? 0) >= 3),
+    ach("wave_6", "Tide Breaker", "Reach wave 6.", "\u{1F300}", (ctx) => (ctx.maxWaveReached ?? ctx.currentWave ?? 0) >= 6),
+    ach("wave_12", "Deep Waters", "Reach wave 12.", "\u{1F30A}", (ctx) => (ctx.maxWaveReached ?? ctx.currentWave ?? 0) >= 12),
+    ach("wave_18", "Storm Caller", "Reach wave 18.", "\u26C8\uFE0F", (ctx) => (ctx.maxWaveReached ?? ctx.currentWave ?? 0) >= 18),
+    ach("wave_24", "Twilight Tide", "Reach wave 24.", "\u{1F319}", (ctx) => (ctx.maxWaveReached ?? ctx.currentWave ?? 0) >= 24),
+    ach("wave_36", "Abyss Walker", "Reach wave 36.", "\u{1F573}\uFE0F", (ctx) => (ctx.maxWaveReached ?? ctx.currentWave ?? 0) >= 36),
+    ach("wave_48", "Wave Master", "Reach wave 48.", "\u{1F451}", (ctx) => (ctx.maxWaveReached ?? ctx.currentWave ?? 0) >= 48),
+    ach("wave_100_champion", "Arena Champion", "Defeat the Wave 100 final boss.", "\u{1F3C6}", (ctx) => Boolean(ctx.finalVictoryAchieved)),
+    // —— Kill streaks ——
+    ach("streak_5", "On a Roll", "Reach a 5 kill streak.", "\u{1F525}", (ctx) => ctx.bestStreak >= 5),
+    ach("streak_10", "Hot Streak", "Reach a 10 kill streak.", "\u{1F336}\uFE0F", (ctx) => ctx.bestStreak >= 10),
+    ach("streak_25", "Unstoppable", "Reach a 25 kill streak.", "\u{1F4A5}", (ctx) => ctx.bestStreak >= 25),
+    ach("streak_50", "Frenzy", "Reach a 50 kill streak.", "\u{1F32A}\uFE0F", (ctx) => ctx.bestStreak >= 50),
+    ach("streak_100", "Rampage", "Reach a 100 kill streak.", "\u2622\uFE0F", (ctx) => ctx.bestStreak >= 100),
+    // —— Treasure ——
+    ach("treasure_1", "Lucky Find", "Open 1 treasure chest in one run.", "\u{1F381}", (ctx) => ctx.treasuresOpened >= 1),
+    ach("treasure_3", "Chest Curious", "Open 3 treasure chests in one run.", "\u{1F4E6}", (ctx) => ctx.treasuresOpened >= 3),
+    ach("treasure_5", "Treasure Hunter", "Open 5 treasure chests in one run.", "\u{1F5FA}\uFE0F", (ctx) => ctx.treasuresOpened >= 5),
+    ach("treasure_10", "Pirate Greed", "Open 10 treasure chests in one run.", "\u{1F3F4}\u200D\u2620\uFE0F", (ctx) => ctx.treasuresOpened >= 10),
+    // —— Gear ——
+    ach("loot_1", "First Drop", "Pick up 1 item in one run.", "\u{1F392}", (ctx) => ctx.itemsLooted >= 1),
+    ach("loot_5", "Scavenger", "Pick up 5 items in one run.", "\u{1F9F2}", (ctx) => ctx.itemsLooted >= 5),
+    ach("loot_20", "Collector", "Pick up 20 items in one run.", "\u{1F4FF}", (ctx) => ctx.itemsLooted >= 20),
+    ach("loot_50", "Hoarder", "Pick up 50 items in one run.", "\u{1F9FA}", (ctx) => ctx.itemsLooted >= 50),
+    ach("gear_rare", "Well Equipped", "Equip a rare (or unique) item.", "\u2728", (ctx) => ctx.equippedRareCount >= 1),
+    ach("gear_unique", "Relic Seeker", "Equip a unique item.", "\u{1F9E1}", (ctx) => (ctx.equippedUniqueCount ?? 0) >= 1),
+    ach("gear_3", "Armed", "Equip items in 3 slots.", "\u{1F9E4}", (ctx) => ctx.equippedGearCount >= 3),
+    ach("gear_5", "Geared Up", "Equip items in 5 slots.", "\u{1F9E4}", (ctx) => ctx.equippedGearCount >= 5),
+    ach("gear_full", "Fully Loaded", "Equip items in all 7 slots.", "\u{1F9BE}", (ctx) => ctx.equippedGearCount >= 7),
+    ach("hp_5000", "Iron Heart", "Reach 5,000 maximum HP in one run.", "\u2764\uFE0F\u200D\u{1F525}", (ctx) => (ctx.maxHpReached ?? ctx.maxHp ?? 0) >= 5e3),
+    // —— Skills ——
+    ach("skill_any", "First Spell", "Learn any active skill (sum of levels \u2265 1).", "\u{1FA84}", (ctx) => (ctx.skillLevelSum ?? 0) >= 1),
+    ach("skill_5", "Spell Student", "Reach 5 total skill levels.", "\u{1F4D8}", (ctx) => (ctx.skillLevelSum ?? 0) >= 5),
+    ach("skill_15", "Spell Adept", "Reach 15 total skill levels.", "\u{1F4D7}", (ctx) => (ctx.skillLevelSum ?? 0) >= 15),
+    ach("skill_30", "Spell Master", "Reach 30 total skill levels.", "\u{1F4D5}", (ctx) => (ctx.skillLevelSum ?? 0) >= 30),
+    ach("skill_max_1", "Specialize", "Max out any one skill.", "\u{1F3AF}", (ctx) => (ctx.skillsAtMax ?? 0) >= 1),
+    ach("skill_max_3", "Multi-Talent", "Max out 3 different skills.", "\u{1F31F}", (ctx) => (ctx.skillsAtMax ?? 0) >= 3),
+    // —— Special enemies ——
+    ach("elite_1", "Elite Hunter", "Defeat 1 elite enemy in one run.", "\u{1F7E3}", (ctx) => (ctx.elitesKilled ?? 0) >= 1),
+    ach("elite_10", "Elite Slayer", "Defeat 10 elite enemies in one run.", "\u{1F49C}", (ctx) => (ctx.elitesKilled ?? 0) >= 10),
+    ach("boss_1", "Boss Breaker", "Defeat 1 boss in one run.", "\u{1F432}", (ctx) => (ctx.bossesKilled ?? 0) >= 1),
+    ach("boss_3", "Boss Bane", "Defeat 3 bosses in one run.", "\u{1F409}", (ctx) => (ctx.bossesKilled ?? 0) >= 3),
+    ach("boss_5", "Dragon Killer", "Defeat 5 bosses in one run.", "\u{1F525}", (ctx) => (ctx.bossesKilled ?? 0) >= 5),
+    // —— Combo challenges (tuned for real clear pace — early packs are denser) ——
+    ach("combo_kills_wave", "Early Pressure", "Get 120 kills before wave 8.", "\u26A1", (ctx) => ctx.killCount >= 120 && (ctx.maxWaveReached ?? ctx.currentWave ?? 99) <= 8),
+    ach("combo_level_streak", "Perfect Flow", "Reach level 15 with a best streak of 30+.", "\u{1F3AD}", (ctx) => ctx.level >= 15 && ctx.bestStreak >= 30),
+    ach("combo_treasure_loot", "Fortune Favored", "Open 5 chests and loot 20 items in one run.", "\u{1F4B0}", (ctx) => ctx.treasuresOpened >= 5 && ctx.itemsLooted >= 20),
+    ach("combo_tank", "Ironclad", "Survive 15 minutes with 5+ gear pieces equipped.", "\u{1F3F0}", (ctx) => ctx.elapsedSeconds >= 900 && ctx.equippedGearCount >= 5),
+    ach("combo_glass", "Glass Cannon", "Reach wave 18 with fewer than 3 gear pieces equipped.", "\u{1F37E}", (ctx) => (ctx.maxWaveReached ?? ctx.currentWave ?? 0) >= 18 && ctx.equippedGearCount < 3),
+    /** Wave advances by clock (~20s); wave 24 ≈ 7.7 min — requiring ≤ 8 min is a true rush. */
+    ach("combo_speed", "Speed Demon", "Reach wave 24 within 8 minutes.", "\u{1F680}", (ctx) => (ctx.maxWaveReached ?? ctx.currentWave ?? 0) >= 24 && ctx.elapsedSeconds <= 480),
+    ach("combo_slayer_time", "Efficient Killer", "Get 1000 kills within 10 minutes.", "\u{1F3B3}", (ctx) => ctx.killCount >= 1e3 && ctx.elapsedSeconds <= 600),
+    ach("combo_blitz", "Blitz Pack", "Get 200 kills within 3 minutes.", "\u26A1", (ctx) => ctx.killCount >= 200 && ctx.elapsedSeconds <= 180),
+    ach("combo_endurance_kills", "War of Attrition", "Get 1500 kills in one run.", "\u{1FA93}", (ctx) => ctx.killCount >= 1500)
   ];
+  function getAchievementTooltipText(def) {
+    return def?.description ?? "";
+  }
 
   // js/systems/metaProgress.js
   var STORAGE_KEY = "survivor-arena-meta";
@@ -1588,7 +1960,16 @@
     }
   }
   function getCharacterRecord(meta, characterName) {
-    return meta.characterRecords[characterName] || { level: 0, time: 0, kills: 0, wave: 0 };
+    return meta.characterRecords[characterName] || { level: 0, time: 0, kills: 0, wave: 0, beatGame: false };
+  }
+  function hasCharacterBeatGame(meta, characterName) {
+    return Boolean(getCharacterRecord(meta, characterName).beatGame);
+  }
+  function markCharacterVictory(meta, characterName) {
+    if (!characterName) return;
+    const prev = getCharacterRecord(meta, characterName);
+    meta.characterRecords[characterName] = { ...prev, beatGame: true };
+    saveMetaProgress(meta);
   }
   function updateCharacterRecord(meta, run) {
     if (!run.character) return;
@@ -1623,6 +2004,65 @@
   }
   function getAchievementById(id) {
     return ACHIEVEMENTS.find((a) => a.id === id);
+  }
+
+  // js/config/victory.js
+  var FINAL_VICTORY_WAVE = 100;
+  var FINAL_BOSS_MULT = {
+    hpVsBoss: 20,
+    damage: 2,
+    armour: 2
+  };
+  var FINAL_VICTORY_ARMY = {
+    swarmMin: 22,
+    swarmMax: 30,
+    gruntMin: 10,
+    gruntMax: 14,
+    eliteMin: 5,
+    eliteMax: 8
+  };
+  function isFinalVictoryWave(wave) {
+    return wave === FINAL_VICTORY_WAVE;
+  }
+  function rollInt(min, max) {
+    const lo = Math.min(min, max);
+    const hi = Math.max(min, max);
+    return lo + Math.floor(Math.random() * (hi - lo + 1));
+  }
+  function rollFinalVictorySwarmCount() {
+    return rollInt(FINAL_VICTORY_ARMY.swarmMin, FINAL_VICTORY_ARMY.swarmMax);
+  }
+  function rollFinalVictoryGruntCount() {
+    return rollInt(FINAL_VICTORY_ARMY.gruntMin, FINAL_VICTORY_ARMY.gruntMax);
+  }
+  function rollFinalVictoryEliteCount() {
+    return rollInt(FINAL_VICTORY_ARMY.eliteMin, FINAL_VICTORY_ARMY.eliteMax);
+  }
+  function applyFinalBossCombatScaling(stats) {
+    if (!stats) return stats;
+    stats.hp = Math.max(1, Math.floor(stats.hp * FINAL_BOSS_MULT.hpVsBoss));
+    stats.maxHp = stats.hp;
+    stats.physicalDamage = Math.max(1, Math.floor(stats.physicalDamage * FINAL_BOSS_MULT.damage));
+    if (typeof stats.armour === "number") {
+      stats.armour = Math.max(0, Math.floor(stats.armour * FINAL_BOSS_MULT.armour));
+    }
+    return stats;
+  }
+
+  // js/utils/tooltipClamp.js
+  function computeTooltipPlacement(tipRect, boundsRect, pad = 10) {
+    const safePad = Math.max(0, pad);
+    let shiftX = 0;
+    if (tipRect.left < boundsRect.left + safePad) {
+      shiftX = boundsRect.left + safePad - tipRect.left;
+    } else if (tipRect.right > boundsRect.right - safePad) {
+      shiftX = boundsRect.right - safePad - tipRect.right;
+    }
+    let placement = "below";
+    if (tipRect.bottom > boundsRect.bottom - safePad) {
+      placement = "above";
+    }
+    return { shiftX: Math.round(shiftX), placement };
   }
 
   // js/config/characterPassives.js
@@ -1669,7 +2109,7 @@
       description: "Raises a melee zombie that deals 100% of your damage for a duration.",
       params: {
         cooldownMs: 12e3,
-        durationMs: 8e3,
+        durationMs: 14e3,
         damagePercent: 100,
         moveSpeed: 0.55,
         attackIntervalMs: 900,
@@ -1680,8 +2120,8 @@
       id: "paladin",
       name: "Aegis of Faith",
       icon: "\u{1F6E1}\uFE0F",
-      description: "Gain a shield equal to 10% max HP; fully repaired every 10s.",
-      params: { shieldPercent: 10, repairIntervalMs: 1e4 }
+      description: "Gain a shield equal to 10% max HP; fully repaired every 15s.",
+      params: { shieldPercent: 10, repairIntervalMs: 15e3 }
     },
     Berserker: {
       id: "berserker",
@@ -1727,6 +2167,13 @@
         chillPercent: 25,
         chillDurationMs: 1800
       }
+    },
+    Slayer: {
+      id: "slayer",
+      name: "Weapon Mastery",
+      icon: "\u2694\uFE0F",
+      description: "All physical damage deals +50% more (skills and basic attacks).",
+      params: { physicalBonus: 0.5 }
     }
   };
   var ELEMENTALIST_ELEMENTS = /* @__PURE__ */ new Set(["fire", "cold", "lightning"]);
@@ -1786,11 +2233,17 @@
         shieldRow: document.getElementById("shield-row"),
         shieldBarFill: document.getElementById("shield-bar-fill"),
         shieldValue: document.getElementById("shield-value"),
-        buffBar: document.getElementById("buff-bar")
+        buffBar: document.getElementById("buff-bar"),
+        achievementsOverlay: document.getElementById("achievements-overlay"),
+        achievementsGrid: document.getElementById("achievements-grid"),
+        achievementsProgress: document.getElementById("achievements-progress"),
+        achievementsClose: document.getElementById("achievements-close"),
+        treasurePing: null
       };
       this._achievementTimer = null;
       this._waveTimer = null;
       this._gearLootTimer = null;
+      this._treasurePingTimer = null;
       this._lastStreak = 0;
       this._initPauseMenu();
     }
@@ -1798,12 +2251,158 @@
       this.els.pauseResume = document.getElementById("pause-resume");
       this.els.pauseRestart = document.getElementById("pause-restart");
       this.els.pauseCharacter = document.getElementById("pause-character");
+      this.els.pauseAchievements = document.getElementById("pause-achievements");
+      this.els.audioMusicSliderChar = document.getElementById("audio-music-slider-char");
+      this.els.audioMusicSliderPause = document.getElementById("audio-music-slider-pause");
+      this.els.audioSfxSliderChar = document.getElementById("audio-sfx-slider-char");
+      this.els.audioSfxSliderPause = document.getElementById("audio-sfx-slider-pause");
+      this.els.audioMusicValueChar = document.getElementById("audio-music-value-char");
+      this.els.audioMusicValuePause = document.getElementById("audio-music-value-pause");
+      this.els.audioSfxValueChar = document.getElementById("audio-sfx-value-char");
+      this.els.audioSfxValuePause = document.getElementById("audio-sfx-value-pause");
+      this.els.achievementsClose?.addEventListener("click", () => this.closeAchievementsPanel());
     }
-    /** @param {{ resume: () => void, restart: () => void, characterSelect: () => void }} handlers */
+    /**
+     * @param {{
+     *   resume: () => void,
+     *   restart: () => void,
+     *   characterSelect: () => void,
+     *   achievements?: () => void
+     * }} handlers
+     */
     bindPauseMenu(handlers) {
       this.els.pauseResume?.addEventListener("click", handlers.resume);
       this.els.pauseRestart?.addEventListener("click", handlers.restart);
       this.els.pauseCharacter?.addEventListener("click", handlers.characterSelect);
+      this.els.pauseAchievements?.addEventListener("click", () => handlers.achievements?.());
+    }
+    /**
+     * Renders the full achievement grid (locked + unlocked) with hover tips.
+     * @param {{ unlockedAchievements?: string[] }} meta
+     */
+    openAchievementsPanel(meta) {
+      const unlocked = new Set(meta?.unlockedAchievements || []);
+      const grid = this.els.achievementsGrid;
+      const overlay = this.els.achievementsOverlay;
+      if (!grid || !overlay) return;
+      const done = unlocked.size;
+      const total = ACHIEVEMENTS.length;
+      if (this.els.achievementsProgress) {
+        this.els.achievementsProgress.textContent = `${done} / ${total} completed`;
+      }
+      grid.innerHTML = ACHIEVEMENTS.map((def) => {
+        const isOn = unlocked.has(def.id);
+        const tip = getAchievementTooltipText(def);
+        const safeTip = tip.replace(/"/g, "&quot;");
+        return `
+                <button type="button" class="achievement-icon-btn ${isOn ? "achievement-unlocked" : "achievement-locked"}"
+                    role="listitem"
+                    data-id="${def.id}"
+                    title="${safeTip}"
+                    aria-label="${def.title}: ${safeTip}">
+                    <span class="achievement-icon-emoji" aria-hidden="true">${def.icon || "\u{1F3C5}"}</span>
+                    <span class="achievement-icon-title">${def.title}</span>
+                    <span class="achievement-hover-tip">${tip}</span>
+                </button>
+            `;
+      }).join("");
+      this._bindAchievementTooltipLayout(grid);
+      overlay.style.display = "flex";
+      overlay.setAttribute("aria-hidden", "false");
+    }
+    /**
+     * Clamp achievement hover tips inside the panel — flip above at bottom rows, shift at sides.
+     * @param {HTMLElement} grid
+     */
+    _bindAchievementTooltipLayout(grid) {
+      if (!grid) return;
+      const panel = grid.closest(".achievements-panel");
+      const resetTip = (tip) => {
+        tip.classList.remove("achievement-hover-tip--above");
+        tip.style.transform = "translateX(-50%)";
+        tip.style.left = "50%";
+      };
+      const positionTip = (btn) => {
+        const tip = btn.querySelector(".achievement-hover-tip");
+        if (!tip) return;
+        resetTip(tip);
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            const bounds = (panel || grid).getBoundingClientRect();
+            let tipRect = tip.getBoundingClientRect();
+            let { shiftX, placement } = computeTooltipPlacement(tipRect, bounds, 10);
+            if (placement === "above") {
+              tip.classList.add("achievement-hover-tip--above");
+              tipRect = tip.getBoundingClientRect();
+              const adjusted = computeTooltipPlacement(tipRect, bounds, 10);
+              shiftX = adjusted.shiftX;
+            }
+            if (shiftX !== 0) {
+              tip.style.transform = `translateX(calc(-50% + ${shiftX}px))`;
+            }
+          });
+        });
+      };
+      grid.querySelectorAll(".achievement-icon-btn").forEach((btn) => {
+        btn.addEventListener("mouseenter", () => positionTip(btn));
+        btn.addEventListener("focus", () => positionTip(btn));
+        btn.addEventListener("mouseleave", () => {
+          const tip = btn.querySelector(".achievement-hover-tip");
+          if (tip) resetTip(tip);
+        });
+        btn.addEventListener("blur", () => {
+          const tip = btn.querySelector(".achievement-hover-tip");
+          if (tip) resetTip(tip);
+        });
+      });
+    }
+    closeAchievementsPanel() {
+      const overlay = this.els.achievementsOverlay;
+      if (!overlay) return;
+      overlay.style.display = "none";
+      overlay.setAttribute("aria-hidden", "true");
+    }
+    /** @param {import('../systems/audioManager.js').AudioManager} audio */
+    bindAudioControls(audio) {
+      const sync = () => this.syncAudioVolumeUi(audio);
+      const bindSlider = (slider, setter) => {
+        if (!slider) return;
+        const onInput = () => {
+          audio.unlock?.();
+          setter(Number(slider.value));
+          sync();
+        };
+        slider.addEventListener("input", onInput);
+        slider.addEventListener("change", () => {
+          audio.unlock?.();
+          audio.playSfx?.("ui");
+        });
+      };
+      bindSlider(this.els.audioMusicSliderChar, (v) => audio.setBgmVolume(v));
+      bindSlider(this.els.audioMusicSliderPause, (v) => audio.setBgmVolume(v));
+      bindSlider(this.els.audioSfxSliderChar, (v) => audio.setSfxVolume(v));
+      bindSlider(this.els.audioSfxSliderPause, (v) => audio.setSfxVolume(v));
+      sync();
+    }
+    /** @param {import('../systems/audioManager.js').AudioManager} audio */
+    syncAudioVolumeUi(audio) {
+      const bgm = audio.getBgmVolume();
+      const sfx = audio.getSfxVolume();
+      const apply = (slider, label, value) => {
+        if (slider) {
+          slider.value = String(value);
+          slider.setAttribute("aria-valuenow", String(value));
+        }
+        if (label) label.textContent = `${value}%`;
+      };
+      apply(this.els.audioMusicSliderChar, this.els.audioMusicValueChar, bgm);
+      apply(this.els.audioMusicSliderPause, this.els.audioMusicValuePause, bgm);
+      apply(this.els.audioSfxSliderChar, this.els.audioSfxValueChar, sfx);
+      apply(this.els.audioSfxSliderPause, this.els.audioSfxValuePause, sfx);
+    }
+    /** @deprecated Use syncAudioVolumeUi */
+    syncAudioToggleLabels(audio) {
+      this.syncAudioVolumeUi(audio);
     }
     showCharacterSelection(onSelect, meta = null) {
       this.els.characterSelection.style.display = "grid";
@@ -1814,7 +2413,8 @@
       CHARACTERS.forEach((char, index) => {
         const record = meta ? getCharacterRecord(meta, char.name) : null;
         const hasRecord = record && record.level > 0;
-        const bestText = hasRecord ? `Best: Lv.${record.level} \xB7 Wave ${record.wave} \xB7 ${record.kills} kills \xB7 ${formatTime(record.time)}` : "No record yet";
+        const beatGame = meta ? hasCharacterBeatGame(meta, char.name) : false;
+        const bestText = beatGame ? `\u2605 Champion \u2014 Beat Wave ${FINAL_VICTORY_WAVE}!` : hasRecord ? `Best: Lv.${record.level} \xB7 Wave ${record.wave} \xB7 ${record.kills} kills \xB7 ${formatTime(record.time)}` : "No record yet";
         const passive = getCharacterPassive(char.name);
         const passiveChip = passive ? `<span class="character-passive-chip" title="${passive.name}">
                         <span aria-hidden="true">${passive.icon}</span>
@@ -1822,7 +2422,7 @@
                         <span class="chip-tip"><strong>${passive.name}</strong><br>${passive.description}</span>
                    </span>` : "";
         const card = document.createElement("button");
-        card.className = "character-card";
+        card.className = "character-card" + (beatGame ? " character-card--champion" : "");
         card.dataset.character = char.name;
         const keyHint = index < 9 ? index + 1 : index === 9 ? "0" : "-";
         card.innerHTML = `
@@ -1842,7 +2442,7 @@
                         <span class="char-stat-sep">\xB7</span>
                         <span class="char-stat" title="Defence"><span class="char-stat-ico char-stat-def">\u{1F6E1}</span>${char.stats.armour}</span>
                     </div>
-                    <span class="character-best-run ${hasRecord ? "has-record" : ""}">${bestText}</span>
+                    <span class="character-best-run ${hasRecord || beatGame ? "has-record" : ""}">${bestText}</span>
                 </div>
             `;
         card.addEventListener("click", () => onSelect(char.name));
@@ -1970,20 +2570,48 @@
       });
     }
     updateSkillBar(skills, skillList) {
-      this.els.skillBar.innerHTML = SKILL_IDS.map((id) => {
+      const bar = this.els.skillBar;
+      if (!bar) return;
+      SKILL_IDS.forEach((id) => {
         const def = SKILL_DEFINITIONS[id];
         const level = skills[id] || 0;
         const maxed = skillList[id]?.level >= skillList[id]?.maxLevel;
-        const levelBadge = level > 0 ? `<span class="skill-level-badge">${level}</span>` : "";
-        const iconHtml = SKILL_ICON_HTML[id] || `<span class="skill-icon">${def.icon}</span>`;
-        return `
-                <div class="skill-slot skill-${def.element} ${level > 0 ? "skill-active" : "skill-locked"} ${maxed ? "skill-maxed" : ""}"
-                     title="${def.name}: ${def.description}">
-                    ${iconHtml}
-                    ${levelBadge}
-                </div>
-            `;
-      }).join("");
+        let slot = bar.querySelector(`[data-skill-id="${id}"]`);
+        if (!slot) {
+          slot = document.createElement("div");
+          slot.className = "skill-slot";
+          slot.dataset.skillId = id;
+          slot.tabIndex = 0;
+          slot.innerHTML = `
+                    <span class="skill-slot-icon-wrap"></span>
+                    <span class="skill-level-badge" hidden></span>
+                    <div class="skill-slot-tip" role="tooltip"></div>
+                `;
+          const open = () => slot.classList.add("skill-tip-open");
+          const close = () => slot.classList.remove("skill-tip-open");
+          slot.addEventListener("mouseenter", open);
+          slot.addEventListener("mouseleave", close);
+          slot.addEventListener("focus", open);
+          slot.addEventListener("blur", close);
+          bar.appendChild(slot);
+        }
+        slot.className = `skill-slot skill-${def.element} ${level > 0 ? "skill-active" : "skill-locked"} ${maxed ? "skill-maxed" : ""}`;
+        const iconWrap = slot.querySelector(".skill-slot-icon-wrap");
+        if (iconWrap) {
+          iconWrap.innerHTML = SKILL_ICON_HTML[id] || `<span class="skill-icon">${def.icon}</span>`;
+        }
+        const badge = slot.querySelector(".skill-level-badge");
+        if (badge) {
+          if (level > 0) {
+            badge.hidden = false;
+            badge.textContent = String(level);
+          } else {
+            badge.hidden = true;
+          }
+        }
+        const tip = slot.querySelector(".skill-slot-tip");
+        if (tip) tip.innerHTML = formatSkillTooltipHtml(def, level);
+      });
     }
     updateTimer(seconds) {
       this.els.timer.textContent = formatTime(seconds);
@@ -2005,6 +2633,7 @@
     showPause(show) {
       this.els.pauseOverlay.style.display = show ? "flex" : "none";
       this.els.gameContainer.classList.toggle("game-paused", show);
+      if (!show) this.closeAchievementsPanel();
     }
     showGameOver(stats, elapsedSeconds, kills, wave) {
       this.els.gameOverStats.innerHTML = `
@@ -2032,7 +2661,8 @@
     showAchievementUnlock(achievementId) {
       const def = getAchievementById(achievementId);
       if (!def || !this.els.achievementToast) return;
-      this.els.achievementToast.innerHTML = `\u{1F3C6} <strong>${def.title}</strong> \u2014 ${def.description}`;
+      const icon = def.icon ? `${def.icon} ` : "\u{1F3C6} ";
+      this.els.achievementToast.innerHTML = `${icon}<strong>${def.title}</strong> \u2014 ${def.description}`;
       this.els.achievementToast.classList.add("toast-visible");
       clearTimeout(this._achievementTimer);
       this._achievementTimer = setTimeout(() => {
@@ -2042,21 +2672,66 @@
     /** @param {number} wave */
     showWaveAnnouncement(wave) {
       if (!this.els.waveToast || wave <= 0) return;
-      this.els.waveToast.textContent = `Wave ${wave} \u2014 Difficulty rising!`;
+      if (wave === FINAL_VICTORY_WAVE) {
+        this.els.waveToast.textContent = `Wave ${wave} \u2014 The Final Boss approaches!`;
+      } else {
+        this.els.waveToast.textContent = `Wave ${wave} \u2014 Difficulty rising!`;
+      }
+      this.els.waveToast.classList.remove("toast-victory", "toast-boss-final");
       this.els.waveToast.classList.add("toast-visible");
       clearTimeout(this._waveTimer);
       this._waveTimer = setTimeout(() => {
         this.els.waveToast.classList.remove("toast-visible");
       }, 2200);
     }
-    showTreasureHint() {
+    /** @param {number} wave */
+    showFinalVictoryBossIncoming(wave) {
       if (!this.els.waveToast) return;
-      this.els.waveToast.textContent = "\u2728 Treasure chest appeared!";
-      this.els.waveToast.classList.add("toast-visible");
+      this.els.waveToast.textContent = `\u26A0\uFE0F Wave ${wave} FINAL BOSS \u2014 20\xD7 HP \xB7 2\xD7 damage \xB7 Army incoming!`;
+      this.els.waveToast.classList.remove("toast-victory");
+      this.els.waveToast.classList.add("toast-visible", "toast-boss-final");
       clearTimeout(this._waveTimer);
       this._waveTimer = setTimeout(() => {
-        this.els.waveToast.classList.remove("toast-visible");
-      }, 2800);
+        this.els.waveToast.classList.remove("toast-visible", "toast-boss-final");
+      }, 4200);
+    }
+    /** @param {string} characterName */
+    showFinalVictoryCelebration(characterName) {
+      if (!this.els.waveToast) return;
+      this.els.waveToast.textContent = `\u{1F3C6} VICTORY! ${characterName} defeated Wave ${FINAL_VICTORY_WAVE}! Campaign complete \u2014 keep fighting!`;
+      this.els.waveToast.classList.remove("toast-boss-final");
+      this.els.waveToast.classList.add("toast-visible", "toast-victory");
+      clearTimeout(this._waveTimer);
+      this._waveTimer = setTimeout(() => {
+        this.els.waveToast.classList.remove("toast-visible", "toast-victory");
+      }, 6500);
+    }
+    /** @param {number} [x] @param {number} [y] @param {number} [distVw] */
+    showTreasureHint(x, y, distVw) {
+      if (this.els.waveToast) {
+        const rangeNote = Number.isFinite(distVw) ? ` (${Math.round(distVw)} units away)` : "";
+        this.els.waveToast.textContent = `\u{1F381} Treasure chest spawned${rangeNote}! Defeat the golden CHEST enemy \u2014 it walks toward you.`;
+        this.els.waveToast.classList.add("toast-visible");
+        clearTimeout(this._waveTimer);
+        this._waveTimer = setTimeout(() => {
+          this.els.waveToast.classList.remove("toast-visible");
+        }, 4500);
+      }
+      if (Number.isFinite(x) && Number.isFinite(y) && this.els.gameContainer) {
+        this.els.treasurePing?.remove();
+        const ping = document.createElement("div");
+        ping.className = "treasure-screen-ping";
+        ping.style.left = `${x}vw`;
+        ping.style.top = `${y}vh`;
+        ping.setAttribute("aria-hidden", "true");
+        this.els.gameContainer.appendChild(ping);
+        this.els.treasurePing = ping;
+        clearTimeout(this._treasurePingTimer);
+        this._treasurePingTimer = setTimeout(() => {
+          ping.remove();
+          if (this.els.treasurePing === ping) this.els.treasurePing = null;
+        }, 2800);
+      }
     }
     /** Brief HUD flash when HP or EXP changes. @param {'hp'|'exp'} type */
     flashHudBar(type) {
@@ -2086,7 +2761,24 @@
     constructor(container) {
       this.container = container;
       this.activeEffects = [];
-      this.maxEffects = 120;
+      this._classTimers = [];
+      this.maxEffects = 64;
+    }
+    /**
+     * Register a transient node owned by this manager.
+     * @param {HTMLElement} el
+     * @param {number} lifetimeMs
+     * @returns {HTMLElement}
+     */
+    _trackEffect(el, lifetimeMs) {
+      this.container.appendChild(el);
+      const id = setTimeout(() => {
+        el.remove();
+        this.activeEffects = this.activeEffects.filter((e) => e.el !== el);
+      }, lifetimeMs);
+      this.activeEffects.push({ el, id });
+      this._trimEffects();
+      return el;
     }
     _trimEffects() {
       while (this.activeEffects.length > this.maxEffects) {
@@ -2104,14 +2796,7 @@
       el.innerHTML = '<span class="particle-25d-face"></span><span class="particle-25d-shadow"></span>';
       el.style.left = `${x}vw`;
       el.style.top = `${y}vh`;
-      this.container.appendChild(el);
-      this._trimEffects();
-      const id = setTimeout(() => {
-        el.remove();
-        this.activeEffects = this.activeEffects.filter((e) => e.el !== el);
-      }, 600);
-      this.activeEffects.push({ el, id });
-      return el;
+      return this._trackEffect(el, 550);
     }
     /** @param {number} x1 @param {number} y1 @param {number} x2 @param {number} y2 @param {boolean} [enhanced] */
     spawnLightningBolt(x1, y1, x2, y2, enhanced = false) {
@@ -2125,14 +2810,7 @@
       el.style.top = `${y1}vh`;
       el.style.width = `${length}px`;
       el.style.transform = `rotate(${angle}deg)`;
-      this.container.appendChild(el);
-      this._trimEffects();
-      const id = setTimeout(() => {
-        el.remove();
-        this.activeEffects = this.activeEffects.filter((e) => e.el !== el);
-      }, enhanced ? 450 : 300);
-      this.activeEffects.push({ el, id });
-      return el;
+      return this._trackEffect(el, enhanced ? 420 : 280);
     }
     /** @param {HTMLElement} enemyEl */
     applyBurnAura(enemyEl) {
@@ -2152,6 +2830,7 @@
       aura.className = "status-frost";
       if (!aura.parentElement) enemyEl.appendChild(aura);
     }
+    /** @param {HTMLElement} enemyEl */
     removeFrostAura(enemyEl) {
       enemyEl.classList.remove("status-frozen");
       enemyEl.querySelector(".status-frost")?.remove();
@@ -2159,16 +2838,65 @@
     /** @param {HTMLElement} playerEl */
     triggerAttackAnimation(playerEl) {
       const sprite = playerEl.querySelector(".player-sprite") || playerEl;
-      sprite.classList.remove("player-attacking");
+      sprite.classList.remove("player-attacking", "player-melee-attacking");
       void sprite.offsetWidth;
       sprite.classList.add("player-attacking");
-      setTimeout(() => sprite.classList.remove("player-attacking"), 220);
+      this._trackClassTimeout(sprite, "player-attacking", 240);
+    }
+    /**
+     * Melee lunge toward target — used by melee basic attacks.
+     * @param {HTMLElement} playerEl
+     * @param {number} fromX @param {number} fromY
+     * @param {number} toX @param {number} toY
+     */
+    triggerMeleeAttackAnimation(playerEl, fromX, fromY, toX, toY) {
+      const sprite = playerEl.querySelector(".player-sprite") || playerEl;
+      const dx = (toX - fromX) * window.innerWidth / 100;
+      const dy = (toY - fromY) * window.innerHeight / 100;
+      const len = Math.hypot(dx, dy) || 1;
+      const lungePx = 18;
+      sprite.style.setProperty("--melee-lunge-x", `${dx / len * lungePx}px`);
+      sprite.style.setProperty("--melee-lunge-y", `${dy / len * lungePx}px`);
+      sprite.classList.remove("player-attacking", "player-melee-attacking");
+      void sprite.offsetWidth;
+      sprite.classList.add("player-melee-attacking");
+      this._trackClassTimeout(sprite, "player-melee-attacking", 340, () => {
+        sprite.style.removeProperty("--melee-lunge-x");
+        sprite.style.removeProperty("--melee-lunge-y");
+      });
+      this.spawnMeleeSwordSlash(fromX, fromY, toX, toY);
+    }
+    /**
+     * Visible sword arc from player to target — readable even with large AoE rings.
+     * @param {number} fromX @param {number} fromY @param {number} toX @param {number} toY
+     */
+    spawnMeleeSwordSlash(fromX, fromY, toX, toY) {
+      const iw = window.innerWidth || 1e3;
+      const ih = window.innerHeight || 1e3;
+      const dx = (toX - fromX) * iw / 100;
+      const dy = (toY - fromY) * ih / 100;
+      const len = Math.hypot(dx, dy) || 1;
+      const angleDeg = Math.atan2(dy, dx) * 180 / Math.PI;
+      const slash = document.createElement("div");
+      slash.className = "melee-sword-slash";
+      slash.style.left = `${fromX}vw`;
+      slash.style.top = `${fromY}vh`;
+      slash.style.width = `${Math.min(len * 0.92, iw * 0.22)}px`;
+      slash.style.transform = `translate(0, -50%) rotate(${angleDeg}deg)`;
+      slash.innerHTML = '<span class="melee-sword-blade" aria-hidden="true"></span><span class="melee-sword-tip" aria-hidden="true"></span>';
+      this._trackEffect(slash, 320);
+      const spark = document.createElement("div");
+      spark.className = "melee-sword-impact";
+      spark.style.left = `${toX}vw`;
+      spark.style.top = `${toY}vh`;
+      this._trackEffect(spark, 280);
     }
     /** @param {HTMLElement} enemyEl */
     triggerEnemyHitAnimation(enemyEl) {
       enemyEl.classList.remove("enemy-hit");
       void enemyEl.offsetWidth;
       enemyEl.classList.add("enemy-hit");
+      this._trackClassTimeout(enemyEl, "enemy-hit", 280);
     }
     /** @param {HTMLElement} enemyEl @param {number} [targetX] @param {number} [targetY] */
     triggerEnemyAttackAnimation(enemyEl, targetX, targetY) {
@@ -2185,34 +2913,60 @@
       enemyEl.classList.remove("enemy-attacking");
       void enemyEl.offsetWidth;
       enemyEl.classList.add("enemy-attacking");
-      setTimeout(() => enemyEl.classList.remove("enemy-attacking"), 360);
+      this._trackClassTimeout(enemyEl, "enemy-attacking", 380, () => {
+        enemyEl.style.removeProperty("--lunge-x");
+        enemyEl.style.removeProperty("--lunge-y");
+      });
+    }
+    /**
+     * Temporary CSS class — tracked separately so VFX trim never removes the host element.
+     * @param {HTMLElement} el
+     * @param {string} className
+     * @param {number} ms
+     * @param {(() => void)|null} [onDone]
+     */
+    _trackClassTimeout(el, className, ms, onDone = null) {
+      for (let i = this._classTimers.length - 1; i >= 0; i--) {
+        const t = this._classTimers[i];
+        if (t.el === el && t.className === className) {
+          clearTimeout(t.id);
+          this._classTimers.splice(i, 1);
+        }
+      }
+      const id = setTimeout(() => {
+        el.classList.remove(className);
+        onDone?.();
+        this._classTimers = this._classTimers.filter((t) => t.id !== id);
+      }, ms);
+      this._classTimers.push({ el, className, id, onDone });
+      while (this._classTimers.length > 120) {
+        const old = this._classTimers.shift();
+        if (!old) break;
+        clearTimeout(old.id);
+        old.el.classList.remove(old.className);
+        old.onDone?.();
+      }
     }
     spawnDeathExplosion(x, y, type = "normal") {
       const el = document.createElement("div");
       el.className = `death-explosion death-explosion-${type}`;
       el.style.left = `${x}vw`;
       el.style.top = `${y}vh`;
-      this.container.appendChild(el);
-      const id = setTimeout(() => el.remove(), 700);
-      this.activeEffects.push({ el, id });
+      return this._trackEffect(el, 700);
     }
     spawnMegaExplosion(x, y, type) {
       const el = document.createElement("div");
       el.className = `mega-explosion mega-explosion-${type}`;
       el.style.left = `${x}vw`;
       el.style.top = `${y}vh`;
-      this.container.appendChild(el);
-      const id = setTimeout(() => el.remove(), 900);
-      this.activeEffects.push({ el, id });
+      return this._trackEffect(el, 850);
     }
     spawnCastFlash(x, y, type) {
       const el = document.createElement("div");
       el.className = `cast-flash cast-flash-${type}`;
       el.style.left = `${x}vw`;
       el.style.top = `${y}vh`;
-      this.container.appendChild(el);
-      const id = setTimeout(() => el.remove(), 500);
-      this.activeEffects.push({ el, id });
+      return this._trackEffect(el, 480);
     }
     spawnDamageNumber(x, y, damage, isCrit, element = null) {
       const el = document.createElement("div");
@@ -2223,16 +2977,10 @@
       el.textContent = String(damage);
       el.style.left = `${x}vw`;
       el.style.top = `${y}vh`;
-      this.container.appendChild(el);
-      this._trimEffects();
+      this._trackEffect(el, 1100);
       requestAnimationFrame(() => {
         el.classList.add("damage-float");
       });
-      const id = setTimeout(() => {
-        el.remove();
-        this.activeEffects = this.activeEffects.filter((e) => e.el !== el);
-      }, 1200);
-      this.activeEffects.push({ el, id });
       return el;
     }
     /** @param {number} x @param {number} y */
@@ -2241,29 +2989,26 @@
       el.className = "world-loot-burst";
       el.style.left = `${x}vw`;
       el.style.top = `${y}vh`;
-      this.container.appendChild(el);
-      const id = setTimeout(() => el.remove(), 700);
-      this.activeEffects.push({ el, id });
+      return this._trackEffect(el, 650);
     }
     /** @param {number} x @param {number} y @param {number} [count] */
     spawnExpOrbs(x, y, count = 3) {
-      for (let i = 0; i < count; i++) {
+      const n = Math.min(count, 4);
+      for (let i = 0; i < n; i++) {
         const el = document.createElement("div");
         el.className = "world-exp-orb particle-25d";
         el.innerHTML = '<span class="particle-25d-face"></span><span class="particle-25d-shadow"></span>';
         const ox = (Math.random() - 0.5) * 4;
         el.style.left = `${x + ox}vw`;
         el.style.top = `${y}vh`;
-        el.style.animationDelay = `${i * 0.08}s`;
-        this.container.appendChild(el);
-        const id = setTimeout(() => el.remove(), 800);
-        this.activeEffects.push({ el, id });
+        el.style.animationDelay = `${i * 0.06}s`;
+        this._trackEffect(el, 750);
       }
     }
     /** @param {HTMLElement} enemyEl */
     playEnemySpawn(enemyEl) {
       enemyEl.classList.add("enemy-spawn-in");
-      setTimeout(() => enemyEl.classList.remove("enemy-spawn-in"), 500);
+      this._trackClassTimeout(enemyEl, "enemy-spawn-in", 480);
     }
     /** @param {HTMLElement} rangeEl */
     flashAttackRange(rangeEl) {
@@ -2271,13 +3016,20 @@
       rangeEl.classList.remove("player-attacking-range");
       void rangeEl.offsetWidth;
       rangeEl.classList.add("player-attacking-range");
+      this._trackClassTimeout(rangeEl, "player-attacking-range", 280);
     }
     cleanup() {
       this.activeEffects.forEach(({ el, id }) => {
         clearTimeout(id);
-        el.remove();
+        el?.remove();
       });
       this.activeEffects = [];
+      this._classTimers.forEach(({ el, className, id, onDone }) => {
+        clearTimeout(id);
+        el?.classList.remove(className);
+        onDone?.();
+      });
+      this._classTimers = [];
     }
   };
 
@@ -2332,6 +3084,10 @@
     const closestY = ay + t * dy;
     return Math.hypot(cx - closestX, cy - closestY) <= radiusPx;
   }
+  function hasExhaustedPierce(hitCount, maxPierce) {
+    if (maxPierce == null || maxPierce === Infinity) return false;
+    return hitCount > maxPierce;
+  }
 
   // js/systems/skillExecutor.js
   var SkillExecutor = class {
@@ -2339,6 +3095,7 @@
     constructor(game) {
       this.game = game;
       this._rfLastTick = 0;
+      this._rfLastSfx = 0;
       this._activeSparks = [];
     }
     /** @param {number} now */
@@ -2363,21 +3120,32 @@
         const hasTarget = s.enemies.some((e) => e.stats.hp > 0);
         if (skillId === "iceNova") {
           s.skillCooldowns[skillId] = now;
+          this.game.audio?.playSkillSfx?.("iceNova");
           this.castIceNova(px, py, level);
+        } else if (skillId === "hammerSweep") {
+          if (!hasTarget) return;
+          s.skillCooldowns[skillId] = now;
+          this.game.audio?.playSkillSfx?.("hammerSweep");
+          this.castHammerSweep(px, py, level);
         } else if (skillId === "healingWave") {
           if (s.stats.hp < s.stats.maxHp * 0.92) {
             s.skillCooldowns[skillId] = now;
+            this.game.audio?.playSkillSfx?.("healingWave");
             this.castHealingWave(px, py, level);
           }
         } else if (skillId === "spark") {
           s.skillCooldowns[skillId] = now;
+          this.game.audio?.playSkillSfx?.("spark");
           this.castSpark(px, py, level);
         } else if (hasTarget) {
           s.skillCooldowns[skillId] = now;
+          this.game.audio?.playSkillSfx?.(skillId);
           if (skillId === "fireball") this.castFireball(px, py, level);
           else if (skillId === "lightningArc") this.castLightningArc(px, py, level);
           else if (skillId === "poisonBottle") this.castPoisonBottle(px, py, level);
           else if (skillId === "frostbolt") this.castFrostbolt(px, py, level);
+          else if (skillId === "poisonDagger") this.castPoisonDagger(px, py, level);
+          else if (skillId === "throwSpear") this.castThrowSpear(px, py, level);
         }
       });
     }
@@ -2401,6 +3169,7 @@
       let animId = null;
       const animate = () => {
         if (s.gamePaused || s.gameOver) {
+          if (animId) s.cancelAnimation(animId);
           el.remove();
           return;
         }
@@ -2426,8 +3195,9 @@
           this._fireballExplode(bx, by, level, hit);
           return;
         }
+        const prevAnim = animId;
         animId = requestAnimationFrame(animate);
-        s.trackAnimation(animId);
+        s.trackAnimation(animId, prevAnim);
       };
       animate();
     }
@@ -2443,7 +3213,7 @@
       this.game.effects.spawnHitEffect(bx, by, "fire");
       const hitSet = /* @__PURE__ */ new Set();
       if (directHit?.stats.hp > 0) {
-        this.game._dealSkillDamageToEnemy(directHit, directDmg, "fire", false);
+        this.game._dealSkillDamageToEnemy(directHit, directDmg, "fire", false, "fireball");
         this.game._applyBurn(directHit, burnTotal, cfg.burnDuration);
         hitSet.add(directHit.id);
       }
@@ -2462,7 +3232,7 @@
         window.innerHeight
       ).forEach((t) => {
         if (hitSet.has(t.id) || !t.ref) return;
-        this.game._dealSkillDamageToEnemy(t.ref, splashDmg, "fire", false);
+        this.game._dealSkillDamageToEnemy(t.ref, splashDmg, "fire", false, "fireball");
         this.game._applyBurn(t.ref, Math.floor(burnTotal * 0.5), cfg.burnDuration);
       });
     }
@@ -2496,7 +3266,7 @@
         const ex = parseFloat(enemy.element.style.left);
         const ey = parseFloat(enemy.element.style.top);
         if (distanceVw(px, py, ex, ey, window.innerWidth, window.innerHeight) > cfg.radius) return;
-        this.game._dealSkillDamageToEnemy(enemy, damage, "cold", false);
+        this.game._dealSkillDamageToEnemy(enemy, damage, "cold", false, "iceNova");
         this.game._applySlow(enemy, cfg.slowPercent, cfg.slowDuration);
         if (cfg.freezeDuration > 0) this.game._applyFreeze(enemy, cfg.freezeDuration);
       });
@@ -2529,7 +3299,7 @@
         excludeId = t.id;
       }
       chain.forEach((t) => {
-        if (t.ref) this.game._dealSkillDamageToEnemy(t.ref, damage, "lightning", false);
+        if (t.ref) this.game._dealSkillDamageToEnemy(t.ref, damage, "lightning", false, "lightningArc");
       });
       if (chain.length) this.game.effects.spawnMegaExplosion(chain[0].x, chain[0].y, "lightning");
     }
@@ -2539,10 +3309,10 @@
       const nearest = this._findNearestEnemy(px, py, cfg.castRange);
       if (!nearest) return;
       this.game.skillRanges?.flash("poisonBottle");
-      this.game.effects.spawnCastFlash(px, py, "poison");
+      this.game.effects.spawnCastFlash(px, py, "chaos");
       const el = document.createElement("div");
-      el.className = "skill-projectile skill-poison-bottle";
-      el.innerHTML = '<div class="poison-bottle-icon"></div>';
+      el.className = "skill-projectile skill-poison-bottle skill-chaos-bottle";
+      el.innerHTML = '<div class="poison-bottle-icon chaos-bottle-icon"></div>';
       el.style.left = `${px}vw`;
       el.style.top = `${py}vh`;
       this.game.ui.els.gameContainer.appendChild(el);
@@ -2553,6 +3323,7 @@
       let animId = null;
       const animate = () => {
         if (s.gamePaused || s.gameOver) {
+          if (animId) s.cancelAnimation(animId);
           el.remove();
           return;
         }
@@ -2579,8 +3350,9 @@
           this._poisonShatter(bx, by, level, hit);
           return;
         }
+        const prevAnim = animId;
         animId = requestAnimationFrame(animate);
-        s.trackAnimation(animId);
+        s.trackAnimation(animId, prevAnim);
       };
       animate();
     }
@@ -2588,9 +3360,9 @@
       const s = this.game.state;
       const cfg = getPoisonBottleConfig(level);
       const impactDmg = computeSkillDamage(s.stats.physicalDamage, "poisonBottle", level);
-      this.game.effects.spawnMegaExplosion(bx, by, "poison");
+      this.game.effects.spawnMegaExplosion(bx, by, "chaos");
       if (directHit?.stats.hp > 0) {
-        this.game._dealSkillDamageToEnemy(directHit, impactDmg, "poison", false);
+        this.game._dealSkillDamageToEnemy(directHit, impactDmg, "chaos", false, "poisonBottle");
       }
       this.game.poisonPools.createPool(bx, by, level, s.stats.physicalDamage);
     }
@@ -2606,42 +3378,53 @@
     castFrostbolt(px, py, level) {
       const s = this.game.state;
       const cfg = getFrostboltConfig(level);
-      const nearest = this._findNearestEnemy(px, py, cfg.castRange);
+      const originX = Number.isFinite(px) ? px : 50;
+      const originY = Number.isFinite(py) ? py : 50;
+      const nearest = this._findNearestEnemy(originX, originY, cfg.castRange);
       if (!nearest) return;
       this.game.skillRanges?.flash("frostbolt");
-      this.game.effects.spawnCastFlash(px, py, "cold");
+      this.game.effects.spawnCastFlash(originX, originY, "cold");
       const el = document.createElement("div");
-      el.className = "skill-projectile skill-frostbolt particle-25d";
-      el.innerHTML = '<span class="particle-25d-face"></span><span class="particle-25d-shadow"></span>';
-      el.style.left = `${px}vw`;
-      el.style.top = `${py}vh`;
+      el.className = "skill-projectile skill-frostbolt particle-25d skill-frostbolt-fly";
+      el.innerHTML = '<span class="particle-25d-face"></span><span class="frostbolt-trail" aria-hidden="true"></span>';
+      el.style.position = "absolute";
+      el.style.left = `${originX}vw`;
+      el.style.top = `${originY}vh`;
       this.game.ui.els.gameContainer.appendChild(el);
       const tx = parseFloat(nearest.element.style.left);
       const ty = parseFloat(nearest.element.style.top);
-      const angle = Math.atan2(ty - py, tx - px);
-      let bx = px;
-      let by = py;
-      let prevBx = px;
-      let prevBy = py;
-      let traveled = 0;
+      const iw = window.innerWidth || 1;
+      const ih = window.innerHeight || 1;
+      const angle = Math.atan2((ty - originY) * ih / 100, (tx - originX) * iw / 100);
+      el.style.transform = `translate(-50%, -50%) rotate(${angle * 180 / Math.PI}deg)`;
+      const speedPx = cfg.projectileSpeed * iw / 100;
+      const maxTravelPx = cfg.maxTravel * iw / 100;
+      let bx = originX;
+      let by = originY;
+      let prevBx = originX;
+      let prevBy = originY;
+      let traveledPx = 0;
       const hitIds = /* @__PURE__ */ new Set();
       let animId = null;
-      const innerWidth = window.innerWidth;
-      const innerHeight = window.innerHeight;
       const damage = computeSkillDamage(s.stats.physicalDamage, "frostbolt", level);
-      const pierceRadius = 1.8 + level * 0.15;
+      const pierceRadius = 2.2 + level * 0.2;
+      const maxPierce = cfg.maxPierce ?? Infinity;
       const animate = () => {
         if (s.gamePaused || s.gameOver) {
+          if (animId) s.cancelAnimation(animId);
           el.remove();
           return;
         }
         prevBx = bx;
         prevBy = by;
-        bx += Math.cos(angle) * cfg.projectileSpeed;
-        by += Math.sin(angle) * cfg.projectileSpeed;
-        traveled += cfg.projectileSpeed;
+        const stepXvw = Math.cos(angle) * speedPx * 100 / iw;
+        const stepYvh = Math.sin(angle) * speedPx * 100 / ih;
+        bx += stepXvw;
+        by += stepYvh;
+        traveledPx += speedPx;
         el.style.left = `${bx}vw`;
         el.style.top = `${by}vh`;
+        let exhausted = false;
         for (const enemy of s.enemies) {
           if (enemy.stats.hp <= 0 || hitIds.has(enemy.id)) continue;
           const hit = projectileSegmentHitsEnemy(
@@ -2650,23 +3433,280 @@
             bx,
             by,
             enemy,
-            innerWidth,
-            innerHeight,
+            iw,
+            ih,
             pierceRadius
-          ) || projectilePointHitsEnemy(bx, by, enemy, innerWidth, innerHeight, pierceRadius);
+          ) || projectilePointHitsEnemy(bx, by, enemy, iw, ih, pierceRadius);
           if (hit) {
             hitIds.add(enemy.id);
-            this.game._dealSkillDamageToEnemy(enemy, damage, "cold", false);
+            this.game._dealSkillDamageToEnemy(enemy, damage, "cold", false, "frostbolt");
             this.game._applySlow(enemy, 12 + level * 3, 1500);
+            if (hasExhaustedPierce(hitIds.size, maxPierce)) {
+              exhausted = true;
+              break;
+            }
           }
         }
-        if (traveled >= cfg.maxTravel) {
+        const offscreen = bx < -8 || bx > 108 || by < -8 || by > 108;
+        if (exhausted || traveledPx >= maxTravelPx || offscreen) {
           if (animId) s.cancelAnimation(animId);
           el.remove();
           return;
         }
+        const prevAnim = animId;
         animId = requestAnimationFrame(animate);
-        s.trackAnimation(animId);
+        s.trackAnimation(animId, prevAnim);
+      };
+      animate();
+    }
+    /**
+     * Chaos dagger that forks into angled secondary blades on first contact.
+     * @param {number} px @param {number} py @param {number} level
+     */
+    castPoisonDagger(px, py, level) {
+      const s = this.game.state;
+      const cfg = getPoisonDaggerConfig(level);
+      const nearest = this._findNearestEnemy(px, py, cfg.castRange);
+      if (!nearest) return;
+      this.game.skillRanges?.flash("poisonDagger");
+      this.game.effects.spawnCastFlash(px, py, "chaos");
+      const iw = window.innerWidth;
+      const ih = window.innerHeight;
+      const tx = parseFloat(nearest.element.style.left);
+      const ty = parseFloat(nearest.element.style.top);
+      const angle = Math.atan2((ty - py) * ih / 100, (tx - px) * iw / 100);
+      const damage = computeSkillDamage(s.stats.physicalDamage, "poisonDagger", level);
+      this._launchChaosDagger({
+        px,
+        py,
+        angle,
+        level,
+        damage,
+        maxTravelVw: cfg.maxTravel,
+        speed: cfg.projectileSpeed,
+        hitRadiusVw: cfg.hitRadiusVw,
+        canFork: true
+      });
+    }
+    /**
+     * @param {{ px:number, py:number, angle:number, level:number, damage:number,
+     *   maxTravelVw:number, speed:number, hitRadiusVw:number, canFork:boolean,
+     *   sharedHitIds?: Set<string> }} opts
+     */
+    _launchChaosDagger(opts) {
+      const s = this.game.state;
+      const {
+        px,
+        py,
+        angle,
+        level,
+        damage,
+        maxTravelVw,
+        speed,
+        hitRadiusVw,
+        canFork
+      } = opts;
+      const sharedHitIds = opts.sharedHitIds || /* @__PURE__ */ new Set();
+      const cfg = getPoisonDaggerConfig(level);
+      const iw = window.innerWidth;
+      const ih = window.innerHeight;
+      const el = document.createElement("div");
+      el.className = "skill-projectile skill-poison-dagger particle-25d skill-poison-dagger-fly";
+      el.innerHTML = '<span class="particle-25d-face"></span><span class="dagger-trail" aria-hidden="true"></span>';
+      el.style.left = `${px}vw`;
+      el.style.top = `${py}vh`;
+      el.style.transform = `translate(-50%, -50%) rotate(${angle * 180 / Math.PI}deg)`;
+      this.game.ui.els.gameContainer.appendChild(el);
+      let bx = px;
+      let by = py;
+      let prevBx = px;
+      let prevBy = py;
+      let traveled = 0;
+      let animId = null;
+      let forked = false;
+      const animate = () => {
+        if (s.gamePaused || s.gameOver) {
+          if (animId) s.cancelAnimation(animId);
+          el.remove();
+          return;
+        }
+        prevBx = bx;
+        prevBy = by;
+        bx += Math.cos(angle) * speed;
+        by += Math.sin(angle) * speed;
+        traveled += speed;
+        el.style.left = `${bx}vw`;
+        el.style.top = `${by}vh`;
+        for (const enemy of s.enemies) {
+          if (enemy.stats.hp <= 0 || sharedHitIds.has(enemy.id)) continue;
+          const hit = projectileSegmentHitsEnemy(
+            prevBx,
+            prevBy,
+            bx,
+            by,
+            enemy,
+            iw,
+            ih,
+            hitRadiusVw
+          ) || projectilePointHitsEnemy(bx, by, enemy, iw, ih, hitRadiusVw);
+          if (!hit) continue;
+          sharedHitIds.add(enemy.id);
+          this.game._dealSkillDamageToEnemy(enemy, damage, "chaos", false, "poisonDagger");
+          this.game.effects.spawnHitEffect(bx, by, "chaos");
+          if (canFork && !forked) {
+            forked = true;
+            const forkDmg = computePoisonDaggerForkDamage(s.stats.physicalDamage, level);
+            const count = cfg.forkCount;
+            const spread = cfg.forkSpreadRad;
+            for (let i = 0; i < count; i++) {
+              const t = count === 1 ? 0 : i / (count - 1) * 2 - 1;
+              const forkAngle = angle + t * spread;
+              this._launchChaosDagger({
+                px: bx,
+                py: by,
+                angle: forkAngle,
+                level,
+                damage: forkDmg,
+                maxTravelVw: cfg.forkTravel,
+                speed: speed * 0.92,
+                hitRadiusVw,
+                canFork: false,
+                sharedHitIds
+              });
+            }
+          }
+        }
+        const offscreen = bx < -8 || bx > 108 || by < -8 || by > 108;
+        if (traveled >= maxTravelVw || offscreen) {
+          if (animId) s.cancelAnimation(animId);
+          el.remove();
+          return;
+        }
+        const prevAnim = animId;
+        animId = requestAnimationFrame(animate);
+        s.trackAnimation(animId, prevAnim);
+      };
+      animate();
+    }
+    /** Physical self AoE hammer smash. */
+    castHammerSweep(px, py, level) {
+      const s = this.game.state;
+      const cfg = getHammerSweepConfig(level);
+      const damage = computeSkillDamage(s.stats.physicalDamage, "hammerSweep", level);
+      this.game.skillRanges?.flash("hammerSweep");
+      this.game.skillRanges?.showImpactArea(px, py, cfg.radius, "physical", 700);
+      this.game.effects.spawnCastFlash(px, py, "physical");
+      flashPlayerSprite(this.game.ui.els.player, "player-casting-nova", 400);
+      const ring = document.createElement("div");
+      ring.className = "skill-hammer-sweep";
+      ring.style.left = `${px}vw`;
+      ring.style.top = `${py}vh`;
+      ring.style.width = `${cfg.radius * 2}px`;
+      ring.style.height = `${cfg.radius * 2}px`;
+      ring.innerHTML = '<span class="hammer-sweep-head" aria-hidden="true"></span>';
+      this.game.ui.els.gameContainer.appendChild(ring);
+      s.trackTimeout(setTimeout(() => ring.remove(), 700));
+      for (let i = 0; i < 6; i++) {
+        const shard = document.createElement("div");
+        shard.className = "hammer-sweep-shard";
+        const a = i / 6 * Math.PI * 2;
+        const rFrac = 0.7;
+        shard.style.left = `${px + Math.cos(a) * cfg.radius / window.innerWidth * 100 * rFrac}vw`;
+        shard.style.top = `${py + Math.sin(a) * cfg.radius / window.innerHeight * 100 * rFrac}vh`;
+        this.game.ui.els.gameContainer.appendChild(shard);
+        s.trackTimeout(setTimeout(() => shard.remove(), 550));
+      }
+      s.enemies.forEach((enemy) => {
+        if (enemy.stats.hp <= 0) return;
+        const ex = parseFloat(enemy.element.style.left);
+        const ey = parseFloat(enemy.element.style.top);
+        if (distanceVw(px, py, ex, ey, window.innerWidth, window.innerHeight) > cfg.radius) return;
+        this.game._dealSkillDamageToEnemy(enemy, damage, "physical", false, "hammerSweep");
+        this.game.effects.spawnHitEffect(ex, ey, "physical");
+      });
+    }
+    /** Line-pierce spear — every enemy on the flight path is hit once. */
+    castThrowSpear(px, py, level) {
+      const s = this.game.state;
+      const cfg = getThrowSpearConfig(level);
+      const nearest = this._findNearestEnemy(px, py, cfg.castRange);
+      if (!nearest) return;
+      this.game.skillRanges?.flash("throwSpear");
+      this.game.effects.spawnCastFlash(px, py, "physical");
+      const el = document.createElement("div");
+      el.className = "skill-projectile skill-throw-spear particle-25d skill-throw-spear-fly";
+      el.innerHTML = '<span class="particle-25d-face"></span><span class="spear-trail" aria-hidden="true"></span>';
+      el.style.left = `${px}vw`;
+      el.style.top = `${py}vh`;
+      this.game.ui.els.gameContainer.appendChild(el);
+      const iw = window.innerWidth;
+      const ih = window.innerHeight;
+      const tx = parseFloat(nearest.element.style.left);
+      const ty = parseFloat(nearest.element.style.top);
+      const angle = Math.atan2((ty - py) * ih / 100, (tx - px) * iw / 100);
+      el.style.transform = `translate(-50%, -50%) rotate(${angle * 180 / Math.PI + 90}deg)`;
+      const speedPx = cfg.projectileSpeed * iw / 100;
+      const maxTravelPx = cfg.maxTravel * iw / 100;
+      let bx = px;
+      let by = py;
+      let prevBx = px;
+      let prevBy = py;
+      let traveledPx = 0;
+      const hitIds = /* @__PURE__ */ new Set();
+      let animId = null;
+      const damage = computeSkillDamage(s.stats.physicalDamage, "throwSpear", level);
+      const maxPierce = cfg.maxPierce ?? 2;
+      const animate = () => {
+        if (s.gamePaused || s.gameOver) {
+          if (animId) s.cancelAnimation(animId);
+          el.remove();
+          return;
+        }
+        prevBx = bx;
+        prevBy = by;
+        const stepXvw = Math.cos(angle) * speedPx * 100 / iw;
+        const stepYvh = Math.sin(angle) * speedPx * 100 / ih;
+        bx += stepXvw;
+        by += stepYvh;
+        traveledPx += speedPx;
+        el.style.left = `${bx}vw`;
+        el.style.top = `${by}vh`;
+        let exhausted = false;
+        for (const enemy of s.enemies) {
+          if (enemy.stats.hp <= 0 || hitIds.has(enemy.id)) continue;
+          const hit = projectileSegmentHitsEnemy(
+            prevBx,
+            prevBy,
+            bx,
+            by,
+            enemy,
+            iw,
+            ih,
+            cfg.hitRadiusVw
+          ) || projectilePointHitsEnemy(bx, by, enemy, iw, ih, cfg.hitRadiusVw);
+          if (hit) {
+            hitIds.add(enemy.id);
+            this.game._dealSkillDamageToEnemy(enemy, damage, "physical", false, "throwSpear");
+            this.game.effects.spawnHitEffect(
+              parseFloat(enemy.element.style.left),
+              parseFloat(enemy.element.style.top),
+              "physical"
+            );
+            if (hasExhaustedPierce(hitIds.size, maxPierce)) {
+              exhausted = true;
+              break;
+            }
+          }
+        }
+        const offscreen = bx < -8 || bx > 108 || by < -8 || by > 108;
+        if (exhausted || traveledPx >= maxTravelPx || offscreen) {
+          if (animId) s.cancelAnimation(animId);
+          el.remove();
+          return;
+        }
+        const prevAnim = animId;
+        animId = requestAnimationFrame(animate);
+        s.trackAnimation(animId, prevAnim);
       };
       animate();
     }
@@ -2679,6 +3719,10 @@
       const damage = computeSkillDamage(s.stats.physicalDamage, "righteousFire", level);
       this.game.skillRanges?.flash("righteousFire");
       this.game.effects.spawnCastFlash(px, py, "fire");
+      if (now - this._rfLastSfx >= 2e3) {
+        this._rfLastSfx = now;
+        this.game.audio?.playSkillSfx?.("righteousFire");
+      }
       const aura = document.createElement("div");
       aura.className = "skill-righteous-fire-aura";
       aura.style.left = `${px}vw`;
@@ -2692,7 +3736,7 @@
         const ex = parseFloat(enemy.element.style.left);
         const ey = parseFloat(enemy.element.style.top);
         if (distanceVw(px, py, ex, ey, window.innerWidth, window.innerHeight) <= cfg.radius) {
-          this.game._dealSkillDamageToEnemy(enemy, damage, "fire", false);
+          this.game._dealSkillDamageToEnemy(enemy, damage, "fire", false, "righteousFire");
           this.game._applyBurn(enemy, Math.floor(damage * 0.4), 2e3);
         }
       });
@@ -2701,16 +3745,37 @@
       const s = this.game.state;
       const cfg = getSparkConfig(level);
       const damage = computeSkillDamage(s.stats.physicalDamage, "spark", level);
+      const iw = window.innerWidth;
+      const aoePx = Math.max(48, (cfg.hitRadiusVw || 6.8) * iw / 100 * 2);
       this.game.skillRanges?.flash("spark");
       this.game.effects.spawnCastFlash(px, py, "spark");
-      for (let i = 0; i < cfg.sparkCount; i++) {
+      const origin = document.createElement("div");
+      origin.className = "spark-origin-burst";
+      origin.style.left = `${px}vw`;
+      origin.style.top = `${py}vh`;
+      this.game.ui.els.gameContainer.appendChild(origin);
+      s.trackTimeout(setTimeout(() => origin.remove(), 420));
+      const count = cfg.sparkCount;
+      const baseAngle = Math.random() * Math.PI * 2;
+      for (let i = 0; i < count; i++) {
         const el = document.createElement("div");
         el.className = "skill-spark skill-spark-arc particle-25d";
-        el.innerHTML = '<span class="particle-25d-face"></span>';
+        el.innerHTML = `
+                <span class="spark-aoe-ring" aria-hidden="true"></span>
+                <span class="particle-25d-face"></span>
+                <span class="spark-core-glow" aria-hidden="true"></span>
+            `;
         el.style.left = `${px}vw`;
         el.style.top = `${py}vh`;
+        const ring = el.querySelector(".spark-aoe-ring");
+        if (ring) {
+          ring.style.width = `${aoePx}px`;
+          ring.style.height = `${aoePx}px`;
+        }
         this.game.ui.els.gameContainer.appendChild(el);
-        const moveAngle = Math.random() * Math.PI * 2;
+        const spoke = baseAngle + i / count * Math.PI * 2;
+        const jitter = (Math.random() - 0.5) * 0.55;
+        const moveAngle = spoke + jitter;
         const spark = {
           el,
           bx: px,
@@ -2720,8 +3785,10 @@
           expires: Date.now() + cfg.duration,
           hitIds: /* @__PURE__ */ new Set(),
           damage,
-          wanderChance: cfg.wanderChance ?? 0.28,
-          wanderTurn: cfg.wanderTurn ?? 1.8,
+          wanderChance: cfg.wanderChance ?? 0.38,
+          wanderTurn: cfg.wanderTurn ?? 2.2,
+          hitRadiusVw: cfg.hitRadiusVw ?? 6.8,
+          maxPierce: cfg.maxPierce ?? 2,
           animId: null
         };
         this._activeSparks.push(spark);
@@ -2750,9 +3817,13 @@
         const innerHeight = window.innerHeight;
         for (const enemy of s.enemies) {
           if (enemy.stats.hp <= 0 || spark.hitIds.has(enemy.id)) continue;
-          if (projectilePointHitsEnemy(spark.bx, spark.by, enemy, innerWidth, innerHeight, 1.4)) {
+          if (projectilePointHitsEnemy(spark.bx, spark.by, enemy, innerWidth, innerHeight, spark.hitRadiusVw ?? 3.2)) {
             spark.hitIds.add(enemy.id);
-            this.game._dealSkillDamageToEnemy(enemy, spark.damage, "spark", false);
+            this.game._dealSkillDamageToEnemy(enemy, spark.damage, "lightning", false, "spark");
+            if (hasExhaustedPierce(spark.hitIds.size, spark.maxPierce ?? 1)) {
+              spark.el.remove();
+              return false;
+            }
           }
         }
         return true;
@@ -2797,6 +3868,12 @@
         return getRighteousFireConfig(level);
       case "spark":
         return getSparkConfig(level);
+      case "poisonDagger":
+        return getPoisonDaggerConfig(level);
+      case "hammerSweep":
+        return getHammerSweepConfig(level);
+      case "throwSpear":
+        return getThrowSpearConfig(level);
       default:
         return { cooldown: Infinity };
     }
@@ -2805,9 +3882,12 @@
   // js/systems/progression.js
   function getLevelUpType(currentLevel, abilityThresholds) {
     const nextLevel = currentLevel + 1;
-    if (nextLevel > 0 && nextLevel % 5 === 0) return "skill";
+    if (isSkillLevel(nextLevel)) return "skill";
     if (abilityThresholds.includes(nextLevel)) return "ability";
     return "stat";
+  }
+  function isSkillLevel(level) {
+    return level >= 5 && (level - 5) % 10 === 0;
   }
 
   // js/systems/combat.js
@@ -2838,22 +3918,33 @@
     if (abilities.regenToDamageLevel > 0) {
       damage += hpRegen * abilities.regenToDamageLevel * 50 / 100;
     }
-    if (isReflect && abilities.reflectLevel > 0) {
-      damage = abilities.reflectLevel * 5 / 100 * damage;
-    }
     if (isBounce && abilities.bounceLevel > 0) {
       damage = (60 + 10 * (abilities.bounceLevel - 1)) / 100 * damage;
     }
-    const isCritical = rollChance(critChance);
+    const isCritical = !isReflect && rollChance(critChance);
     if (isCritical) {
       damage *= critMultiplier / 100;
     }
     return { damage: Math.floor(Math.max(1, damage)), isCritical };
   }
+  function calculateReflectDamage(damageTaken, reflectLevel) {
+    if (reflectLevel <= 0 || damageTaken <= 0) return 0;
+    return Math.max(1, Math.floor(damageTaken * reflectLevel * 5 / 100));
+  }
   function calculatePlayerIncomingDamage(params) {
-    const { enemyDamage, playerArmour, damageReductionLevel, ignoreArmour = false } = params;
-    const mitigation = ignoreArmour ? 0 : calculateArmourMitigation(playerArmour, enemyDamage);
-    let damage = enemyDamage * (1 - mitigation);
+    const {
+      enemyDamage,
+      playerArmour,
+      damageReductionLevel,
+      ignoreArmour = false,
+      elapsedSeconds
+    } = params;
+    let scaledDamage = enemyDamage;
+    if (typeof elapsedSeconds === "number") {
+      scaledDamage = scaleEnemyAttackDamageForElapsed(enemyDamage, elapsedSeconds);
+    }
+    const mitigation = ignoreArmour ? 0 : calculateArmourMitigation(playerArmour, scaledDamage);
+    let damage = scaledDamage * (1 - mitigation);
     if (damageReductionLevel > 0) {
       damage *= 1 - damageReductionLevel * 0.04;
     }
@@ -2963,7 +4054,7 @@
   function rollStatUpgradeKeys(statsList, count = 3) {
     return buildStatUpgradeOptions(statsList, count).map((o) => o.key);
   }
-  function buildSkillUpgradeOptions(skillList, count = 3) {
+  function buildSkillUpgradeOptions(skillList, count = 5) {
     const available = SKILL_IDS.filter((id) => skillList[id] && skillList[id].level < skillList[id].maxLevel).map((id) => ({
       key: id,
       level: skillList[id].level,
@@ -2985,7 +4076,7 @@
       )
     }));
   }
-  function rollSkillUpgradeKeys(skillList, count = 3) {
+  function rollSkillUpgradeKeys(skillList, count = 5) {
     return buildSkillUpgradeOptions(skillList, count).map((o) => o.key);
   }
   function buildAbilityUpgradeOptions(abilityList, formatAbilityText) {
@@ -3024,8 +4115,8 @@
       this.layer = layer;
       this.rings = {};
     }
-    /** @param {object} skillList */
-    update(skillList) {
+    /** @param {object} skillList @param {number} [playerAttackRange] */
+    update(skillList, playerAttackRange = 0) {
       if (!this.layer) return;
       SKILL_IDS.forEach((id) => {
         const level = skillList[id]?.level || 0;
@@ -3036,7 +4127,7 @@
           delete this.rings[id];
           return;
         }
-        const diameterPx = getSkillDisplayRadius(id, level) * 2;
+        const diameterPx = getSkillDisplayRadius(id, level, playerAttackRange) * 2;
         if (!ring) {
           ring = document.createElement("div");
           ring.className = `skill-range-ring skill-range-${def.element}`;
@@ -3109,7 +4200,7 @@
         lastTick: Date.now()
       };
       this.pools.push(pool);
-      this.game.skillRanges?.showImpactArea(x, y, cfg.poolRadius, "poison", cfg.poolDuration);
+      this.game.skillRanges?.showImpactArea(x, y, cfg.poolRadius, "chaos", cfg.poolDuration);
       requestAnimationFrame(() => el.classList.add("poison-pool-active"));
       return pool;
     }
@@ -3149,9 +4240,9 @@
       );
       targets.forEach((t) => {
         if (t.ref) {
-          this.game._dealSkillDamageToEnemy(t.ref, pool.tickDamage, "poison", false);
-          t.ref.element.classList.add("enemy-poisoned");
-          const tOut = setTimeout(() => t.ref.element.classList.remove("enemy-poisoned"), 300);
+          this.game._dealSkillDamageToEnemy(t.ref, pool.tickDamage, "chaos", false, "poisonBottle");
+          t.ref.element.classList.add("enemy-chaos-dot");
+          const tOut = setTimeout(() => t.ref.element.classList.remove("enemy-chaos-dot"), 300);
           s.trackTimeout(tOut);
         }
       });
@@ -3446,6 +4537,9 @@
   function boostGearStatValue(value, stat = "") {
     const boosted = value * GEAR_STAT_MULTIPLIER;
     if (stat === "attackSpeed") return Math.round(boosted * 100) / 100;
+    if (stat === "critChance" || stat === "critMultiplier" || stat === "evade") {
+      return Math.round(boosted * 10) / 10;
+    }
     return Math.floor(boosted);
   }
 
@@ -3555,6 +4649,22 @@
         { tier: 3, min: 3, max: 7 },
         { tier: 2, min: 4, max: 8 },
         { tier: 1, min: 5, max: 10 }
+      ]
+    },
+    {
+      id: "cruel",
+      label: "Cruel",
+      stat: "critMultiplier",
+      slots: ["weapon", "amulet", "glove"],
+      tiers: [
+        { tier: 8, min: 4, max: 8 },
+        { tier: 7, min: 6, max: 12 },
+        { tier: 6, min: 8, max: 15 },
+        { tier: 5, min: 10, max: 18 },
+        { tier: 4, min: 12, max: 22 },
+        { tier: 3, min: 15, max: 26 },
+        { tier: 2, min: 18, max: 30 },
+        { tier: 1, min: 22, max: 36 }
       ]
     },
     {
@@ -3672,6 +4782,22 @@
       ]
     },
     {
+      id: "of_ferocity",
+      label: "of Ferocity",
+      stat: "critMultiplier",
+      slots: ["weapon", "amulet", "ring"],
+      tiers: [
+        { tier: 8, min: 5, max: 10 },
+        { tier: 7, min: 8, max: 14 },
+        { tier: 6, min: 10, max: 18 },
+        { tier: 5, min: 12, max: 22 },
+        { tier: 4, min: 15, max: 26 },
+        { tier: 3, min: 18, max: 30 },
+        { tier: 2, min: 22, max: 34 },
+        { tier: 1, min: 26, max: 40 }
+      ]
+    },
+    {
       id: "of_the_ghost",
       label: "of the Ghost",
       stat: "evade",
@@ -3711,6 +4837,7 @@
     attackSpeed: "quick",
     attackRange: "long",
     critChance: "deadly",
+    critMultiplier: "cruel",
     hpRegen: "regenerating",
     evade: "of_the_ghost"
   };
@@ -3738,10 +4865,39 @@
       tier: band.tier
     };
   }
+  var AFFIX_STAT_WEIGHTS = {
+    maxHp: 100,
+    armour: 70,
+    physicalDamage: 48,
+    attackSpeed: 32,
+    attackRange: 22,
+    hpRegen: 28,
+    /** Crit rolls intentionally rare on gear */
+    critMultiplier: 5,
+    critChance: 4,
+    evade: 8
+  };
+  function pickWeightedAffixDef(candidates) {
+    if (!candidates.length) return null;
+    let total = 0;
+    const weights = candidates.map((def) => {
+      const w = AFFIX_STAT_WEIGHTS[def.stat] ?? 20;
+      total += w;
+      return w;
+    });
+    if (total <= 0) return candidates[Math.floor(Math.random() * candidates.length)];
+    let roll = Math.random() * total;
+    for (let i = 0; i < candidates.length; i++) {
+      roll -= weights[i];
+      if (roll <= 0) return candidates[i];
+    }
+    return candidates[candidates.length - 1];
+  }
   function pickTieredAffix(pool, slot, usedIds, ilvl) {
     const candidates = pool.filter((a) => (!a.slots || a.slots.includes(slot)) && !usedIds.has(a.id));
     if (candidates.length === 0) return null;
-    const def = candidates[Math.floor(Math.random() * candidates.length)];
+    const def = pickWeightedAffixDef(candidates);
+    if (!def) return null;
     const rolled = rollTieredAffixValue(def, slot, ilvl);
     if (!rolled) return null;
     usedIds.add(def.id);
@@ -3854,7 +5010,7 @@
     boss: 0.45,
     treasure: 0.65
   };
-  var DROP_RATE_MULTIPLIER = 0.36;
+  var DROP_RATE_MULTIPLIER = 0.26334;
   var DROP_CHANCE = Object.fromEntries(
     Object.entries(BASE_DROP_CHANCE).map(([k, v]) => [k, v * DROP_RATE_MULTIPLIER])
   );
@@ -3885,8 +5041,14 @@
     }
     return 0;
   }
-  function shouldDropGear(enemyRarity) {
-    return Math.random() < (DROP_CHANCE[enemyRarity] || DROP_CHANCE.normal);
+  function getDropChance(enemyRarity, wave = 0) {
+    const base = DROP_CHANCE[enemyRarity] || DROP_CHANCE.normal;
+    if (wave <= 8) return base;
+    const lateScale = Math.max(0.12, 1 - (wave - 8) * 0.032);
+    return base * lateScale;
+  }
+  function shouldDropGear(enemyRarity, wave = 0) {
+    return Math.random() < getDropChance(enemyRarity, wave);
   }
 
   // js/systems/gearGenerator.js
@@ -4439,6 +5601,8 @@
         return `
                 <div class="gear-doll-cell gear-slot gear-slot-filled ${rarity.cssClass}" data-area="${cell.area}" data-slot="${slot}"
                     style="--gear-rarity-color:${rarity.color}">
+                    <span class="gear-slot-label">${label}</span>
+                    <span class="gear-slot-divider" aria-hidden="true"></span>
                     <span class="gear-slot-icon">${icon}</span>
                     <button type="button" class="gear-unequip-btn" data-slot="${slot}" aria-label="Unequip ${label}">\xD7</button>
                 </div>
@@ -4545,13 +5709,24 @@
         removed++;
       }
     }
-    /** Spawn rate multiplier based on elapsed time (warmup). */
+    /**
+     * Spawn rate multiplier during warmup — ease-out so early waves get denser
+     * packs while post-warmup (elapsed ≥ warmupSeconds) stays exactly 1.0.
+     *
+     * mult(t) = floor + (1 − floor) × t^ease
+     * where t ∈ [0,1], floor = warmupSpawnMultiplier, ease ∈ (0,1] (default 0.62).
+     *
+     * @param {number} elapsedSeconds
+     * @returns {number} in [warmupSpawnMultiplier, 1]
+     */
     getSpawnMultiplier(elapsedSeconds) {
-      if (elapsedSeconds < BALANCE.warmupSeconds) {
-        const t = elapsedSeconds / BALANCE.warmupSeconds;
-        return BALANCE.warmupSpawnMultiplier + (1 - BALANCE.warmupSpawnMultiplier) * t;
-      }
-      return 1;
+      const warmup = BALANCE.warmupSeconds || 180;
+      if (elapsedSeconds >= warmup) return 1;
+      const floor = BALANCE.warmupSpawnMultiplier ?? 0.52;
+      const ease = BALANCE.warmupSpawnEase ?? 0.62;
+      const t = Math.max(0, Math.min(1, elapsedSeconds / warmup));
+      const shaped = Math.pow(t, ease);
+      return floor + (1 - floor) * shaped;
     }
     /** Whether a spawn tick should fire this frame. @param {number} now */
     shouldSpawnNow(category, elapsedSeconds, lastSpawn, intervalMs, now = Date.now()) {
@@ -4770,6 +5945,7 @@
       if (now - (s.skillCooldowns.illusion || 0) < cfg.cooldown) return false;
       s.skillCooldowns.illusion = now;
       this._spawn(now, cfg);
+      this.game.audio?.playSkillSfx?.("illusion");
       this.game.effects?.spawnCastFlash(
         parseFloat(this.clone.el.style.left),
         parseFloat(this.clone.el.style.top),
@@ -4843,11 +6019,14 @@
       if (now - this.clone.lastAttackTime < interval) return;
       const x = Number.isFinite(this.clone.x) ? this.clone.x : parseFloat(this.clone.el.style.left);
       const y = Number.isFinite(this.clone.y) ? this.clone.y : parseFloat(this.clone.el.style.top);
+      const { x: px, y: py } = this.game.ui.getPlayerPosition();
       this.clone.lastAttackTime = now;
       this.clone.el.classList.remove("illusion-attacking");
       void this.clone.el.offsetWidth;
       this.clone.el.classList.add("illusion-attacking");
       this.game._attackNearestEnemy(x, y, null, null, {
+        rangeCenterX: px,
+        rangeCenterY: py,
         damageMultiplier: this.clone.damagePercent / 100,
         skipPlayerAnim: true,
         projectileClass: "projectile-illusion"
@@ -4946,11 +6125,37 @@
         this._splashAround(ex, ey, this.def.params.radiusPx, result.damage * this.def.params.splashMult, hitEnemy.id, "crit");
       }
     }
-    /** @param {number} damage @param {string} element */
-    modifySkillDamage(damage, element) {
-      if (this.def?.id !== "elementalist") return damage;
-      if (!ELEMENTALIST_ELEMENTS.has(element)) return damage;
-      return Math.floor(damage * (1 + this.def.params.elementBonus));
+    /**
+     * @param {number} damage
+     * @param {{ element?: string, skillId?: string, tags?: string[] }} [context]
+     */
+    modifySkillDamage(damage, context = {}) {
+      if (!this.def) return damage;
+      const tags = context.tags?.length ? context.tags : context.skillId ? getSkillTags(context.skillId) : [];
+      if (this.def.id === "elementalist") {
+        if (tags.includes("elemental")) {
+          return Math.floor(damage * (1 + this.def.params.elementBonus));
+        }
+        if (context.element && ELEMENTALIST_ELEMENTS.has(context.element)) {
+          return Math.floor(damage * (1 + this.def.params.elementBonus));
+        }
+      }
+      if (this.def.id === "slayer") {
+        const isPhysicalSkill = tags.includes("physical");
+        const isPhysicalElement = context.element === "physical";
+        if (isPhysicalSkill || isPhysicalElement) {
+          return Math.floor(damage * (1 + this.def.params.physicalBonus));
+        }
+      }
+      return damage;
+    }
+    /**
+     * Flat physical/basic-attack multiplier (Slayer).
+     * @param {number} damage
+     */
+    modifyPhysicalDamage(damage) {
+      if (this.def?.id !== "slayer") return damage;
+      return Math.floor(damage * (1 + this.def.params.physicalBonus));
     }
     /** @param {number} expGain */
     modifyExpGain(expGain) {
@@ -5099,7 +6304,7 @@
         durationMs: this.def.params.durationMs,
         now
       });
-      this.game.effects?.spawnCastFlash?.(x, y, "poison");
+      this.game.effects?.spawnCastFlash?.(x, y, "chaos");
     }
     _spawnBears() {
       const { x, y } = this.game.ui.getPlayerPosition();
@@ -5181,6 +6386,13 @@
       minion.lastAttack = now;
       const damage = Math.max(1, Math.floor(this.game.state.stats.physicalDamage * minion.damagePercent / 100));
       this.game._dealSkillDamageToEnemy?.(step.target, damage, "physical", false);
+      const tx = parseFloat(step.target.element.style.left);
+      const ty = parseFloat(step.target.element.style.top);
+      const dx = (tx - minion.x) * iw / 100;
+      const dy = (ty - minion.y) * ih / 100;
+      const len = Math.hypot(dx, dy) || 1;
+      minion.el.style.setProperty("--melee-lunge-x", `${dx / len * 10}px`);
+      minion.el.style.setProperty("--melee-lunge-y", `${dy / len * 10}px`);
       minion.el.classList.remove("passive-minion-attack");
       void minion.el.offsetWidth;
       minion.el.classList.add("passive-minion-attack");
@@ -5342,15 +6554,23 @@
       enemyDamage: damage,
       playerArmour: s.stats.armour,
       damageReductionLevel: abilities.damageReductionLevel,
-      ignoreArmour: false
+      ignoreArmour: false,
+      elapsedSeconds: s.elapsedSeconds
     });
     s.stats.hp -= game.characterPassives?.absorbDamage(dealt) ?? dealt;
     game._onPlayerDamaged();
   }
 
   // js/systems/enemySpawn.js
-  var SWARM_GROUP_SIZE = { min: 3, max: 5 };
+  var SWARM_GROUP_SIZE = { min: 2, max: 5 };
   var SWARM_GROUP_SPREAD_VW = 2.4;
+  function getSwarmGroupSizeRange(difficulty = 0) {
+    const d = Math.max(0, Number(difficulty) || 0);
+    if (d < 6) return { min: 2, max: 2 };
+    if (d < 10) return { min: 2, max: 3 };
+    if (d < 16) return { min: 2, max: 4 };
+    return { min: SWARM_GROUP_SIZE.min, max: SWARM_GROUP_SIZE.max };
+  }
   function getSwarmGroupPositions(anchorX, anchorY, count) {
     const positions = [{ x: anchorX, y: anchorY }];
     for (let i = 1; i < count; i++) {
@@ -5363,8 +6583,8 @@
     }
     return positions;
   }
-  function rollSwarmGroupSize() {
-    const { min, max } = SWARM_GROUP_SIZE;
+  function rollSwarmGroupSize(difficulty = 0) {
+    const { min, max } = getSwarmGroupSizeRange(difficulty);
     return min + Math.floor(Math.random() * (max - min + 1));
   }
   function getEdgeSpawnAnchor(edge) {
@@ -5378,6 +6598,18 @@
       default:
         return { x: -2, y: 15 + Math.random() * 70 };
     }
+  }
+
+  // js/config/bossWaves.js
+  var BOSS_WAVE_INTERVAL = 10;
+  var BOSS_WAVE_SWARM_COUNT = { min: 5, max: 8 };
+  var BOSS_WAVE_HP_MULT = 2.4;
+  function isBossWave(wave) {
+    return wave > 0 && wave % BOSS_WAVE_INTERVAL === 0;
+  }
+  function rollBossWaveSwarmCount() {
+    const { min, max } = BOSS_WAVE_SWARM_COUNT;
+    return min + Math.floor(Math.random() * (max - min + 1));
   }
 
   // js/systems/enemyProjectiles.js
@@ -5406,8 +6638,9 @@
           this._removeEntry(entry);
           return;
         }
+        const prev = entry.animId;
         entry.animId = requestAnimationFrame(step);
-        this.state.trackAnimation(entry.animId);
+        this.state.trackAnimation(entry.animId, prev);
       };
       entry.animId = requestAnimationFrame(step);
       this.state.trackAnimation(entry.animId);
@@ -5532,27 +6765,585 @@
     }
   };
 
+  // js/systems/audioManager.js
+  var BGM_MP3_PATH = "audio/bgm.mp3";
+  var STORAGE_BGM_VOL = "survivor-audio-bgm-vol";
+  var STORAGE_SFX_VOL = "survivor-audio-sfx-vol";
+  var DEFAULT_BGM_VOLUME = 50;
+  var DEFAULT_SFX_VOLUME = 100;
+  var BGM_MP3_LOAD_TIMEOUT_MS = 15e3;
+  function volumePercentToGain(percent) {
+    const p = clampVolume(percent) / 100;
+    if (p <= 0) return 0;
+    return Math.pow(p, 1.35) * 0.9;
+  }
+  function clampVolume(percent) {
+    const n = Number(percent);
+    if (!Number.isFinite(n)) return 0;
+    return Math.max(0, Math.min(100, Math.round(n)));
+  }
+  var AudioManager = class {
+    constructor() {
+      this.ctx = null;
+      this.masterGain = null;
+      this.bgmGain = null;
+      this.sfxGain = null;
+      this._bgmNodes = [];
+      this._bgmIntervalId = null;
+      this._noiseBuffer = null;
+      this._bgmAudioEl = null;
+      this._bgmMediaSource = null;
+      this._usingMp3 = false;
+      this._mp3FallbackTimer = null;
+      this.bgmVolume = DEFAULT_BGM_VOLUME;
+      this.sfxVolume = DEFAULT_SFX_VOLUME;
+      this._unlocked = false;
+      this._bgmStep = 0;
+      this._loadPrefs();
+    }
+    _loadPrefs() {
+      try {
+        const bgm = localStorage.getItem(STORAGE_BGM_VOL);
+        const sfx = localStorage.getItem(STORAGE_SFX_VOL);
+        if (bgm !== null) {
+          this.bgmVolume = clampVolume(bgm);
+        } else {
+          const legacy = localStorage.getItem("survivor-audio-bgm-muted");
+          this.bgmVolume = legacy === "0" ? 45 : DEFAULT_BGM_VOLUME;
+        }
+        if (sfx !== null) {
+          this.sfxVolume = clampVolume(sfx);
+        } else {
+          const legacy = localStorage.getItem("survivor-audio-sfx-muted");
+          this.sfxVolume = legacy === "1" ? 0 : DEFAULT_SFX_VOLUME;
+        }
+      } catch (_) {
+      }
+    }
+    _savePrefs() {
+      try {
+        localStorage.setItem(STORAGE_BGM_VOL, String(this.bgmVolume));
+        localStorage.setItem(STORAGE_SFX_VOL, String(this.sfxVolume));
+      } catch (_) {
+      }
+    }
+    getBgmVolume() {
+      return this.bgmVolume;
+    }
+    getSfxVolume() {
+      return this.sfxVolume;
+    }
+    isBgmMuted() {
+      return this.bgmVolume <= 0;
+    }
+    isSfxMuted() {
+      return this.sfxVolume <= 0;
+    }
+    isUsingMp3Bgm() {
+      return this._usingMp3;
+    }
+    /**
+     * @param {number} percent 0–100
+     * @returns {number} applied volume
+     */
+    setBgmVolume(percent) {
+      const next = clampVolume(percent);
+      const wasSilent = this.bgmVolume <= 0;
+      this.bgmVolume = next;
+      this._savePrefs();
+      this._applyVolumes();
+      if (next > 0 && this._unlocked) {
+        if (wasSilent || !this._bgmNodes.length && !this._usingMp3) this.startBgm();
+      } else if (next <= 0) {
+        this.stopBgm();
+      }
+      return this.bgmVolume;
+    }
+    /**
+     * @param {number} percent 0–100
+     * @returns {number} applied volume
+     */
+    setSfxVolume(percent) {
+      this.sfxVolume = clampVolume(percent);
+      this._savePrefs();
+      this._applyVolumes();
+      return this.sfxVolume;
+    }
+    /** Call after first user gesture to unlock AudioContext. */
+    async unlock() {
+      if (this._unlocked) {
+        if (this.ctx?.state === "suspended") {
+          try {
+            await this.ctx.resume();
+          } catch (_) {
+          }
+        }
+        this._ensureBgmPlaying();
+        return this.ctx;
+      }
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      this.ctx = new AC();
+      this.masterGain = this.ctx.createGain();
+      this.bgmGain = this.ctx.createGain();
+      this.sfxGain = this.ctx.createGain();
+      this.bgmGain.connect(this.masterGain);
+      this.sfxGain.connect(this.masterGain);
+      this.masterGain.connect(this.ctx.destination);
+      this.masterGain.gain.value = 1;
+      this._noiseBuffer = this._createNoiseBuffer(1.2);
+      this._applyVolumes();
+      this._unlocked = true;
+      this._ensureBgmPlaying();
+      return this.ctx;
+    }
+    /** Start or resume BGM when volume is up and audio is unlocked. */
+    _ensureBgmPlaying() {
+      if (!this._unlocked || this.bgmVolume <= 0) return;
+      if (this._usingMp3 && this._bgmAudioEl && !this._bgmAudioEl.paused) return;
+      if (this._usingMp3 && this._bgmAudioEl?.paused) {
+        this._bgmAudioEl.play().catch(() => {
+        });
+        return;
+      }
+      if (!this._usingMp3 && !this._bgmNodes.length) this.startBgm();
+    }
+    _applyVolumes() {
+      if (!this.bgmGain || !this.sfxGain) return;
+      this.bgmGain.gain.value = volumePercentToGain(this.bgmVolume) * 1.15;
+      this.sfxGain.gain.value = volumePercentToGain(this.sfxVolume);
+      if (this._bgmAudioEl) {
+        this._bgmAudioEl.volume = Math.min(1, volumePercentToGain(this.bgmVolume));
+      }
+    }
+    _createNoiseBuffer(seconds = 1) {
+      if (!this.ctx) return null;
+      const len = Math.floor(this.ctx.sampleRate * seconds);
+      const buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+      return buf;
+    }
+    /**
+     * Prefer looping MP3 at BGM_MP3_PATH; fall back to fun procedural track.
+     */
+    startBgm() {
+      if (!this.ctx || this.bgmVolume <= 0) return;
+      if (this._usingMp3 || this._bgmNodes.length) return;
+      this._tryStartMp3Bgm();
+    }
+    _clearMp3FallbackTimer() {
+      if (this._mp3FallbackTimer != null) {
+        clearTimeout(this._mp3FallbackTimer);
+        this._mp3FallbackTimer = null;
+      }
+    }
+    _tryStartMp3Bgm() {
+      if (typeof Audio === "undefined") {
+        this._startProceduralHappyBgm();
+        return;
+      }
+      let settled = false;
+      const fail = () => {
+        if (settled) return;
+        settled = true;
+        this._clearMp3FallbackTimer();
+        if (this._bgmAudioEl) {
+          try {
+            this._bgmAudioEl.pause();
+            this._bgmAudioEl.removeAttribute("src");
+            this._bgmAudioEl.load?.();
+          } catch (_) {
+          }
+          this._bgmAudioEl = null;
+        }
+        this._usingMp3 = false;
+        this._startProceduralHappyBgm();
+      };
+      const el = new Audio(BGM_MP3_PATH);
+      el.loop = true;
+      el.preload = "auto";
+      el.volume = Math.min(1, volumePercentToGain(this.bgmVolume));
+      this._bgmAudioEl = el;
+      const onPlaying = () => {
+        if (settled) return;
+        settled = true;
+        this._clearMp3FallbackTimer();
+        this._usingMp3 = true;
+        el.volume = Math.min(1, volumePercentToGain(this.bgmVolume));
+      };
+      const tryPlay = () => {
+        if (settled || this._usingMp3 || this.bgmVolume <= 0) return;
+        try {
+          const playPromise = el.play();
+          if (playPromise && typeof playPromise.then === "function") {
+            playPromise.then(onPlaying).catch(fail);
+          } else {
+            onPlaying();
+          }
+        } catch (_) {
+          fail();
+        }
+      };
+      el.addEventListener("error", fail, { once: true });
+      el.addEventListener("loadeddata", tryPlay, { once: true });
+      el.addEventListener("canplay", tryPlay, { once: true });
+      el.addEventListener("canplaythrough", tryPlay, { once: true });
+      try {
+        el.load();
+      } catch (_) {
+        fail();
+        return;
+      }
+      this._clearMp3FallbackTimer();
+      this._mp3FallbackTimer = setTimeout(() => {
+        if (!this._usingMp3 && !this._bgmNodes.length && this.bgmVolume > 0 && !settled) {
+          fail();
+        }
+      }, BGM_MP3_LOAD_TIMEOUT_MS);
+    }
+    /** Soft major-key pad only — no arpeggio beeps / noise (avoids machine tune). */
+    _startProceduralHappyBgm() {
+      if (!this.ctx || this.bgmVolume <= 0 || this._bgmNodes.length || this._usingMp3) return;
+      const now = this.ctx.currentTime;
+      [
+        { f: 130.81, g: 0.014 },
+        { f: 196, g: 0.01 },
+        { f: 261.63, g: 0.012 },
+        { f: 329.63, g: 8e-3 }
+      ].forEach(({ f, g }) => {
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        const filter = this.ctx.createBiquadFilter();
+        osc.type = "sine";
+        osc.frequency.value = f;
+        filter.type = "lowpass";
+        filter.frequency.value = 650;
+        filter.Q.value = 0.4;
+        gain.gain.value = g;
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.bgmGain);
+        osc.start(now);
+        this._bgmNodes.push(osc, filter, gain);
+      });
+      this._bgmStep = 0;
+      this._bgmIntervalId = setInterval(() => this._swellHappyBgmPad(), 2400);
+    }
+    /** Soft amplitude swell — musical, not a beep metronome. */
+    _swellHappyBgmPad() {
+      if (!this.ctx || this.bgmVolume <= 0 || this._usingMp3 || !this.bgmGain) return;
+      const t = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      const filter = this.ctx.createBiquadFilter();
+      osc.type = "sine";
+      osc.frequency.value = 392;
+      filter.type = "lowpass";
+      filter.frequency.value = 900;
+      gain.gain.setValueAtTime(1e-4, t);
+      gain.gain.linearRampToValueAtTime(0.012, t + 0.35);
+      gain.gain.linearRampToValueAtTime(1e-4, t + 1.8);
+      osc.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.bgmGain);
+      osc.start(t);
+      osc.stop(t + 1.9);
+    }
+    stopBgm() {
+      this._clearMp3FallbackTimer();
+      if (this._bgmIntervalId != null) {
+        clearInterval(this._bgmIntervalId);
+        this._bgmIntervalId = null;
+      }
+      if (this._bgmAudioEl) {
+        try {
+          this._bgmAudioEl.pause();
+          this._bgmAudioEl.currentTime = 0;
+        } catch (_) {
+        }
+        this._bgmAudioEl = null;
+      }
+      this._usingMp3 = false;
+      this._bgmNodes.forEach((node) => {
+        try {
+          if ("stop" in node && typeof node.stop === "function") node.stop();
+          node.disconnect?.();
+        } catch (_) {
+        }
+      });
+      this._bgmNodes = [];
+    }
+    /**
+     * @param {SfxId|string} type
+     */
+    playSfx(type) {
+      if (!this.ctx || this.sfxVolume <= 0) return;
+      if (this.ctx.state === "suspended") this.ctx.resume();
+      switch (type) {
+        case "attack":
+        case "hit":
+          this._sfxAttack();
+          break;
+        case "hurt":
+          this._sfxHurt();
+          break;
+        case "kill":
+          this._sfxKill();
+          break;
+        case "loot":
+          this._sfxLoot();
+          break;
+        case "levelup":
+          this._sfxLevelUp();
+          break;
+        case "ui":
+          this._sfxUi();
+          break;
+        case "fireball":
+        case "righteousFire":
+          this._sfxFire();
+          break;
+        case "iceNova":
+        case "frostbolt":
+          this._sfxIce(type === "iceNova");
+          break;
+        case "lightningArc":
+        case "spark":
+          this._sfxLightning();
+          break;
+        case "poisonBottle":
+        case "poisonDagger":
+          this._sfxPoison();
+          break;
+        case "hammerSweep":
+          this._sfxPhysicalImpact();
+          break;
+        case "throwSpear":
+          this._sfxSpear();
+          break;
+        case "healingWave":
+          this._sfxHeal();
+          break;
+        case "illusion":
+          this._sfxIllusion();
+          break;
+        case "skill":
+          this._sfxUi();
+          break;
+        default:
+          break;
+      }
+    }
+    /** @param {string} skillId */
+    playSkillSfx(skillId) {
+      this.playSfx(skillId);
+    }
+    // --- Layered SFX ---
+    /** Realistic sword/arrow cut — slash noise + steel body. */
+    _sfxAttack() {
+      this._noiseBurst({ dur: 0.045, vol: 0.14, filterFreq: 3200, filterType: "bandpass", slideFilter: 900 });
+      this._tone({ freq: 220, dur: 0.08, type: "sawtooth", vol: 0.12, slide: -0.45, filterFreq: 1600 });
+      this._tone({ freq: 780, dur: 0.035, type: "triangle", vol: 0.08, slide: -0.25, filterFreq: 4e3, delay: 0.01 });
+      this._noiseBurst({ dur: 0.03, vol: 0.06, filterFreq: 5e3, filterType: "highpass", delay: 0.02 });
+    }
+    /** Heavy hammer thud. */
+    _sfxPhysicalImpact() {
+      this._tone({ freq: 90, dur: 0.12, type: "sine", vol: 0.16, slide: -0.35, filterFreq: 500 });
+      this._noiseBurst({ dur: 0.08, vol: 0.12, filterFreq: 700, filterType: "lowpass" });
+      this._tone({ freq: 180, dur: 0.06, type: "triangle", vol: 0.08, delay: 0.02, slide: -0.2 });
+    }
+    /** Spear whoosh + impact. */
+    _sfxSpear() {
+      this._noiseBurst({ dur: 0.07, vol: 0.1, filterFreq: 2800, filterType: "bandpass", slideFilter: 1200 });
+      this._tone({ freq: 340, dur: 0.09, type: "triangle", vol: 0.11, slide: -0.3, filterFreq: 1800 });
+      this._tone({ freq: 160, dur: 0.05, type: "sine", vol: 0.07, delay: 0.04 });
+    }
+    _sfxHurt() {
+      this._tone({ freq: 110, dur: 0.16, type: "sine", vol: 0.14, slide: -0.25, filterFreq: 400 });
+      this._noiseBurst({ dur: 0.1, vol: 0.05, filterFreq: 500, filterType: "lowpass" });
+    }
+    _sfxKill() {
+      this._tone({ freq: 360, dur: 0.06, type: "triangle", vol: 0.12, slide: 0.15 });
+      this._tone({ freq: 540, dur: 0.1, type: "sine", vol: 0.1, slide: 0.2, delay: 0.04 });
+    }
+    _sfxLoot() {
+      this._tone({ freq: 880, dur: 0.07, type: "sine", vol: 0.11, slide: 0.05 });
+      this._tone({ freq: 1175, dur: 0.1, type: "triangle", vol: 0.09, delay: 0.05 });
+      this._tone({ freq: 1480, dur: 0.12, type: "sine", vol: 0.07, delay: 0.1 });
+    }
+    _sfxLevelUp() {
+      [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => {
+        this._tone({ freq: f, dur: 0.16, type: "sine", vol: 0.11 - i * 0.012, delay: i * 0.08 });
+      });
+    }
+    _sfxUi() {
+      this._tone({ freq: 720, dur: 0.04, type: "sine", vol: 0.08 });
+    }
+    /** Fire whoosh + crackle. */
+    _sfxFire() {
+      this._noiseBurst({ dur: 0.2, vol: 0.18, filterFreq: 1200, filterType: "bandpass", slideFilter: 3e3 });
+      this._tone({ freq: 140, dur: 0.14, type: "sawtooth", vol: 0.11, slide: 0.55, filterFreq: 900 });
+      this._noiseBurst({ dur: 0.09, vol: 0.08, filterFreq: 3500, filterType: "highpass", delay: 0.04 });
+    }
+    /** Ice: crystalline ping + crunch. */
+    _sfxIce(isNova) {
+      this._tone({ freq: 920, dur: 0.08, type: "sine", vol: 0.12, slide: -0.08 });
+      this._tone({ freq: 1380, dur: 0.1, type: "triangle", vol: 0.09, slide: -0.12, delay: 0.02 });
+      this._noiseBurst({
+        dur: isNova ? 0.14 : 0.08,
+        vol: 0.11,
+        filterFreq: 4200,
+        filterType: "bandpass",
+        delay: 0.01
+      });
+      if (isNova) {
+        this._tone({ freq: 640, dur: 0.14, type: "sine", vol: 0.08, slide: -0.3, delay: 0.06 });
+      }
+    }
+    _sfxLightning() {
+      this._tone({ freq: 1800, dur: 0.04, type: "square", vol: 0.1, slide: -0.5, filterFreq: 5e3 });
+      this._tone({ freq: 640, dur: 0.06, type: "sawtooth", vol: 0.09, slide: -0.35, filterFreq: 2500 });
+      this._noiseBurst({ dur: 0.05, vol: 0.1, filterFreq: 6e3, filterType: "highpass" });
+    }
+    _sfxPoison() {
+      this._tone({ freq: 220, dur: 0.1, type: "sine", vol: 0.12, slide: -0.2, filterFreq: 700 });
+      this._tone({ freq: 140, dur: 0.14, type: "triangle", vol: 0.09, delay: 0.04, slide: 0.15 });
+      this._noiseBurst({ dur: 0.08, vol: 0.07, filterFreq: 900, filterType: "lowpass", delay: 0.05 });
+      this._noiseBurst({ dur: 0.05, vol: 0.05, filterFreq: 1600, filterType: "bandpass", delay: 0.1 });
+    }
+    _sfxHeal() {
+      this._tone({ freq: 523.25, dur: 0.18, type: "sine", vol: 0.1 });
+      this._tone({ freq: 659.25, dur: 0.2, type: "sine", vol: 0.08, delay: 0.05 });
+      this._tone({ freq: 783.99, dur: 0.22, type: "triangle", vol: 0.06, delay: 0.1 });
+    }
+    _sfxIllusion() {
+      this._tone({ freq: 480, dur: 0.12, type: "triangle", vol: 0.09, slide: 0.25 });
+      this._tone({ freq: 720, dur: 0.16, type: "sine", vol: 0.07, delay: 0.05, slide: 0.2 });
+      this._noiseBurst({ dur: 0.1, vol: 0.04, filterFreq: 2200, filterType: "bandpass", delay: 0.02 });
+    }
+    /**
+     * @param {object} opts
+     */
+    _tone(opts) {
+      if (!this.ctx || !this.sfxGain) return;
+      const {
+        freq,
+        dur,
+        type = "sine",
+        vol = 0.1,
+        slide = 0,
+        delay = 0,
+        filterFreq = 0
+      } = opts;
+      const t = this.ctx.currentTime + delay;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, t);
+      if (slide) {
+        osc.frequency.linearRampToValueAtTime(Math.max(20, freq * (1 + slide)), t + dur);
+      }
+      let node = (
+        /** @type {AudioNode} */
+        osc
+      );
+      if (filterFreq > 0) {
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = "lowpass";
+        filter.frequency.value = filterFreq;
+        osc.connect(filter);
+        node = filter;
+      }
+      gain.gain.setValueAtTime(1e-4, t);
+      gain.gain.linearRampToValueAtTime(vol, t + 8e-3);
+      gain.gain.exponentialRampToValueAtTime(1e-4, t + Math.max(0.02, dur));
+      node.connect(gain);
+      gain.connect(this.sfxGain);
+      osc.start(t);
+      osc.stop(t + dur + 0.03);
+    }
+    /**
+     * @param {object} opts
+     */
+    _noiseBurst(opts) {
+      if (!this.ctx || !this.sfxGain || !this._noiseBuffer) return;
+      const {
+        dur = 0.1,
+        vol = 0.1,
+        filterFreq = 2e3,
+        filterType = "bandpass",
+        delay = 0,
+        slideFilter = 0
+      } = opts;
+      const t = this.ctx.currentTime + delay;
+      const src = this.ctx.createBufferSource();
+      src.buffer = this._noiseBuffer;
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = filterType;
+      filter.frequency.setValueAtTime(filterFreq, t);
+      if (slideFilter > 0) {
+        filter.frequency.linearRampToValueAtTime(slideFilter, t + dur);
+      }
+      filter.Q.value = filterType === "bandpass" ? 1.2 : 0.7;
+      const gain = this.ctx.createGain();
+      gain.gain.setValueAtTime(1e-4, t);
+      gain.gain.linearRampToValueAtTime(vol, t + 0.01);
+      gain.gain.exponentialRampToValueAtTime(1e-4, t + Math.max(0.03, dur));
+      src.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.sfxGain);
+      src.start(t);
+      src.stop(t + dur + 0.02);
+    }
+  };
+
   // js/game/game.js
   var Game = class {
     constructor() {
       this.state = new GameState();
       this.ui = new UIManager();
+      this.audio = new AudioManager();
       this.effects = null;
       this.meta = loadMetaProgress();
       this.killStreak = new KillStreakTracker();
+      this._treasureGuideArrow = null;
+      this._treasureGuideRing = null;
+      this._pausedByTabHidden = false;
       this._bindEvents();
       this.ui.bindPauseMenu({
         resume: () => this.resumeGame(),
         restart: () => this.restartRun(),
-        characterSelect: () => this.quitToCharacterSelect()
+        characterSelect: () => this.quitToCharacterSelect(),
+        achievements: () => this.ui.openAchievementsPanel(this.meta)
       });
+      this.ui.bindAudioControls(this.audio);
+      this.ui.syncAudioVolumeUi(this.audio);
       this.ui.showCharacterSelection((name) => this.selectCharacter(name), this.meta);
     }
     _bindEvents() {
       document.addEventListener("keydown", (e) => this._onKeyDown(e));
       document.addEventListener("click", () => {
+        this.audio?.unlock?.();
         if (this.state.gameOver && !this.state.gamePaused) this.restart();
       });
+      document.addEventListener("pointerdown", () => this.audio?.unlock?.(), { once: false });
+      this._onVisibilityChange = () => this._handleVisibilityChange();
+      document.addEventListener("visibilitychange", this._onVisibilityChange);
+    }
+    /** Freeze gameplay when the tab is hidden so timers and spawns do not advance in the background. */
+    _handleVisibilityChange() {
+      const s = this.state;
+      if (document.hidden) {
+        if (!s.gamePaused && !s.gameOver && !s.characterSelection) {
+          this._pausedByTabHidden = this.pauseGame({ silent: true });
+        }
+        return;
+      }
+      if (this._pausedByTabHidden) {
+        this._pausedByTabHidden = false;
+        this.resumeGame();
+      }
     }
     _onKeyDown(event) {
       if (this.state.gameOver && !this.state.gamePaused) {
@@ -5560,6 +7351,10 @@
         return;
       }
       if (event.key === "Escape" && !this.state.characterSelection) {
+        if (this.ui.els.achievementsOverlay?.style.display === "flex") {
+          this.ui.closeAchievementsPanel();
+          return;
+        }
         this.togglePause();
         return;
       }
@@ -5611,12 +7406,14 @@
       return -1;
     }
     selectCharacter(name) {
+      this.audio?.unlock?.();
       const character = CHARACTERS.find((c) => c.name === name);
       if (!character) return;
       this.state.fullCleanup();
       resetPlayerModel(this.ui.els.player);
       this.state.initForCharacter(deepClone(character.stats));
       this.state.selectedCharacterName = name;
+      this.state.selectedModelClass = character.modelClass;
       this.state.itemsLooted = 0;
       this.killStreak.reset();
       this.gearInventory = new GearInventory();
@@ -5658,6 +7455,7 @@
       this.ui.els.playerAnchor.style.top = "50vh";
       this.ui.updateAttackRange(this.state.stats.attackRange);
       this.ui.updateStats(this.state.stats, this.state.skillList);
+      this._trackMaxHp();
       this.ui.updateMeta(this.state.killCount, this.state.currentWave, this.killStreak.streak);
       this.ui.showWaveAnnouncement(this.state.currentWave);
       this.state.previousWave = this.state.currentWave;
@@ -5702,6 +7500,7 @@
       if (died && s.stats) {
       }
       s.fullCleanup();
+      this._clearTreasureGuide();
       this.effects?.cleanup();
       this.poisonPools?.clear();
       this.skillRanges?.clear();
@@ -5721,21 +7520,32 @@
       if (this.state.gamePaused) this.resumeGame();
       else this.pauseGame();
     }
-    pauseGame() {
+    /**
+     * @param {{ silent?: boolean }} [opts] silent=true skips the pause overlay (tab-hidden freeze).
+     * @returns {boolean} Whether pause was applied.
+     */
+    pauseGame(opts = {}) {
+      const { silent = false } = opts;
       const s = this.state;
-      if (s.gamePaused || s.gameOver) return;
+      if (s.gamePaused || s.gameOver) return false;
       s.gamePaused = true;
       s.pauseTime = Date.now();
-      this.ui.showPause(true);
+      if (!silent) this.ui.showPause(true);
+      if (s.gameLoopId) {
+        s.cancelAnimation(s.gameLoopId);
+        s.gameLoopId = null;
+      }
       s.cancelAllAnimations();
       this.enemyProjectiles?.clearAll();
       s.enemies.forEach((e) => s.cancelAnimation(e.moveAnimationId));
       s.bullets.forEach((b) => s.cancelAnimation(b.moveAnimationId));
+      return true;
     }
     resumeGame() {
       const s = this.state;
       if (!s.gamePaused) return;
       s.gamePaused = false;
+      this._pausedByTabHidden = false;
       this.ui.showPause(false);
       const elapsed = Date.now() - s.pauseTime;
       s.lastAttackTime += elapsed;
@@ -5755,11 +7565,15 @@
       this._startGameLoop();
     }
     _startGameLoop() {
-      if (this.state.gameLoopId) cancelAnimationFrame(this.state.gameLoopId);
+      if (this.state.gameLoopId) {
+        this.state.cancelAnimation(this.state.gameLoopId);
+        this.state.gameLoopId = null;
+      }
       const loop = () => {
         this._tick();
+        const prev = this.state.gameLoopId;
         this.state.gameLoopId = requestAnimationFrame(loop);
-        this.state.trackAnimation(this.state.gameLoopId);
+        this.state.trackAnimation(this.state.gameLoopId, prev);
       };
       loop();
     }
@@ -5785,12 +7599,14 @@
       this.poisonPools?.tick(now);
       this.treasureEvents?.tick(now);
       this.killStreak.tick(now);
-      this.skillRanges?.update(s.skillList);
+      this.skillRanges?.update(s.skillList, s.stats.attackRange);
       this.enemyPopulation?.enforceCap(this);
       if (s.stats.hp <= 0) {
         s.gameOver = true;
         s.cancelAllAnimations();
         this.enemyProjectiles?.clearAll();
+        this.effects?.cleanup();
+        this.skillExecutor?.cleanup();
         updateCharacterRecord(this.meta, {
           character: s.selectedCharacterName,
           level: s.stats.level,
@@ -5803,12 +7619,25 @@
       }
       this.ui.updateStats(s.stats, s.skillList);
       this.ui.updateMeta(s.killCount, s.currentWave, this.killStreak.streak);
+      this._trackMaxHp();
       this._checkAchievements();
+    }
+    /** Track peak max HP for achievements. */
+    _trackMaxHp() {
+      const s = this.state;
+      if (!s.stats) return;
+      const peak = s.stats.maxHp || 0;
+      if (peak > (s.maxHpReached || 0)) s.maxHpReached = peak;
     }
     _checkAchievements() {
       const s = this.state;
       const equipped = this.gearInventory?.equipped || {};
-      const equippedRareCount = Object.values(equipped).filter((i) => i && (i.rarity === "rare" || i.rarity === "unique")).length;
+      const equippedValues = Object.values(equipped).filter(Boolean);
+      const equippedRareCount = equippedValues.filter((i) => i.rarity === "rare" || i.rarity === "unique").length;
+      const equippedUniqueCount = equippedValues.filter((i) => i.rarity === "unique").length;
+      const skillEntries = Object.values(s.skillList || {});
+      const skillLevelSum = skillEntries.reduce((sum, sk) => sum + (sk?.level || 0), 0);
+      const skillsAtMax = skillEntries.filter((sk) => sk && sk.level >= (sk.maxLevel || 5)).length;
       const unlocked = evaluateAchievements(this.meta, {
         killCount: s.killCount,
         level: s.stats.level,
@@ -5817,7 +7646,17 @@
         treasuresOpened: this.treasureEvents?.treasuresOpened ?? 0,
         itemsLooted: s.itemsLooted ?? 0,
         equippedRareCount,
-        equippedGearCount: this.gearInventory?.getEquippedCount() ?? 0
+        equippedUniqueCount,
+        equippedGearCount: this.gearInventory?.getEquippedCount() ?? 0,
+        currentWave: s.currentWave,
+        maxWaveReached: s.maxWaveReached ?? s.currentWave,
+        skillLevelSum,
+        skillsAtMax,
+        elitesKilled: s.elitesKilled ?? 0,
+        bossesKilled: s.bossesKilled ?? 0,
+        maxHpReached: s.maxHpReached ?? s.stats.maxHp,
+        maxHp: s.stats.maxHp,
+        finalVictoryAchieved: Boolean(s.finalVictoryAchieved)
       });
       unlocked.forEach((id) => this.ui.showAchievementUnlock(id));
     }
@@ -5866,6 +7705,7 @@
       s.elapsedSeconds = Math.floor((now - s.timerStart) / 1e3);
       this.ui.updateTimer(s.elapsedSeconds);
       s.currentWave = getWaveNumber(s.elapsedSeconds);
+      if (s.currentWave > (s.maxWaveReached || 1)) s.maxWaveReached = s.currentWave;
       s.currentDifficultyLevel = getDifficultyIndex(s.elapsedSeconds);
       const maxDiff = Math.min(s.currentDifficultyLevel, BALANCE.maxDifficultyForSpawn);
       if (s.previousWave !== s.currentWave) {
@@ -5876,7 +7716,93 @@
         s.rareEnemySpawnInterval = getSpawnIntervalMs("rare", maxDiff);
         s.eliteSpawnInterval = getSpawnIntervalMs("elite", maxDiff);
         s.bossSpawnInterval = getSpawnIntervalMs("boss", maxDiff);
+        if (isBossWave(s.currentWave)) {
+          this._spawnBossWaveEvent(s.currentWave);
+        }
       }
+    }
+    /**
+     * Landmark boss encounter every 10 waves — bulky boss + mini swarm pack.
+     * Wave 100 uses a unique final boss with a massive escort army.
+     * @param {number} wave
+     */
+    _spawnBossWaveEvent(wave) {
+      if (isFinalVictoryWave(wave)) {
+        this._spawnFinalVictoryBossEvent(wave);
+        return;
+      }
+      const boss = this._spawnWithType("boss", pickEnemyType(this.state.currentDifficultyLevel));
+      if (boss?.stats) {
+        boss.stats.hp = Math.floor(boss.stats.hp * BOSS_WAVE_HP_MULT);
+        boss.stats.maxHp = boss.stats.hp;
+        boss.isWaveBoss = true;
+        this._updateEnemyHealthBar(boss);
+      }
+      const pack = rollBossWaveSwarmCount();
+      const edge = Math.floor(Math.random() * 4);
+      const anchor = getEdgeSpawnAnchor(edge);
+      for (let i = 0; i < pack; i++) {
+        this._spawnEnemy("normal", "swarm", {
+          at: {
+            x: anchor.x + (Math.random() - 0.5) * 8,
+            y: anchor.y + (Math.random() - 0.5) * 8
+          },
+          skipGroup: true,
+          bypassCap: true
+        });
+      }
+      if (this.ui.els?.waveToast) {
+        this.ui.els.waveToast.textContent = `Wave ${wave} Boss \u2014 Swarm incoming!`;
+        this.ui.els.waveToast.classList.add("toast-visible");
+        clearTimeout(this.ui._waveTimer);
+        this.ui._waveTimer = setTimeout(() => {
+          this.ui.els.waveToast.classList.remove("toast-visible");
+        }, 2800);
+      }
+    }
+    /**
+     * Wave 100 finale — 20× boss HP, 2× damage/armour, and a large multi-edge army.
+     * @param {number} wave
+     */
+    _spawnFinalVictoryBossEvent(wave) {
+      const difficulty = this.state.currentDifficultyLevel;
+      const boss = this._spawnWithType("boss", pickEnemyType(difficulty));
+      if (boss?.stats) {
+        applyFinalBossCombatScaling(boss.stats);
+        boss.isFinalVictoryBoss = true;
+        boss.isWaveBoss = true;
+        this._updateEnemyHealthBar(boss);
+      }
+      const edges = [0, 1, 2, 3];
+      this._spawnVictoryArmyPack(edges[0], rollFinalVictorySwarmCount(), "normal", "swarm");
+      this._spawnVictoryArmyPack(edges[1], rollFinalVictoryGruntCount(), "normal", "grunt");
+      this._spawnVictoryArmyPack(edges[2], rollFinalVictoryEliteCount(), "elite", pickEnemyType(difficulty));
+      this._spawnVictoryArmyPack(edges[3], rollFinalVictorySwarmCount(), "normal", "swarm");
+      this.ui.showFinalVictoryBossIncoming(wave);
+    }
+    /**
+     * @param {number} edge @param {number} count @param {string} rarity @param {string} enemyType
+     */
+    _spawnVictoryArmyPack(edge, count, rarity, enemyType) {
+      const anchor = getEdgeSpawnAnchor(edge);
+      for (let i = 0; i < count; i++) {
+        this._spawnEnemy(rarity, enemyType, {
+          at: {
+            x: anchor.x + (Math.random() - 0.5) * 10,
+            y: anchor.y + (Math.random() - 0.5) * 10
+          },
+          skipGroup: true,
+          bypassCap: true
+        });
+      }
+    }
+    _onFinalVictoryBossDefeated() {
+      const s = this.state;
+      if (s.finalVictoryAchieved) return;
+      s.finalVictoryAchieved = true;
+      markCharacterVictory(this.meta, s.selectedCharacterName);
+      this.ui.showFinalVictoryCelebration(s.selectedCharacterName);
+      this._checkAchievements();
     }
     _tickSpawns(now) {
       const s = this.state;
@@ -5909,7 +7835,7 @@
     _spawnSwarmGroup(rarity) {
       const edge = Math.floor(Math.random() * 4);
       const anchor = getEdgeSpawnAnchor(edge);
-      const count = rollSwarmGroupSize();
+      const count = rollSwarmGroupSize(this.state.currentDifficultyLevel);
       const positions = getSwarmGroupPositions(anchor.x, anchor.y, count);
       let lead = null;
       for (const at of positions) {
@@ -5948,7 +7874,12 @@
         if (status.burn && now < status.burn.endTime) {
           if (now - status.burn.lastTick >= 500) {
             status.burn.lastTick = now;
-            const tickDmg = Math.max(1, Math.floor(status.burn.damagePerTick));
+            let tickDmg = Math.max(1, Math.floor(status.burn.damagePerTick));
+            tickDmg = this.characterPassives?.modifySkillDamage(tickDmg, {
+              element: "fire",
+              skillId: "fireball",
+              tags: ["fire", "elemental"]
+            }) ?? tickDmg;
             enemy.stats.hp -= tickDmg;
             this.effects.spawnDamageNumber(
               parseFloat(enemy.element.style.left),
@@ -6029,10 +7960,23 @@
       el.title = `${typeConfig.label} (${rarity})`;
       el.insertAdjacentHTML("afterbegin", buildEnemyModelHtml(typeConfig));
       const healthBar = document.createElement("div");
-      healthBar.className = "enemy-health-bar";
+      const isBoss = rarity === "boss";
+      const isElite = rarity === "elite";
+      healthBar.className = [
+        "enemy-health-bar",
+        isBoss ? "enemy-health-bar--boss" : "",
+        isElite ? "enemy-health-bar--elite" : ""
+      ].filter(Boolean).join(" ");
       const healthFill = document.createElement("div");
       healthFill.className = "enemy-health-bar-fill";
+      healthFill.style.width = "100%";
       healthBar.appendChild(healthFill);
+      if (isBoss) {
+        const bossTag = document.createElement("span");
+        bossTag.className = "enemy-boss-label";
+        bossTag.textContent = "BOSS";
+        healthBar.appendChild(bossTag);
+      }
       el.appendChild(healthBar);
       this.ui.els.gameContainer.appendChild(el);
       const enemy = {
@@ -6054,23 +7998,85 @@
       this._startEnemyMovement(enemy);
       return enemy;
     }
-    /** Spawn a bonus treasure enemy with high rewards. */
+    /** Spawn a bonus treasure enemy within attack range — player is stationary, so chest must come to them. */
     spawnTreasureChest() {
       const s = this.state;
+      const { x: px, y: py } = this.ui.getPlayerPosition();
+      const iw = window.innerWidth || 1e3;
+      const rangeVw = Math.max(6, s.stats.attackRange / iw * 100);
+      const distVw = Math.max(4, rangeVw * (0.35 + Math.random() * 0.25));
       const angle = Math.random() * Math.PI * 2;
-      const x = 50 + Math.cos(angle) * 38;
-      const y = 50 + Math.sin(angle) * 38;
-      const enemy = this._spawnEnemy("rare", "grunt");
+      const x = Math.max(8, Math.min(92, px + Math.cos(angle) * distVw));
+      const y = Math.max(12, Math.min(88, py + Math.sin(angle) * distVw));
+      const enemy = this._spawnEnemy("rare", "grunt", { at: { x, y }, bypassCap: true });
       if (!enemy) return;
       enemy.isTreasure = true;
       enemy.stats.exp = Math.floor(enemy.stats.exp * 5);
-      enemy.stats.hp = Math.floor(enemy.stats.hp * 0.6);
+      enemy.stats.hp = Math.floor(enemy.stats.hp * 0.55);
       enemy.stats.maxHp = enemy.stats.hp;
+      enemy.stats.moveSpeed = Math.max(enemy.stats.moveSpeed * 1.65, enemy.baseMoveSpeed * 1.4);
+      enemy.baseMoveSpeed = enemy.stats.moveSpeed;
+      this._applyTreasureChestVisual(enemy);
       enemy.element.classList.add("enemy-treasure");
-      enemy.element.style.left = `${x}vw`;
-      enemy.element.style.top = `${y}vh`;
-      enemy.element.title = "Treasure Chest";
-      this.ui.showTreasureHint();
+      enemy.element.style.zIndex = "8";
+      enemy.element.title = "Treasure Chest \u2014 defeat for bonus loot!";
+      enemy.element.setAttribute("aria-label", "Treasure Chest");
+      if (!enemy.element.querySelector(".treasure-chest-label")) {
+        const label = document.createElement("span");
+        label.className = "treasure-chest-label";
+        label.textContent = "CHEST";
+        enemy.element.appendChild(label);
+      }
+      this._showTreasureGuide(px, py, x, y);
+      this.effects?.spawnCastFlash?.(x, y, "crit");
+      this.ui.showTreasureHint(x, y, distVw);
+    }
+    /** Replace grunt model with a dedicated treasure chest sprite. */
+    _applyTreasureChestVisual(enemy) {
+      const el = enemy.element;
+      el.classList.remove("enemy-grunt");
+      el.classList.add("enemy-treasure-chest");
+      el.querySelector(".enemy-model-25d")?.remove();
+      el.querySelector(".enemy-type-badge")?.remove();
+      el.insertAdjacentHTML("afterbegin", buildTreasureChestModelHtml());
+    }
+    /**
+     * Arrow from player center toward the chest so stationary players know where to look.
+     * @param {number} px @param {number} py @param {number} tx @param {number} ty
+     */
+    _showTreasureGuide(px, py, tx, ty) {
+      const container = this.ui.els.gameContainer;
+      if (!container) return;
+      this._clearTreasureGuide();
+      const iw = window.innerWidth || 1e3;
+      const ih = window.innerHeight || 1e3;
+      const dx = (tx - px) * iw / 100;
+      const dy = (ty - py) * ih / 100;
+      const len = Math.hypot(dx, dy) || 1;
+      const angleDeg = Math.atan2(dy, dx) * 180 / Math.PI;
+      const arrow = document.createElement("div");
+      arrow.className = "treasure-guide-arrow";
+      arrow.style.left = `${px}vw`;
+      arrow.style.top = `${py}vh`;
+      arrow.style.width = `${Math.min(len * 0.55, iw * 0.12)}px`;
+      arrow.style.transform = `translate(-2px, -50%) rotate(${angleDeg}deg)`;
+      arrow.setAttribute("aria-hidden", "true");
+      container.appendChild(arrow);
+      this._treasureGuideArrow = arrow;
+      const ring = document.createElement("div");
+      ring.className = "treasure-guide-ring";
+      ring.style.left = `${tx}vw`;
+      ring.style.top = `${ty}vh`;
+      ring.setAttribute("aria-hidden", "true");
+      container.appendChild(ring);
+      this._treasureGuideRing = ring;
+      this.state.trackTimeout(setTimeout(() => this._clearTreasureGuide(), 12e3));
+    }
+    _clearTreasureGuide() {
+      this._treasureGuideArrow?.remove();
+      this._treasureGuideRing?.remove();
+      this._treasureGuideArrow = null;
+      this._treasureGuideRing = null;
     }
     _startEnemyMovement(enemy) {
       const s = this.state;
@@ -6080,8 +8086,9 @@
       const animate = () => {
         if (s.gamePaused || s.gameOver) return;
         if (enemy.frozen) {
+          const prevFrozen = enemy.moveAnimationId;
           enemy.moveAnimationId = requestAnimationFrame(animate);
-          s.trackAnimation(enemy.moveAnimationId);
+          s.trackAnimation(enemy.moveAnimationId, prevFrozen);
           return;
         }
         const { x: px, y: py } = this.ui.getPlayerPosition();
@@ -6106,30 +8113,58 @@
           enemy.element.style.left = `${ex}vw`;
           enemy.element.style.top = `${ey}vh`;
         }
+        const prevMove = enemy.moveAnimationId;
         enemy.moveAnimationId = requestAnimationFrame(animate);
-        s.trackAnimation(enemy.moveAnimationId);
+        s.trackAnimation(enemy.moveAnimationId, prevMove);
       };
       animate();
     }
     _attackNearestEnemy(fromX, fromY, excludeTarget = null, remainingBounce = null, attackOpts = {}) {
       const s = this.state;
+      const rangeX = attackOpts.rangeCenterX ?? fromX;
+      const rangeY = attackOpts.rangeCenterY ?? fromY;
       let nearest = null;
       let minDist = s.stats.attackRange;
       s.enemies.forEach((enemy) => {
         if (excludeTarget && enemy.id === excludeTarget.id) return;
         const ex = parseFloat(enemy.element.style.left);
         const ey = parseFloat(enemy.element.style.top);
-        const dist = distanceVw(fromX, fromY, ex, ey, window.innerWidth, window.innerHeight);
+        const dist = distanceVw(rangeX, rangeY, ex, ey, window.innerWidth, window.innerHeight);
         if (dist <= s.stats.attackRange && dist < minDist) {
           minDist = dist;
           nearest = enemy;
         }
       });
       if (!nearest) return;
+      const forceProjectile = Boolean(attackOpts.forceProjectile || attackOpts.projectileClass);
+      const isMelee = !forceProjectile && usesMeleeBasicAttack(s.selectedModelClass);
       if (!excludeTarget && !attackOpts.skipPlayerAnim) {
         s.lastAttackTime = Date.now();
-        this.effects.triggerAttackAnimation(this.ui.els.player);
+        const tx = parseFloat(nearest.element.style.left);
+        const ty = parseFloat(nearest.element.style.top);
+        if (isMelee) {
+          this.effects.triggerMeleeAttackAnimation(this.ui.els.player, fromX, fromY, tx, ty);
+        } else {
+          this.effects.triggerAttackAnimation(this.ui.els.player);
+        }
         this.effects.flashAttackRange(this.ui.els.attackRange);
+        this.audio?.playSfx?.("attack");
+      }
+      if (isMelee) {
+        this._dealDamageToEnemy(
+          nearest,
+          false,
+          Boolean(excludeTarget),
+          attackOpts.damageMultiplier ?? 1
+        );
+        const bounces = remainingBounce ?? s.abilityList.Bounce.level;
+        if (bounces > 0) {
+          this._attackNearestEnemy(fromX, fromY, nearest, bounces - 1, {
+            ...attackOpts,
+            forceProjectile: true
+          });
+        }
+        return;
       }
       this._fireBullet(fromX, fromY, nearest, excludeTarget, remainingBounce, attackOpts);
     }
@@ -6213,8 +8248,9 @@
           const idx = s.bullets.indexOf(bullet);
           if (idx !== -1) s.bullets.splice(idx, 1);
         } else {
+          const prev = bullet.moveAnimationId;
           bullet.moveAnimationId = requestAnimationFrame(animate);
-          s.trackAnimation(bullet.moveAnimationId);
+          s.trackAnimation(bullet.moveAnimationId, prev);
         }
       };
       animate();
@@ -6239,7 +8275,7 @@
         return { damage: 0, isCritical: false, missed: true };
       }
       const abilities = this._getAbilityLevels();
-      const { damage, isCritical } = calculatePlayerDamage({
+      const { damage: rawDamage, isCritical } = calculatePlayerDamage({
         physicalDamage: Math.max(1, Math.floor(s.stats.physicalDamage * damageMultiplier)),
         targetArmour: hitEnemy.stats.armour,
         maxHp: s.stats.maxHp,
@@ -6250,12 +8286,13 @@
         critMultiplier: s.stats.critMultiplier,
         abilities
       });
+      const damage = this.characterPassives?.modifyPhysicalDamage?.(rawDamage) ?? rawDamage;
       hitEnemy.stats.hp -= damage;
       const ex = parseFloat(hitEnemy.element.style.left);
       const ey = parseFloat(hitEnemy.element.style.top);
       this.effects.triggerEnemyHitAnimation(hitEnemy.element);
       this.effects.spawnHitEffect(ex, ey, isCritical ? "crit" : "physical");
-      this.effects.spawnDamageNumber(ex, ey - 2, damage, isCritical);
+      this.effects.spawnDamageNumber(ex, ey - 2, damage, isCritical, "physical");
       this._updateEnemyHealthBar(hitEnemy);
       if (hitEnemy.stats.hp <= 0) {
         this._removeEnemy(hitEnemy);
@@ -6272,7 +8309,7 @@
       return result;
     }
     /** Skill damage — bypasses bounce penalty, uses element for visuals */
-    _dealSkillDamageToEnemy(hitEnemy, damage, element, isCrit = false) {
+    _dealSkillDamageToEnemy(hitEnemy, damage, element, isCrit = false, skillId = null) {
       const s = this.state;
       if (rollEnemyEvade(hitEnemy.stats.evadeChance)) {
         const ex2 = parseFloat(hitEnemy.element.style.left);
@@ -6280,7 +8317,7 @@
         this.effects.spawnDamageNumber(ex2, ey2 - 2, "MISS", false);
         return { damage: 0, missed: true };
       }
-      damage = this.characterPassives?.modifySkillDamage(damage, element) ?? damage;
+      damage = this.characterPassives?.modifySkillDamage(damage, { element, skillId }) ?? damage;
       damage = Math.max(1, Math.floor(damage));
       hitEnemy.stats.hp -= damage;
       const ex = parseFloat(hitEnemy.element.style.left);
@@ -6336,14 +8373,34 @@
           enemyDamage: enemy.stats.physicalDamage,
           playerArmour: s.stats.armour,
           damageReductionLevel: abilities.damageReductionLevel,
-          ignoreArmour: Boolean(enemy.stats.ignoreArmour)
+          ignoreArmour: Boolean(enemy.stats.ignoreArmour),
+          elapsedSeconds: s.elapsedSeconds
         });
         s.stats.hp -= this.characterPassives?.absorbDamage(damage) ?? damage;
         this._onPlayerDamaged();
-        if (s.abilityList.Reflect.level > 0) {
-          this._dealDamageToEnemy(enemy, true, false);
-        }
+        this._applyReflectDamage(enemy, damage);
       }
+    }
+    /**
+     * Return-damage Reflect: deals % of damage just taken back to the attacker.
+     * Works for melee and ranged; does not miss or crit.
+     * @param {object} enemy
+     * @param {number} damageTaken
+     */
+    _applyReflectDamage(enemy, damageTaken) {
+      const s = this.state;
+      if (!enemy || enemy.stats?.hp <= 0) return;
+      const reflectLevel = s.abilityList.Reflect?.level || 0;
+      const reflected = calculateReflectDamage(damageTaken, reflectLevel);
+      if (reflected <= 0) return;
+      enemy.stats.hp -= reflected;
+      const ex = parseFloat(enemy.element.style.left);
+      const ey = parseFloat(enemy.element.style.top);
+      this.effects.triggerEnemyHitAnimation(enemy.element);
+      this.effects.spawnHitEffect(ex, ey, "physical");
+      this.effects.spawnDamageNumber(ex, ey - 2, reflected, false, "physical");
+      this._updateEnemyHealthBar(enemy);
+      if (enemy.stats.hp <= 0) this._removeEnemy(enemy);
     }
     _fireEnemyProjectile(enemy) {
       const s = this.state;
@@ -6372,10 +8429,12 @@
               enemyDamage: enemy.stats.physicalDamage,
               playerArmour: s.stats.armour,
               damageReductionLevel: abilities.damageReductionLevel,
-              ignoreArmour
+              ignoreArmour,
+              elapsedSeconds: s.elapsedSeconds
             });
             s.stats.hp -= this.characterPassives?.absorbDamage(damage) ?? damage;
             this._onPlayerDamaged();
+            if (enemy.stats?.hp > 0) this._applyReflectDamage(enemy, damage);
           }
           return false;
         }
@@ -6392,6 +8451,9 @@
       const ey = parseFloat(enemy.element.style.top);
       if (grantRewards) {
         s.killCount++;
+        if (enemy.rarity === "elite") s.elitesKilled = (s.elitesKilled || 0) + 1;
+        if (enemy.rarity === "boss") s.bossesKilled = (s.bossesKilled || 0) + 1;
+        this.audio?.playSfx?.("kill");
         const now = Date.now();
         const streakBonus = this.killStreak.recordKill(
           now,
@@ -6410,7 +8472,13 @@
         s.stats.exp += expGain;
         this.effects.spawnExpOrbs(ex, ey);
         this.ui.flashHudBar("exp");
-        if (enemy.isTreasure) this.treasureEvents?.recordOpen();
+        if (enemy.isTreasure) {
+          this.treasureEvents?.recordOpen();
+          this._clearTreasureGuide();
+        }
+        if (enemy.isFinalVictoryBoss) {
+          this._onFinalVictoryBossDefeated();
+        }
         this._tryDropGear(enemy, ex, ey);
         if (s.stats.exp >= s.stats.expThreshold) this._afterExpChange();
         this._checkAchievements();
@@ -6427,7 +8495,7 @@
     /** @param {object} enemy @param {number} x @param {number} y */
     _tryDropGear(enemy, x, y) {
       const category = enemy.isTreasure ? "treasure" : enemy.rarity;
-      if (!shouldDropGear(category)) return;
+      if (!shouldDropGear(category, this.state.currentWave)) return;
       const ilvl = computeDropIlvl(
         this.state.stats.level,
         this.state.currentDifficultyLevel
@@ -6439,6 +8507,7 @@
       if (!this.gearInventory.addItem(item)) return;
       this.state.itemsLooted += 1;
       this.effects.spawnLootBurst(x, y);
+      this.audio?.playSfx?.("loot");
       const r = RARITY_CONFIG2[item.rarity];
       this.ui.showGearLoot(item.name, r.cssClass);
       this.gearPanel?.pulseNewLoot();
@@ -6448,6 +8517,7 @@
       flashPlayerSprite(this.ui.els.player, "player-hit", 200);
       shakePlayerAnchor(this.ui.els.playerAnchor);
       this.ui.flashHudBar("hp");
+      this.audio?.playSfx?.("hurt");
     }
     _equipGear(itemId) {
       if (!this.gearInventory?.equip(itemId, this.state.stats)) return;
@@ -6473,7 +8543,11 @@
     /** Bank earned levels and refresh the non-blocking upgrade panel. */
     _afterExpChange() {
       const s = this.state;
+      const before = s.pendingUpgrades?.length || 0;
       bankExpLevelUps(s);
+      if ((s.pendingUpgrades?.length || 0) > before) {
+        this.audio?.playSfx?.("levelup");
+      }
       this._refreshUpgradePanel();
       this.ui.updateStats(s.stats, s.skillList);
     }

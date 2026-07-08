@@ -2,7 +2,8 @@ import { describe, it, expect } from 'vitest';
 import {
     getEnemyHitRadiusVw,
     projectilePointHitsEnemy,
-    projectileSegmentHitsEnemy
+    projectileSegmentHitsEnemy,
+    hasExhaustedPierce
 } from '../js/utils/projectileCollision.js';
 
 describe('projectileCollision', () => {
@@ -27,5 +28,13 @@ describe('projectileCollision', () => {
 
     it('returns sensible hit radius from enemy size', () => {
         expect(getEnemyHitRadiusVw(enemy, 1000)).toBeGreaterThan(1);
+    });
+
+    it('exhausts pierce by maxPierce + 1 unique hits', () => {
+        expect(hasExhaustedPierce(1, 0)).toBe(true);
+        expect(hasExhaustedPierce(1, 1)).toBe(false);
+        expect(hasExhaustedPierce(2, 1)).toBe(true);
+        expect(hasExhaustedPierce(3, 2)).toBe(true);
+        expect(hasExhaustedPierce(99, Infinity)).toBe(false);
     });
 });

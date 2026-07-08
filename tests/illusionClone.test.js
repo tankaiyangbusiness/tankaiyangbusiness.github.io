@@ -68,7 +68,7 @@ describe('IllusionCloneManager', () => {
         expect(mgr.trySummon(3, now + 100)).toBe(false);
     });
 
-    it('clone attacks at player attack speed with damage multiplier', () => {
+    it('clone attacks at player attack speed with damage multiplier and player AOE', () => {
         const { game } = createMockGame();
         const mgr = new IllusionCloneManager(game);
         const cfg = getIllusionConfig(5);
@@ -81,7 +81,12 @@ describe('IllusionCloneManager', () => {
             expect.any(Number),
             null,
             null,
-            expect.objectContaining({ damageMultiplier: 0.6, skipPlayerAnim: true })
+            expect.objectContaining({
+                damageMultiplier: 0.6,
+                skipPlayerAnim: true,
+                rangeCenterX: 50,
+                rangeCenterY: 50
+            })
         );
     });
 

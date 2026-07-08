@@ -164,6 +164,8 @@ export class GearPanel {
             return `
                 <div class="gear-doll-cell gear-slot gear-slot-filled ${rarity.cssClass}" data-area="${cell.area}" data-slot="${slot}"
                     style="--gear-rarity-color:${rarity.color}">
+                    <span class="gear-slot-label">${label}</span>
+                    <span class="gear-slot-divider" aria-hidden="true"></span>
                     <span class="gear-slot-icon">${icon}</span>
                     <button type="button" class="gear-unequip-btn" data-slot="${slot}" aria-label="Unequip ${label}">×</button>
                 </div>

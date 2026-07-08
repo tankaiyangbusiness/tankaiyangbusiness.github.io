@@ -92,7 +92,7 @@ export function rollStatUpgradeKeys(statsList, count = 3) {
 }
 
 /** @param {object} skillList @param {number} [count] */
-export function buildSkillUpgradeOptions(skillList, count = 3) {
+export function buildSkillUpgradeOptions(skillList, count = 5) {
     const available = SKILL_IDS
         .filter(id => skillList[id] && skillList[id].level < skillList[id].maxLevel)
         .map(id => ({
@@ -123,7 +123,7 @@ export function buildSkillUpgradeOptionsFromKeys(skillList, cachedKeys) {
 }
 
 /** Roll and return skill keys for caching across multiple picks in one session. */
-export function rollSkillUpgradeKeys(skillList, count = 3) {
+export function rollSkillUpgradeKeys(skillList, count = 5) {
     return buildSkillUpgradeOptions(skillList, count).map(o => o.key);
 }
 

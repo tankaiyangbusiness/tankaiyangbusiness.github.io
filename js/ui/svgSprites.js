@@ -94,6 +94,15 @@ export const PLAYER_SVGS = {
         <ellipse cx="32" cy="26" rx="4" ry="2.5" fill="#78350f"/>
         <ellipse cx="14" cy="38" rx="5" ry="3" fill="#92400e"/>
         <ellipse cx="50" cy="38" rx="5" ry="3" fill="#92400e"/>
+    `),
+    slayer: SVG_WRAP(`
+        <defs><linearGradient id="slayer-armor" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#e2e8f0"/><stop offset="100%" stop-color="#64748b"/></linearGradient></defs>
+        <ellipse cx="32" cy="40" rx="16" ry="18" fill="url(#slayer-armor)" stroke="#94a3b8" stroke-width="2"/>
+        <circle cx="32" cy="17" r="11" fill="#f1f5f9" stroke="#64748b" stroke-width="1.5"/>
+        <path d="M22 8 L42 8 L32 16 Z" fill="#334155"/>
+        <path d="M48 22 L60 14 L58 34 L50 36 Z" fill="#cbd5e1" stroke="#64748b"/>
+        <line x1="52" y1="16" x2="54" y2="48" stroke="#e2e8f0" stroke-width="3.5" stroke-linecap="round"/>
+        <path d="M10 36 L18 30 L16 44 Z" fill="#94a3b8" stroke="#475569"/>
     `)
 };
 
@@ -168,6 +177,28 @@ export const ENEMY_SVGS = {
         <ellipse cx="26" cy="28" rx="4" ry="5" fill="#0f172a" opacity="0.7"/>
         <ellipse cx="38" cy="28" rx="4" ry="5" fill="#0f172a" opacity="0.7"/>
         <path d="M28 38 Q32 42 36 38" fill="none" stroke="#94a3b8" stroke-width="1.5"/>
+    `),
+    treasureChest: SVG_WRAP(`
+        <defs>
+            <linearGradient id="chest-gold" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="#fde68a"/>
+                <stop offset="55%" stop-color="#f59e0b"/>
+                <stop offset="100%" stop-color="#b45309"/>
+            </linearGradient>
+            <linearGradient id="chest-lid" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="#fef3c7"/>
+                <stop offset="100%" stop-color="#d97706"/>
+            </linearGradient>
+        </defs>
+        <ellipse cx="32" cy="54" rx="22" ry="6" fill="#000" opacity="0.35"/>
+        <rect x="12" y="30" width="40" height="22" rx="4" fill="url(#chest-gold)" stroke="#92400e" stroke-width="2"/>
+        <path d="M12 34 L52 34" stroke="#78350f" stroke-width="2"/>
+        <rect x="10" y="18" width="44" height="18" rx="6" fill="url(#chest-lid)" stroke="#92400e" stroke-width="2"/>
+        <rect x="28" y="26" width="8" height="14" rx="2" fill="#451a03"/>
+        <circle cx="32" cy="33" r="3.5" fill="#fde68a" stroke="#b45309" stroke-width="1.5"/>
+        <path d="M16 22 Q32 12 48 22" fill="none" stroke="#fef08a" stroke-width="2" opacity="0.85"/>
+        <circle cx="20" cy="24" r="2" fill="#fef9c3" opacity="0.9"/>
+        <circle cx="44" cy="24" r="2" fill="#fef9c3" opacity="0.9"/>
     `)
 };
 
@@ -228,6 +259,11 @@ export function getPlayerSvg(characterName) {
 /** @param {string} enemyType */
 export function getEnemySvg(enemyType) {
     return ENEMY_SVGS[enemyType] || ENEMY_SVGS.grunt;
+}
+
+/** Golden treasure chest sprite for bonus loot events. */
+export function getTreasureChestSvg() {
+    return ENEMY_SVGS.treasureChest;
 }
 
 /** @param {'zombie'|'bear'|'illusion'} type */

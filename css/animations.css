@@ -61,14 +61,14 @@
     40% { filter: brightness(1.6); box-shadow: 0 0 12px rgba(251, 191, 36, 0.8); }
 }
 
-/* Enemy spawn */
+/* Enemy spawn — smoother ease curve */
 .enemy-spawn-in {
-    animation: enemy-spawn-pop 0.45s linear forwards;
+    animation: enemy-spawn-pop 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 @keyframes enemy-spawn-pop {
-    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.35); filter: brightness(1.6); }
-    60% { opacity: 1; transform: translate(-50%, -50%) scale(1.06); }
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.4); filter: brightness(1.5); }
+    55% { opacity: 1; transform: translate(-50%, -50%) scale(1.05); }
     100% { opacity: 1; transform: translate(-50%, -50%) scale(1); filter: brightness(1); }
 }
 

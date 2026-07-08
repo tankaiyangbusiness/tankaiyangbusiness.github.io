@@ -1,7 +1,9 @@
 /* Shared 2.5D particle / shard visuals — diamond tiles instead of flat circles */
 
+/* Keep transform-style only — never set position here.
+   Projectiles (.skill-projectile) rely on position:absolute; relative on .particle-25d
+   would cancel that and make frostbolt spawn off-center in document flow. */
 .particle-25d {
-    position: relative;
     transform-style: preserve-3d;
 }
 
@@ -64,11 +66,12 @@
     100% { transform: rotate(225deg) skewY(-6deg) scale(1.4); opacity: 0; }
 }
 
-.hit-effect-physical .particle-25d-face { background: linear-gradient(135deg, #fda4af, #e11d48); }
+.hit-effect-physical .particle-25d-face { background: linear-gradient(135deg, #f8fafc, #cbd5e1); }
 .hit-effect-crit .particle-25d-face { background: linear-gradient(135deg, #fde047, #ca8a04); }
-.hit-effect-fire .particle-25d-face { background: linear-gradient(135deg, #fdba74, #ea580c); }
+.hit-effect-fire .particle-25d-face { background: linear-gradient(135deg, #fecaca, #ef4444); }
 .hit-effect-cold .particle-25d-face { background: linear-gradient(135deg, #bae6fd, #0284c7); }
 .hit-effect-lightning .particle-25d-face { background: linear-gradient(135deg, #fde047, #ca8a04); }
+.hit-effect-chaos .particle-25d-face { background: linear-gradient(135deg, #e9d5ff, #a855f7); }
 .hit-effect-spark .particle-25d-face { background: linear-gradient(135deg, #f0abfc, #c026d3); }
 
 .world-exp-orb {

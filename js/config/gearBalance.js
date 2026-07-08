@@ -20,5 +20,8 @@ export function gearIlvlMultiplier(ilvl) {
 export function boostGearStatValue(value, stat = '') {
     const boosted = value * GEAR_STAT_MULTIPLIER;
     if (stat === 'attackSpeed') return Math.round(boosted * 100) / 100;
+    if (stat === 'critChance' || stat === 'critMultiplier' || stat === 'evade') {
+        return Math.round(boosted * 10) / 10;
+    }
     return Math.floor(boosted);
 }

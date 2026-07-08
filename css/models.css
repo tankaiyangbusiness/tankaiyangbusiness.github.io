@@ -208,12 +208,12 @@
 .enemy-sprite-grunt::before { left: 18%; transform: rotate(-20deg); }
 .enemy-sprite-grunt::after { right: 18%; transform: rotate(20deg); }
 
-/* Swarm — bat creature */
+/* Swarm — bat creature (single layer wiggle for memory/CPU) */
 .enemy-swarm .enemy-sprite,
 .enemy-sprite-swarm {
     background: radial-gradient(circle, #fdba74, #ea580c);
     box-shadow: 0 0 8px rgba(234,88,12,0.5);
-    animation: swarm-wiggle 0.5s ease-in-out infinite alternate;
+    animation: swarm-wiggle 0.7s ease-in-out infinite alternate;
 }
 .enemy-sprite-swarm::before {
     content: '';

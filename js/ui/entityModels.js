@@ -1,4 +1,4 @@
-import { getPlayerSvg, getEnemySvg, getCharacterPreviewSvg, getCompanionSvg } from './svgSprites.js';
+import { getPlayerSvg, getEnemySvg, getCharacterPreviewSvg, getCompanionSvg, getTreasureChestSvg } from './svgSprites.js';
 
 /** Short badge labels shown on 2.5D enemy models (tooltip only — badge is a color cube). */
 export const ENEMY_TYPE_BADGES = {
@@ -22,6 +22,16 @@ export function buildEnemyModelHtml(typeConfig) {
             <div class="enemy-ground-shadow" aria-hidden="true"></div>
             <div class="enemy-sprite enemy-sprite-${typeConfig.type}">${getEnemySvg(typeConfig.type)}</div>
             <span class="enemy-type-badge enemy-type-cube" title="${label}" aria-label="${label}"></span>
+        </div>
+    `;
+}
+
+/** Dedicated 2.5D model for treasure chest bonus enemies. */
+export function buildTreasureChestModelHtml() {
+    return `
+        <div class="enemy-model-25d enemy-type-treasure">
+            <div class="enemy-ground-shadow treasure-chest-shadow" aria-hidden="true"></div>
+            <div class="enemy-sprite enemy-sprite-treasure">${getTreasureChestSvg()}</div>
         </div>
     `;
 }

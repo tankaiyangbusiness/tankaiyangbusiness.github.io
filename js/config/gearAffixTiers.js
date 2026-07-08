@@ -69,6 +69,14 @@ export const TIERED_PREFIXES = [
         ]
     },
     {
+        id: 'cruel', label: 'Cruel', stat: 'critMultiplier', slots: ['weapon', 'amulet', 'glove'],
+        tiers: [
+            { tier: 8, min: 4, max: 8 }, { tier: 7, min: 6, max: 12 }, { tier: 6, min: 8, max: 15 },
+            { tier: 5, min: 10, max: 18 }, { tier: 4, min: 12, max: 22 }, { tier: 3, min: 15, max: 26 },
+            { tier: 2, min: 18, max: 30 }, { tier: 1, min: 22, max: 36 }
+        ]
+    },
+    {
         id: 'regenerating', label: 'Regenerating', stat: 'hpRegen', slots: ['amulet', 'bodyArmour', 'ring'],
         tiers: [
             { tier: 8, min: 1, max: 3 }, { tier: 7, min: 2, max: 4 }, { tier: 6, min: 2, max: 6 },
@@ -129,6 +137,14 @@ export const TIERED_SUFFIXES = [
         ]
     },
     {
+        id: 'of_ferocity', label: 'of Ferocity', stat: 'critMultiplier', slots: ['weapon', 'amulet', 'ring'],
+        tiers: [
+            { tier: 8, min: 5, max: 10 }, { tier: 7, min: 8, max: 14 }, { tier: 6, min: 10, max: 18 },
+            { tier: 5, min: 12, max: 22 }, { tier: 4, min: 15, max: 26 }, { tier: 3, min: 18, max: 30 },
+            { tier: 2, min: 22, max: 34 }, { tier: 1, min: 26, max: 40 }
+        ]
+    },
+    {
         id: 'of_the_ghost', label: 'of the Ghost', stat: 'evade', slots: ['boot', 'helmet', 'glove'],
         tiers: [
             { tier: 8, min: 1, max: 3 }, { tier: 7, min: 2, max: 5 }, { tier: 6, min: 3, max: 7 },
@@ -154,6 +170,7 @@ export const BASE_STAT_TIER_DEF = {
     attackSpeed: 'quick',
     attackRange: 'long',
     critChance: 'deadly',
+    critMultiplier: 'cruel',
     hpRegen: 'regenerating',
     evade: 'of_the_ghost'
 };
@@ -198,11 +215,48 @@ export function rollTieredAffixValue(def, slot, ilvl) {
     };
 }
 
+/** Chance weight when selecting which affix rolls — higher = more common. */
+export const AFFIX_STAT_WEIGHTS = {
+    maxHp: 100,
+    armour: 70,
+    physicalDamage: 48,
+    attackSpeed: 32,
+    attackRange: 22,
+    hpRegen: 28,
+    /** Crit rolls intentionally rare on gear */
+    critMultiplier: 5,
+    critChance: 4,
+    evade: 8
+};
+
+/**
+ * Weighted random pick from affix defs (by their stat weight).
+ * @param {TieredAffixDef[]} candidates
+ * @returns {TieredAffixDef|null}
+ */
+export function pickWeightedAffixDef(candidates) {
+    if (!candidates.length) return null;
+    let total = 0;
+    const weights = candidates.map(def => {
+        const w = AFFIX_STAT_WEIGHTS[def.stat] ?? 20;
+        total += w;
+        return w;
+    });
+    if (total <= 0) return candidates[Math.floor(Math.random() * candidates.length)];
+    let roll = Math.random() * total;
+    for (let i = 0; i < candidates.length; i++) {
+        roll -= weights[i];
+        if (roll <= 0) return candidates[i];
+    }
+    return candidates[candidates.length - 1];
+}
+
 /** @param {TieredAffixDef[]} pool @param {string} slot @param {Set<string>} usedIds @param {number} ilvl */
 export function pickTieredAffix(pool, slot, usedIds, ilvl) {
     const candidates = pool.filter(a => (!a.slots || a.slots.includes(slot)) && !usedIds.has(a.id));
     if (candidates.length === 0) return null;
-    const def = candidates[Math.floor(Math.random() * candidates.length)];
+    const def = pickWeightedAffixDef(candidates);
+    if (!def) return null;
     const rolled = rollTieredAffixValue(def, slot, ilvl);
     if (!rolled) return null;
     usedIds.add(def.id);

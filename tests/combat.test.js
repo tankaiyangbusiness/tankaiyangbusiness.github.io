@@ -4,6 +4,7 @@ import {
     calculatePlayerIncomingDamage,
     calculateArmourMitigation,
     calculateLifesteal,
+    calculateReflectDamage,
     applyStatUpgrade,
     applyLevelUpBonuses,
     ARMOUR_MITIGATION_CAP,
@@ -56,6 +57,19 @@ describe('calculatePlayerDamage', () => {
             targetArmour: 100
         });
         expect(result.damage).toBe(1);
+    });
+});
+
+describe('calculateReflectDamage', () => {
+    it('returns percent of damage taken (5% per level)', () => {
+        expect(calculateReflectDamage(100, 0)).toBe(0);
+        expect(calculateReflectDamage(100, 1)).toBe(5);
+        expect(calculateReflectDamage(100, 5)).toBe(25);
+        expect(calculateReflectDamage(0, 3)).toBe(0);
+    });
+
+    it('never returns zero for positive taken damage when leveled', () => {
+        expect(calculateReflectDamage(1, 1)).toBe(1);
     });
 });
 
@@ -125,6 +139,30 @@ describe('calculatePlayerIncomingDamage', () => {
         });
         expect(pierced).toBeGreaterThan(mitigated);
         expect(pierced).toBe(40);
+    });
+
+    it('applies time-based enemy attack scaling when elapsedSeconds is provided', () => {
+        const early = calculatePlayerIncomingDamage({
+            enemyDamage: 100,
+            playerArmour: 0,
+            damageReductionLevel: 0,
+            elapsedSeconds: 0
+        });
+        const normal = calculatePlayerIncomingDamage({
+            enemyDamage: 100,
+            playerArmour: 0,
+            damageReductionLevel: 0,
+            elapsedSeconds: 480
+        });
+        const late = calculatePlayerIncomingDamage({
+            enemyDamage: 100,
+            playerArmour: 0,
+            damageReductionLevel: 0,
+            elapsedSeconds: 960
+        });
+        expect(early).toBe(90);
+        expect(normal).toBe(100);
+        expect(late).toBe(110);
     });
 });
 

@@ -1,8 +1,9 @@
-/** @typedef {'fireball' | 'iceNova' | 'lightningArc' | 'poisonBottle' | 'healingWave' | 'frostbolt' | 'righteousFire' | 'spark' | 'illusion'} SkillId */
+/** @typedef {'fireball' | 'iceNova' | 'lightningArc' | 'poisonBottle' | 'healingWave' | 'frostbolt' | 'righteousFire' | 'spark' | 'illusion' | 'poisonDagger' | 'hammerSweep' | 'throwSpear'} SkillId */
 
 export const SKILL_IDS = /** @type {const} */ ([
     'fireball', 'iceNova', 'lightningArc', 'poisonBottle', 'healingWave',
-    'frostbolt', 'righteousFire', 'spark', 'illusion'
+    'frostbolt', 'righteousFire', 'spark', 'illusion',
+    'poisonDagger', 'hammerSweep', 'throwSpear'
 ]);
 
 /** @returns {Record<SkillId, { level: number, maxLevel: number }>} */
@@ -16,7 +17,10 @@ export function createDefaultSkillList() {
         frostbolt: { level: 0, maxLevel: 5 },
         righteousFire: { level: 0, maxLevel: 5 },
         spark: { level: 0, maxLevel: 5 },
-        illusion: { level: 0, maxLevel: 5 }
+        illusion: { level: 0, maxLevel: 5 },
+        poisonDagger: { level: 0, maxLevel: 5 },
+        hammerSweep: { level: 0, maxLevel: 5 },
+        throwSpear: { level: 0, maxLevel: 5 }
     };
 }
 
@@ -24,7 +28,8 @@ export function createDefaultSkillList() {
 export function createInitialPlayerSkills() {
     return {
         fireball: 0, iceNova: 0, lightningArc: 0, poisonBottle: 0, healingWave: 0,
-        frostbolt: 0, righteousFire: 0, spark: 0, illusion: 0
+        frostbolt: 0, righteousFire: 0, spark: 0, illusion: 0,
+        poisonDagger: 0, hammerSweep: 0, throwSpear: 0
     };
 }
 
@@ -32,9 +37,29 @@ export function createInitialPlayerSkills() {
 export function createSkillCooldowns() {
     return {
         fireball: 0, iceNova: 0, lightningArc: 0, poisonBottle: 0, healingWave: 0,
-        frostbolt: 0, righteousFire: 0, spark: 0, illusion: 0
+        frostbolt: 0, righteousFire: 0, spark: 0, illusion: 0,
+        poisonDagger: 0, hammerSweep: 0, throwSpear: 0
     };
 }
+
+/** PoE-style skill tags for passives, tooltips, and damage rules. */
+export const SKILL_TAG_LABELS = {
+    fire: 'Fire',
+    cold: 'Cold',
+    lightning: 'Lightning',
+    chaos: 'Chaos',
+    holy: 'Holy',
+    arcane: 'Arcane',
+    physical: 'Physical',
+    elemental: 'Elemental',
+    healing: 'Healing',
+    area: 'Area',
+    projectile: 'Projectile',
+    chain: 'Chain',
+    fork: 'Fork',
+    aura: 'Aura',
+    minion: 'Minion'
+};
 
 /** Skill metadata for UI and tooltips */
 export const SKILL_DEFINITIONS = {
@@ -43,6 +68,7 @@ export const SKILL_DEFINITIONS = {
         name: 'Fireball',
         icon: '🔥',
         element: 'fire',
+        tags: ['fire', 'elemental', 'projectile', 'area'],
         rangeType: 'cast',
         description: 'Hurls an explosive fireball. Direct hit + AoE splash + burn DoT.',
         formatText(level, nextLevel) {
@@ -55,6 +81,7 @@ export const SKILL_DEFINITIONS = {
         name: 'Ice Nova',
         icon: '❄️',
         element: 'cold',
+        tags: ['cold', 'elemental', 'area'],
         rangeType: 'area',
         description: 'Freezing wave around you. Damages all nearby enemies and slows them.',
         formatText(level, nextLevel) {
@@ -68,6 +95,7 @@ export const SKILL_DEFINITIONS = {
         name: 'Lightning Arc',
         icon: '⚡',
         element: 'lightning',
+        tags: ['lightning', 'elemental', 'chain'],
         rangeType: 'cast',
         description: 'Instant arc that chains through multiple enemies.',
         formatText(level, nextLevel) {
@@ -77,21 +105,23 @@ export const SKILL_DEFINITIONS = {
     },
     poisonBottle: {
         id: 'poisonBottle',
-        name: 'Poison Bottle',
+        name: 'Chaos Bottle',
         icon: '🧪',
-        element: 'poison',
+        element: 'chaos',
+        tags: ['chaos', 'projectile', 'area'],
         rangeType: 'cast',
-        description: 'Throws a toxic bottle that shatters into a poison pool on the ground.',
+        description: 'Throws a chaos flask that shatters into a toxic ground pool.',
         formatText(level, nextLevel) {
             const cfg = getPoisonBottleConfig(nextLevel);
-            return `Poison Bottle Lv.${nextLevel}: ${Math.round(cfg.directDamageMult * 100)}% impact, pool ${cfg.poolDuration / 1000}s, ${Math.round(cfg.tickDamageMult * 100)}%/tick. Pool r${cfg.poolRadius}px`;
+            return `Chaos Bottle Lv.${nextLevel}: ${Math.round(cfg.directDamageMult * 100)}% impact, pool ${cfg.poolDuration / 1000}s, ${Math.round(cfg.tickDamageMult * 100)}%/tick. Pool r${cfg.poolRadius}px`;
         }
     },
     healingWave: {
         id: 'healingWave',
         name: 'Healing Wave',
         icon: '💚',
-        element: 'holy',
+        element: 'heal',
+        tags: ['holy', 'healing'],
         rangeType: 'self',
         description: 'Restores a portion of your max HP. Auto-casts when injured.',
         formatText(level, nextLevel) {
@@ -104,11 +134,12 @@ export const SKILL_DEFINITIONS = {
         name: 'Frostbolt',
         icon: '🧊',
         element: 'cold',
+        tags: ['cold', 'elemental', 'projectile'],
         rangeType: 'cast',
         description: 'Slow frost shard — pierces every enemy in its path (once each). Long cooldown.',
         formatText(level, nextLevel) {
             const cfg = getFrostboltConfig(nextLevel);
-            return `Frostbolt Lv.${nextLevel}: ${Math.round(cfg.damageMult * 100)}% cold, range ${cfg.castRange}px`;
+            return `Frostbolt Lv.${nextLevel}: ${Math.round(cfg.damageMult * 100)}% cold, unlimited pierce, range ${cfg.castRange}px`;
         }
     },
     righteousFire: {
@@ -116,6 +147,7 @@ export const SKILL_DEFINITIONS = {
         name: 'Righteous Fire',
         icon: '🔥',
         element: 'fire',
+        tags: ['fire', 'elemental', 'aura', 'area'],
         rangeType: 'aura',
         description: 'PoE-style burning aura — constant fire DoT around you while active.',
         formatText(level, nextLevel) {
@@ -128,11 +160,12 @@ export const SKILL_DEFINITIONS = {
         name: 'Spark',
         icon: '✨',
         element: 'lightning',
+        tags: ['lightning', 'elemental', 'projectile'],
         rangeType: 'cast',
-        description: 'Slow magenta arc sparks — wander with random turns and zap on contact.',
+        description: 'PoE-style sparks from your center — spider out in random directions with a large hit bubble. Pierce 2.',
         formatText(level, nextLevel) {
             const cfg = getSparkConfig(nextLevel);
-            return `Spark Lv.${nextLevel}: ${cfg.sparkCount} sparks, ${Math.round(cfg.damageMult * 100)}% dmg, ${cfg.duration / 1000}s`;
+            return `Spark Lv.${nextLevel}: ${cfg.sparkCount} sparks, ${Math.round(cfg.damageMult * 100)}% dmg, pierce ${cfg.maxPierce}, AOE ${cfg.hitRadiusVw.toFixed(1)}vw`;
         }
     },
     illusion: {
@@ -140,18 +173,58 @@ export const SKILL_DEFINITIONS = {
         name: 'Illusion',
         icon: '◈',
         element: 'arcane',
+        tags: ['arcane', 'minion'],
         rangeType: 'self',
-        description: 'Summons an invulnerable clone beside you. Mirrors your basic attacks at reduced damage with your passives.',
+        description: 'Summons an invulnerable clone beside you. Mirrors your basic attacks at reduced damage within your attack range (AOE).',
         formatText(level, nextLevel) {
             const cfg = getIllusionConfig(nextLevel);
-            return `Illusion Lv.${nextLevel}: ${cfg.damagePercent}% clone damage, ${(cfg.duration / 1000).toFixed(1)}s duration, ${(cfg.cooldown / 1000).toFixed(1)}s cooldown`;
+            return `Illusion Lv.${nextLevel}: ${cfg.damagePercent}% clone damage, your AOE range, ${(cfg.duration / 1000).toFixed(1)}s duration, ${(cfg.cooldown / 1000).toFixed(1)}s cooldown`;
+        }
+    },
+    poisonDagger: {
+        id: 'poisonDagger',
+        name: 'Poison Dagger',
+        icon: '🗡️',
+        element: 'chaos',
+        tags: ['chaos', 'projectile', 'fork'],
+        rangeType: 'cast',
+        description: 'Throws a chaos dagger. On hit, forks into extra angled daggers that continue traveling.',
+        formatText(level, nextLevel) {
+            const cfg = getPoisonDaggerConfig(nextLevel);
+            return `Poison Dagger Lv.${nextLevel}: ${Math.round(cfg.damageMult * 100)}% hit, fork ×${cfg.forkCount}, ${Math.round(cfg.forkDamageMult * 100)}% fork dmg. Range ${cfg.castRange}px`;
+        }
+    },
+    hammerSweep: {
+        id: 'hammerSweep',
+        name: 'Hammer Sweep',
+        icon: '🔨',
+        element: 'physical',
+        tags: ['physical', 'area'],
+        rangeType: 'area',
+        description: 'Sweeping hammer smash — deals physical damage to all enemies around you.',
+        formatText(level, nextLevel) {
+            const cfg = getHammerSweepConfig(nextLevel);
+            return `Hammer Sweep Lv.${nextLevel}: ${Math.round(cfg.damageMult * 100)}% physical AoE. Radius ${cfg.radius}px`;
+        }
+    },
+    throwSpear: {
+        id: 'throwSpear',
+        name: 'Throw Spear',
+        icon: '🔱',
+        element: 'physical',
+        tags: ['physical', 'projectile'],
+        rangeType: 'cast',
+        description: 'Hurls a spear in a straight line. Pierces up to 6 enemies beyond the first (7 unique hits max).',
+        formatText(level, nextLevel) {
+            const cfg = getThrowSpearConfig(nextLevel);
+            return `Throw Spear Lv.${nextLevel}: ${Math.round(cfg.damageMult * 100)}% physical, pierce ${cfg.maxPierce}, range ${cfg.castRange}px`;
         }
     }
 };
 
 export function getFireballConfig(level) {
     if (level <= 0) {
-        return { cooldown: Infinity, castRange: 0, directDamageMult: 0, splashRadius: 0, splashDamageMult: 0, burnTotalMult: 0, burnDuration: 0, projectileSpeed: 0 };
+        return { cooldown: Infinity, castRange: 0, directDamageMult: 0, splashRadius: 0, splashDamageMult: 0, burnTotalMult: 0, burnDuration: 0, projectileSpeed: 0, maxPierce: 0 };
     }
     return {
         cooldown: Math.max(1200, 2500 - level * 200),
@@ -161,7 +234,9 @@ export function getFireballConfig(level) {
         splashDamageMult: 0.32 + level * 0.06,
         burnTotalMult: 0.12 + level * 0.05,
         burnDuration: 3500,
-        projectileSpeed: 0.95 + level * 0.06
+        projectileSpeed: 0.95 + level * 0.06,
+        /** No pierce — first hit explodes */
+        maxPierce: 0
     };
 }
 
@@ -220,14 +295,16 @@ export function getHealingWaveConfig(level) {
 
 export function getFrostboltConfig(level) {
     if (level <= 0) {
-        return { cooldown: Infinity, castRange: 0, damageMult: 0, projectileSpeed: 0, maxTravel: 0 };
+        return { cooldown: Infinity, castRange: 0, damageMult: 0, projectileSpeed: 0, maxTravel: 0, maxPierce: 0 };
     }
     return {
         cooldown: Math.max(2800, 4800 - level * 320),
         castRange: 200 + level * 35,
         damageMult: 0.55 + level * 0.1,
-        projectileSpeed: 0.32 + level * 0.04,
-        maxTravel: 420 + level * 55,
+        projectileSpeed: 0.55 + level * 0.05,
+        maxTravel: 55 + level * 8,
+        /** Unlimited pierce — travel distance ends the bolt */
+        maxPierce: Infinity,
         pierceAll: true
     };
 }
@@ -236,25 +313,33 @@ export function getRighteousFireConfig(level) {
     if (level <= 0) {
         return { radius: 0, tickDamageMult: 0, tickInterval: 0 };
     }
+    const baseRadius = 55 + level * 18;
     return {
-        radius: 55 + level * 18,
-        tickDamageMult: 0.06 + level * 0.025,
+        radius: Math.round(baseRadius * 1.5),
+        /** Lv.1 = 12%, then +2.5% per level */
+        tickDamageMult: 0.095 + level * 0.025,
         tickInterval: Math.max(400, 650 - level * 40)
     };
 }
 
 export function getSparkConfig(level) {
     if (level <= 0) {
-        return { cooldown: Infinity, sparkCount: 0, damageMult: 0, duration: 0, speed: 0 };
+        return { cooldown: Infinity, sparkCount: 0, damageMult: 0, duration: 0, speed: 0, hitRadiusVw: 0, maxPierce: 0 };
     }
     return {
         cooldown: Math.max(1600, 3000 - level * 240),
-        sparkCount: 2 + level,
+        /** PoE-style swarm from center */
+        sparkCount: 4 + level,
         damageMult: 0.28 + level * 0.06,
-        duration: 2400 + level * 380,
-        speed: 0.55 + level * 0.06,
-        wanderChance: 0.28,
-        wanderTurn: 1.8
+        duration: 2800 + level * 400,
+        /** Slowish spider crawl */
+        speed: 0.42 + level * 0.045,
+        wanderChance: 0.38,
+        wanderTurn: 2.2,
+        /** Large hit bubble (vw) — PoE Spark AOE feel */
+        hitRadiusVw: 6.8 + level * 0.55,
+        /** Pierce 2: dies after 3 unique enemy hits */
+        maxPierce: 2
     };
 }
 
@@ -263,11 +348,62 @@ export function getIllusionConfig(level) {
         return { cooldown: Infinity, duration: 0, damagePercent: 0, offsetVw: 0 };
     }
     return {
-        cooldown: Math.max(8000, 16000 - level * 1400),
+        /** Faster resummon — ~9.8s at Lv.1 down to 5s floor at Lv.5 */
+        cooldown: Math.max(5000, 11000 - level * 1200),
         duration: 4500 + level * 900,
         /** 30% at Lv.1 → 60% at Lv.5 */
         damagePercent: 30 + (level - 1) * 7.5,
         offsetVw: 4.5
+    };
+}
+
+export function getPoisonDaggerConfig(level) {
+    if (level <= 0) {
+        return {
+            cooldown: Infinity, castRange: 0, damageMult: 0, forkCount: 0,
+            forkDamageMult: 0, projectileSpeed: 0, forkTravel: 0, hitRadiusVw: 0
+        };
+    }
+    return {
+        cooldown: Math.max(1400, 2800 - level * 220),
+        castRange: 190 + level * 30,
+        damageMult: 0.5 + level * 0.09,
+        /** Primary dagger forks into this many secondary blades on first hit */
+        forkCount: 1 + level,
+        forkDamageMult: 0.32 + level * 0.06,
+        forkSpreadRad: 0.55,
+        projectileSpeed: 0.85 + level * 0.05,
+        maxTravel: 48 + level * 6,
+        forkTravel: 28 + level * 4,
+        hitRadiusVw: 2.4 + level * 0.15
+    };
+}
+
+export function getHammerSweepConfig(level) {
+    if (level <= 0) {
+        return { cooldown: Infinity, radius: 0, damageMult: 0 };
+    }
+    return {
+        cooldown: Math.max(1800, 3600 - level * 280),
+        radius: 75 + level * 20,
+        /** Lv.1 = 96%, then +12% per level */
+        damageMult: 0.84 + level * 0.12
+    };
+}
+
+export function getThrowSpearConfig(level) {
+    if (level <= 0) {
+        return { cooldown: Infinity, castRange: 0, damageMult: 0, projectileSpeed: 0, maxTravel: 0, hitRadiusVw: 0, maxPierce: 0 };
+    }
+    return {
+        cooldown: Math.max(1600, 3200 - level * 250),
+        castRange: 220 + level * 35,
+        damageMult: 0.62 + level * 0.1,
+        projectileSpeed: 0.72 + level * 0.05,
+        maxTravel: 58 + level * 8,
+        hitRadiusVw: 2.6 + level * 0.2,
+        /** Pierce 6: disappears after hitting a 7th unique enemy */
+        maxPierce: 6
     };
 }
 
@@ -283,18 +419,29 @@ export function getSkillConfig(id, level) {
         case 'righteousFire': return getRighteousFireConfig(level);
         case 'spark': return getSparkConfig(level);
         case 'illusion': return getIllusionConfig(level);
+        case 'poisonDagger': return getPoisonDaggerConfig(level);
+        case 'hammerSweep': return getHammerSweepConfig(level);
+        case 'throwSpear': return getThrowSpearConfig(level);
         default: return {};
     }
 }
 
 /** Pixel radius for HUD range rings */
-export function getSkillDisplayRadius(id, level) {
+export function getSkillDisplayRadius(id, level, playerAttackRange = 0) {
     const cfg = getSkillConfig(id, level);
-    if (id === 'iceNova') return cfg.radius;
+    if (id === 'illusion') return Math.max(0, Number(playerAttackRange) || 0);
+    if (id === 'iceNova' || id === 'hammerSweep') return cfg.radius;
     if (id === 'righteousFire') return cfg.radius;
     if (id === 'healingWave') return 0;
-    if (id === 'illusion') return 0;
-    if (id === 'fireball' || id === 'lightningArc' || id === 'poisonBottle' || id === 'frostbolt') return cfg.castRange;
+    if (id === 'spark') {
+        return (cfg.hitRadiusVw || 0) * (typeof window !== 'undefined' ? window.innerWidth : 1000) / 100;
+    }
+    if (
+        id === 'fireball' || id === 'lightningArc' || id === 'poisonBottle'
+        || id === 'frostbolt' || id === 'poisonDagger' || id === 'throwSpear'
+    ) {
+        return cfg.castRange;
+    }
     return 0;
 }
 
@@ -337,7 +484,16 @@ export function computeSkillDamage(baseDamage, id, level) {
     if (id === 'frostbolt') return Math.floor(baseDamage * cfg.damageMult);
     if (id === 'spark') return Math.floor(baseDamage * cfg.damageMult);
     if (id === 'righteousFire') return Math.max(1, Math.floor(baseDamage * cfg.tickDamageMult));
+    if (id === 'poisonDagger') return Math.floor(baseDamage * cfg.damageMult);
+    if (id === 'hammerSweep') return Math.floor(baseDamage * cfg.damageMult);
+    if (id === 'throwSpear') return Math.floor(baseDamage * cfg.damageMult);
     return 0;
+}
+
+/** Fork projectile damage for Poison Dagger secondary blades. */
+export function computePoisonDaggerForkDamage(baseDamage, level) {
+    const cfg = getPoisonDaggerConfig(level);
+    return Math.max(1, Math.floor(baseDamage * cfg.forkDamageMult));
 }
 
 export function computeSplashDamage(baseDamage, level) {
@@ -352,8 +508,43 @@ export function computePoisonTickDamage(baseDamage, level) {
     return Math.max(1, Math.floor(baseDamage * getPoisonBottleConfig(level).tickDamageMult));
 }
 
-/** Total ticks in a poison pool lifetime */
+/** Total ticks in a poison/chaos pool lifetime */
 export function computePoisonPoolTicks(level) {
     const cfg = getPoisonBottleConfig(level);
     return Math.floor(cfg.poolDuration / cfg.tickInterval);
+}
+
+/** @param {SkillId} skillId */
+export function getSkillTags(skillId) {
+    return SKILL_DEFINITIONS[skillId]?.tags || [];
+}
+
+/** @param {SkillId} skillId @param {string} tag */
+export function skillHasTag(skillId, tag) {
+    return getSkillTags(skillId).includes(tag);
+}
+
+/** @param {string[]} tags */
+export function formatSkillTagsHtml(tags = []) {
+    if (!tags.length) return '';
+    return tags.map(tag => {
+        const label = SKILL_TAG_LABELS[tag] || tag;
+        return `<span class="skill-tag skill-tag-${tag}">${label}</span>`;
+    }).join('');
+}
+
+/** Rich HTML for skill bar hover tooltip. */
+export function formatSkillTooltipHtml(def, level = 0) {
+    if (!def) return '';
+    const tagsHtml = formatSkillTagsHtml(def.tags || []);
+    const statsLine = level > 0 && def.formatText
+        ? def.formatText(level, level)
+        : '';
+    return `
+        <strong class="skill-tip-name">${def.name}</strong>
+        ${tagsHtml ? `<div class="skill-tip-tags">${tagsHtml}</div>` : ''}
+        <p class="skill-tip-desc">${def.description}</p>
+        ${statsLine ? `<p class="skill-tip-stats">${statsLine}</p>` : ''}
+        ${level <= 0 ? '<p class="skill-tip-locked">Not learned — level up to unlock</p>' : ''}
+    `;
 }

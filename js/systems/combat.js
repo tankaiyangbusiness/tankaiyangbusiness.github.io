@@ -1,4 +1,5 @@
 import { rollChance } from '../utils/math.js';
+import { scaleEnemyAttackDamageForElapsed } from '../config/balance.js';
 
 /** Armour constant for diminishing-returns formula — higher = less reduction per point. */
 export const ARMOUR_MITIGATION_K = 40;
@@ -44,14 +45,14 @@ export function calculatePlayerDamage(params) {
     if (abilities.regenToDamageLevel > 0) {
         damage += hpRegen * abilities.regenToDamageLevel * 50 / 100;
     }
-    if (isReflect && abilities.reflectLevel > 0) {
-        damage = abilities.reflectLevel * 5 / 100 * damage;
-    }
     if (isBounce && abilities.bounceLevel > 0) {
         damage = (60 + 10 * (abilities.bounceLevel - 1)) / 100 * damage;
     }
 
-    const isCritical = rollChance(critChance);
+    // Reflect damage is computed separately via calculateReflectDamage (from damage taken).
+    // isReflect path no longer uses % of player attack — kept only for bounce/HP-dmg nesting.
+
+    const isCritical = !isReflect && rollChance(critChance);
     if (isCritical) {
         damage *= critMultiplier / 100;
     }
@@ -60,15 +61,38 @@ export function calculatePlayerDamage(params) {
 }
 
 /**
+ * Return-damage (Reflect) = % of damage the player just took.
+ * @param {number} damageTaken
+ * @param {number} reflectLevel 1–5 → 5%–25%
+ */
+export function calculateReflectDamage(damageTaken, reflectLevel) {
+    if (reflectLevel <= 0 || damageTaken <= 0) return 0;
+    return Math.max(1, Math.floor(damageTaken * reflectLevel * 5 / 100));
+}
+
+/**
  * Incoming damage after armour and Damage Reduction ability.
  * Always deals at least 1 — high armour never grants full immunity.
  * @param {object} params
+ * @param {number} [params.elapsedSeconds] When set, applies time-based enemy attack scaling.
  * @returns {number}
  */
 export function calculatePlayerIncomingDamage(params) {
-    const { enemyDamage, playerArmour, damageReductionLevel, ignoreArmour = false } = params;
-    const mitigation = ignoreArmour ? 0 : calculateArmourMitigation(playerArmour, enemyDamage);
-    let damage = enemyDamage * (1 - mitigation);
+    const {
+        enemyDamage,
+        playerArmour,
+        damageReductionLevel,
+        ignoreArmour = false,
+        elapsedSeconds
+    } = params;
+
+    let scaledDamage = enemyDamage;
+    if (typeof elapsedSeconds === 'number') {
+        scaledDamage = scaleEnemyAttackDamageForElapsed(enemyDamage, elapsedSeconds);
+    }
+
+    const mitigation = ignoreArmour ? 0 : calculateArmourMitigation(playerArmour, scaledDamage);
+    let damage = scaledDamage * (1 - mitigation);
 
     if (damageReductionLevel > 0) {
         damage *= (1 - damageReductionLevel * 0.04);

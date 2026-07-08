@@ -40,9 +40,15 @@
     animation: lightning-ring-pulse 2s ease-in-out infinite;
 }
 
-.skill-range-ring.skill-range-poison {
-    border-color: rgba(132, 204, 22, 0.85);
-    background: radial-gradient(circle, rgba(132,204,22,0.1), transparent 70%);
+.skill-range-ring.skill-range-poison,
+.skill-range-ring.skill-range-chaos {
+    border-color: rgba(192, 132, 252, 0.85);
+    background: radial-gradient(circle, rgba(168,85,247,0.12), transparent 70%);
+}
+
+.skill-range-ring.skill-range-physical {
+    border-color: rgba(248, 250, 252, 0.75);
+    background: radial-gradient(circle, rgba(226,232,240,0.1), transparent 70%);
 }
 
 .skill-range-label {
@@ -61,7 +67,9 @@
 .skill-range-fire .skill-range-label { color: #fb923c; }
 .skill-range-cold .skill-range-label { color: #7dd3fc; }
 .skill-range-lightning .skill-range-label { color: #fde047; }
-.skill-range-poison .skill-range-label { color: #a3e635; }
+.skill-range-poison .skill-range-label,
+.skill-range-chaos .skill-range-label { color: #d8b4fe; }
+.skill-range-physical .skill-range-label { color: #e2e8f0; }
 
 .skill-range-cast {
     opacity: 1 !important;
@@ -98,9 +106,15 @@
     background: radial-gradient(circle, rgba(191,219,254,0.5), rgba(56,189,248,0.15), transparent 70%);
 }
 
-.skill-impact-poison {
-    border-color: rgba(132,204,22,0.9);
-    background: radial-gradient(circle, rgba(163,230,53,0.35), rgba(77,124,15,0.15), transparent 70%);
+.skill-impact-poison,
+.skill-impact-chaos {
+    border-color: rgba(192,132,252,0.9);
+    background: radial-gradient(circle, rgba(216,180,254,0.4), rgba(126,34,206,0.18), transparent 70%);
+}
+
+.skill-impact-physical {
+    border-color: rgba(248,250,252,0.85);
+    background: radial-gradient(circle, rgba(226,232,240,0.4), rgba(148,163,184,0.12), transparent 70%);
 }
 
 .skill-impact-lightning {
@@ -145,14 +159,139 @@
     background: transparent !important;
 }
 
-.poison-bottle-icon {
+.poison-bottle-icon,
+.chaos-bottle-icon {
     width: 100%;
     height: 100%;
-    background: linear-gradient(180deg, #4d7c0f 30%, #84cc16 60%, #a3e635);
+    background: linear-gradient(180deg, #6b21a8 30%, #a855f7 60%, #d8b4fe);
     border-radius: 4px 4px 8px 8px;
-    border: 2px solid #365314;
-    box-shadow: 0 0 12px rgba(132,204,22,0.7);
+    border: 2px solid #581c87;
+    box-shadow: 0 0 12px rgba(168,85,247,0.75);
     position: relative;
+}
+
+.skill-poison-dagger {
+    width: 18px !important;
+    height: 28px !important;
+    background: transparent !important;
+}
+
+.skill-poison-dagger .particle-25d-face {
+    background: linear-gradient(135deg, #f3e8ff, #a855f7 45%, #6b21a8);
+    box-shadow: 0 0 12px #c084fc;
+    border-radius: 2px 2px 40% 40%;
+}
+
+.skill-throw-spear {
+    width: 14px !important;
+    height: 42px !important;
+    background: transparent !important;
+}
+
+.skill-throw-spear .particle-25d-face {
+    background: linear-gradient(180deg, #f8fafc, #94a3b8 55%, #475569);
+    box-shadow: 0 0 10px rgba(226,232,240,0.6);
+    border-radius: 2px;
+    transform: none;
+}
+
+.skill-hammer-sweep {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 7;
+    border: 3px solid rgba(248, 250, 252, 0.75);
+    background: radial-gradient(circle, rgba(226,232,240,0.35), rgba(148,163,184,0.12), transparent 72%);
+    box-shadow: 0 0 28px rgba(226,232,240,0.35);
+    animation: hammer-sweep-expand 0.65s ease-out forwards;
+    overflow: visible;
+}
+
+.hammer-sweep-head {
+    position: absolute;
+    left: 50%;
+    top: 18%;
+    width: 18px;
+    height: 18px;
+    margin-left: -9px;
+    border-radius: 3px;
+    background: linear-gradient(145deg, #f8fafc, #64748b);
+    box-shadow: 0 0 10px rgba(248,250,252,0.6);
+    animation: hammer-head-arc 0.55s ease-out forwards;
+}
+
+.hammer-sweep-shard {
+    position: absolute;
+    width: 10px;
+    height: 18px;
+    transform: translate(-50%, -50%);
+    background: linear-gradient(180deg, #f8fafc, #94a3b8);
+    border-radius: 2px;
+    box-shadow: 0 0 8px rgba(226,232,240,0.55);
+    animation: hammer-shard-fly 0.55s ease-out forwards;
+    pointer-events: none;
+    z-index: 8;
+}
+
+@keyframes hammer-sweep-expand {
+    0% { transform: translate(-50%, -50%) scale(0.2); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(1.05); opacity: 0; }
+}
+
+@keyframes hammer-head-arc {
+    0% { transform: rotate(-40deg) scale(0.7); opacity: 1; }
+    100% { transform: rotate(220deg) scale(1.1); opacity: 0; }
+}
+
+@keyframes hammer-shard-fly {
+    0% { transform: translate(-50%, -50%) scale(0.4); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(1.3); opacity: 0; }
+}
+
+.skill-throw-spear-fly .spear-trail {
+    position: absolute;
+    left: 50%;
+    top: 55%;
+    width: 6px;
+    height: 28px;
+    transform: translateX(-50%);
+    background: linear-gradient(180deg, rgba(248,250,252,0.75), transparent);
+    border-radius: 2px;
+    animation: spear-trail-pulse 0.25s ease-in-out infinite alternate;
+    pointer-events: none;
+}
+
+@keyframes spear-trail-pulse {
+    from { opacity: 0.45; height: 22px; }
+    to { opacity: 0.9; height: 34px; }
+}
+
+.skill-poison-dagger-fly .dagger-trail {
+    position: absolute;
+    left: 50%;
+    top: 60%;
+    width: 5px;
+    height: 20px;
+    transform: translateX(-50%);
+    background: linear-gradient(180deg, rgba(192,132,252,0.85), transparent);
+    border-radius: 2px;
+    animation: dagger-trail-pulse 0.2s ease-in-out infinite alternate;
+    pointer-events: none;
+}
+
+@keyframes dagger-trail-pulse {
+    from { opacity: 0.5; }
+    to { opacity: 1; filter: brightness(1.3); }
+}
+
+.skill-poison-dagger-fly {
+    animation: dagger-spin-subtle 0.35s linear infinite;
+}
+
+@keyframes dagger-spin-subtle {
+    from { filter: brightness(1); }
+    to { filter: brightness(1.25); }
 }
 
 .skill-ice-nova-enhanced {
@@ -191,8 +330,8 @@
     width: 100%;
     height: 100%;
     border-radius: 50%;
-    background: radial-gradient(circle, rgba(163,230,53,0.55), rgba(77,124,15,0.35) 50%, rgba(54,83,20,0.2) 80%);
-    border: 2px dashed rgba(163,230,53,0.6);
+    background: radial-gradient(circle, rgba(216,180,254,0.55), rgba(126,34,206,0.35) 50%, rgba(76,29,149,0.2) 80%);
+    border: 2px dashed rgba(192,132,252,0.65);
 }
 
 .poison-pool-active { opacity: 1; }
@@ -213,9 +352,15 @@
     box-shadow: 0 0 50px #f97316;
 }
 
-.mega-explosion-poison {
-    background: radial-gradient(circle, rgba(190,242,100,0.9), rgba(132,204,22,0.5), transparent 70%);
-    box-shadow: 0 0 40px #84cc16;
+.mega-explosion-poison,
+.mega-explosion-chaos {
+    background: radial-gradient(circle, rgba(233,213,255,0.95), rgba(168,85,247,0.55), transparent 70%);
+    box-shadow: 0 0 40px #a855f7;
+}
+
+.mega-explosion-physical {
+    background: radial-gradient(circle, rgba(248,250,252,0.9), rgba(148,163,184,0.45), transparent 70%);
+    box-shadow: 0 0 36px rgba(226,232,240,0.55);
 }
 
 @keyframes mega-burst {
@@ -234,32 +379,39 @@
     animation: cast-flash-burst 0.45s ease-out forwards;
 }
 
-.cast-flash-fire { background: radial-gradient(circle, rgba(251,146,60,0.85), transparent 70%); }
+.cast-flash-fire { background: radial-gradient(circle, rgba(239,68,68,0.85), transparent 70%); }
 .cast-flash-cold { background: radial-gradient(circle, rgba(125,211,252,0.85), transparent 70%); }
 .cast-flash-lightning { background: radial-gradient(circle, rgba(250,204,21,0.85), transparent 70%); }
-.cast-flash-poison { background: radial-gradient(circle, rgba(163,230,53,0.85), transparent 70%); }
+.cast-flash-poison,
+.cast-flash-chaos { background: radial-gradient(circle, rgba(192,132,252,0.85), transparent 70%); }
+.cast-flash-physical { background: radial-gradient(circle, rgba(248,250,252,0.85), transparent 70%); }
 .cast-flash-heal { background: radial-gradient(circle, rgba(74,222,128,0.9), transparent 70%); }
 
 .damage-heal { color: #4ade80; text-shadow: 0 0 8px #22c55e; }
+.damage-chaos { color: #c084fc; text-shadow: 0 0 8px rgba(168,85,247,0.65); }
+.damage-physical { color: #f8fafc; text-shadow: 0 0 4px rgba(255,255,255,0.35); }
 
 .lightning-bolt-enhanced {
     height: 5px !important;
     box-shadow: 0 0 16px #facc15, 0 0 32px #eab308 !important;
 }
 
-.hit-effect-poison {
-    background: radial-gradient(circle, rgba(163,230,53,0.9), transparent) !important;
+.hit-effect-poison,
+.hit-effect-chaos {
+    background: radial-gradient(circle, rgba(192,132,252,0.9), transparent) !important;
 }
 
-.damage-poison { color: #84cc16; text-shadow: 0 0 8px #65a30d; }
+.damage-poison { color: #c084fc; text-shadow: 0 0 8px rgba(168,85,247,0.65); }
 
-/* Frostbolt — slow piercing cold shard */
+/* Frostbolt — slow piercing cold shard; always position:absolute from screen center */
 .skill-frostbolt {
-    width: 14px;
-    height: 14px;
+    position: absolute !important;
+    width: 18px;
+    height: 18px;
     transform: translate(-50%, -50%);
     pointer-events: none;
-    z-index: 10;
+    z-index: 12;
+    filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.85));
 }
 
 .skill-frostbolt .particle-25d-face {
@@ -267,21 +419,91 @@
     box-shadow: 0 0 12px #38bdf8, 0 0 20px rgba(56, 189, 248, 0.45);
 }
 
-/* Spark — slow magenta wandering arcs */
+.skill-frostbolt-fly .frostbolt-trail {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 28px;
+    height: 6px;
+    transform: translate(-90%, -50%);
+    border-radius: 4px;
+    background: linear-gradient(90deg, transparent, rgba(125, 211, 252, 0.55));
+    pointer-events: none;
+    z-index: -1;
+}
+
+/* Spark origin flash at player center */
+.spark-origin-burst {
+    position: absolute;
+    width: 54px;
+    height: 54px;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 9;
+    background: radial-gradient(circle, rgba(240, 171, 252, 0.75), rgba(168, 85, 247, 0.2), transparent 70%);
+    box-shadow: 0 0 24px rgba(192, 38, 211, 0.55);
+    animation: spark-origin-burst 0.4s ease-out forwards;
+}
+
+@keyframes spark-origin-burst {
+    0% { transform: translate(-50%, -50%) scale(0.3); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(1.6); opacity: 0; }
+}
+
+/* Spark — PoE-style spider arcs with large AOE bubble */
 .skill-spark {
     position: absolute;
-    width: 9px;
-    height: 9px;
+    width: 18px;
+    height: 18px;
     transform: translate(-50%, -50%);
     pointer-events: none;
     z-index: 10;
+    overflow: visible;
     animation: spark-flicker 0.15s ease-in-out infinite alternate;
 }
 
-.skill-spark-arc .particle-25d-face {
-    background: linear-gradient(135deg, #f0abfc, #c026d3);
-    box-shadow: 0 0 10px #e879f9, 0 0 16px rgba(192, 38, 211, 0.55);
+.skill-spark .particle-25d-face {
+    position: relative;
+    z-index: 2;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, #fdf4ff, #e879f9 40%, #a21caf);
+    box-shadow: 0 0 12px #e879f9, 0 0 22px rgba(192, 38, 211, 0.65);
 }
+
+.spark-core-glow {
+    position: absolute;
+    inset: -55%;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(240, 171, 252, 0.65), transparent 70%);
+    z-index: 1;
+    pointer-events: none;
+}
+
+.spark-aoe-ring {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    border: 2px solid rgba(232, 121, 249, 0.75);
+    background: radial-gradient(circle, rgba(192, 38, 211, 0.28), rgba(232, 121, 249, 0.1) 50%, transparent 74%);
+    box-shadow:
+        0 0 18px rgba(232, 121, 249, 0.5),
+        inset 0 0 22px rgba(192, 38, 211, 0.2);
+    pointer-events: none;
+    z-index: 0;
+    animation: spark-aoe-pulse 0.65s ease-in-out infinite alternate;
+}
+
+@keyframes spark-aoe-pulse {
+    from { opacity: 0.55; }
+    to { opacity: 0.95; }
+}
+
+.skill-range-arcane .skill-range-label,
+.skill-range-lightning .skill-range-label { color: #e879f9; }
 
 /* Righteous Fire aura tick */
 .skill-righteous-fire-aura {

@@ -60,7 +60,7 @@ export const CHARACTERS = [
     },
     {
         name: 'Necromancer', role: 'DoT', modelClass: 'necromancer',
-        description: 'Master of poison and decay. Synergizes with Poison Bottle.',
+        description: 'Master of chaos and decay. Synergizes with Chaos Bottle & Poison Dagger.',
         stats: {
             hp: 340, maxHp: 340, physicalDamage: 26, attackSpeed: 1.9,
             attackRange: 175, critChance: 8, critMultiplier: 160,
@@ -116,6 +116,16 @@ export const CHARACTERS = [
             attackRange: 115, critChance: 3, critMultiplier: 130,
             armour: 40, evade: 5, hpRegen: 28, level: 1, exp: 0,
             expGain: 0.95, expThreshold: BASE_EXP, buffList: {}, skills: baseSkills()
+        }
+    },
+    {
+        name: 'Slayer', role: 'Physical', modelClass: 'slayer',
+        description: 'Weapon specialist. Physical hits and skills strike much harder.',
+        stats: {
+            hp: 520, maxHp: 520, physicalDamage: 40, attackSpeed: 1.85,
+            attackRange: 120, critChance: 10, critMultiplier: 175,
+            armour: 22, evade: 12, hpRegen: 3, level: 1, exp: 0,
+            expGain: 1, expThreshold: BASE_EXP, buffList: {}, skills: baseSkills()
         }
     }
 ];
