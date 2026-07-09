@@ -23,7 +23,6 @@ import {
 import {
     calculatePlayerDamage,
     calculatePlayerIncomingDamage,
-    calculateEnemyHitDamageForReflect,
     applyReflectDamageToAttacker,
     calculateLifesteal,
     applyStatUpgrade,
@@ -1492,10 +1491,6 @@ export class Game {
             if (rollChance(s.stats.evade)) return;
 
             const abilities = this._getAbilityLevels();
-            const reflectBasis = calculateEnemyHitDamageForReflect({
-                enemyDamage: enemy.stats.physicalDamage,
-                elapsedSeconds: s.elapsedSeconds
-            });
             const damage = calculatePlayerIncomingDamage({
                 enemyDamage: enemy.stats.physicalDamage,
                 playerArmour: s.stats.armour,
@@ -1505,25 +1500,25 @@ export class Game {
             });
 
             this.dealPlayerDamage(damage);
-            this._applyReflectDamage(enemy, reflectBasis);
+            this._applyReflectDamage(enemy);
         }
     }
 
     /**
-     * Return-damage Reflect: deals % of pre-mitigation enemy hit back to the attacker.
-     * Works for melee and ranged; does not miss or crit.
+     * Return-damage Reflect: % of player physical damage, reduced by enemy armour.
      * @param {object} enemy
-     * @param {number} hitDamage Pre-mitigation enemy attack damage
      */
-    _applyReflectDamage(enemy, hitDamage) {
+    _applyReflectDamage(enemy) {
         const s = this.state;
         if (!enemy) return;
         const { reflectLevel } = this._getAbilityLevels();
-        const { reflected, remainingHp } = applyReflectDamageToAttacker(
-            hitDamage,
+        if (reflectLevel <= 0) return;
+        const { reflected, remainingHp } = applyReflectDamageToAttacker({
+            playerPhysicalDamage: s.stats.physicalDamage,
             reflectLevel,
-            enemy.stats?.hp ?? 0
-        );
+            enemyArmour: enemy.stats?.armour ?? 0,
+            attackerHp: enemy.stats?.hp ?? 0
+        });
         if (reflected <= 0) return;
 
         enemy.stats.hp = remainingHp;
@@ -1556,10 +1551,6 @@ export class Game {
                 if (!s.enemies.some(e => e.id === ownerId && (e.stats?.hp ?? 0) > 0)) return;
                 if (rollChance(s.stats.evade)) return;
                 const abilities = this._getAbilityLevels();
-                const reflectBasis = calculateEnemyHitDamageForReflect({
-                    enemyDamage: damage,
-                    elapsedSeconds: s.elapsedSeconds
-                });
                 this.dealPlayerDamage(calculatePlayerIncomingDamage({
                     enemyDamage: damage,
                     playerArmour: s.stats.armour,
@@ -1568,7 +1559,7 @@ export class Game {
                     elapsedSeconds: s.elapsedSeconds
                 }));
                 const attacker = s.enemies.find(e => e.id === ownerId);
-                if (attacker?.stats?.hp > 0) this._applyReflectDamage(attacker, reflectBasis);
+                if (attacker?.stats?.hp > 0) this._applyReflectDamage(attacker);
             }
         });
     }

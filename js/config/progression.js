@@ -17,7 +17,7 @@ export function createDefaultStatsList() {
 export function createDefaultAbilityList() {
     return {
         Reflect: {
-            text: 'Return ??%(50%) of enemy hit damage to the attacker. Ignores enemy armour.',
+            text: 'Return ??%(50%) of your damage to attackers. Reduced by enemy armour.',
             progression: buildAbilityProgression('reflect'),
             level: 0, maxLevel: 5
         },

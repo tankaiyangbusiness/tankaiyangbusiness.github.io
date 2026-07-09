@@ -3,7 +3,7 @@
  * Combat math and level-up copy both read from here so tuning stays in sync.
  */
 export const ABILITY_COMBAT_SCALING = {
-    reflect: { percentPerLevel: 10, maxPercent: 50, maxLevel: 5 },
+    reflect: { percentPerLevel: 10, maxPercent: 50, maxLevel: 5, damageBasis: 'playerPhysicalDamage' },
     lifesteal: { percentPerLevel: 5, maxPercent: 25, maxLevel: 5 },
     damageReduction: { percentPerLevel: 10, maxPercent: 50, maxLevel: 5 },
     attackSpeedBuff: { percentPerLevel: 20, maxPercent: 100, maxLevel: 5 }

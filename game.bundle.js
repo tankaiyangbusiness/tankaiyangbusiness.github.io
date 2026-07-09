@@ -1321,7 +1321,7 @@
 
   // js/config/abilityCombatScaling.js
   var ABILITY_COMBAT_SCALING = {
-    reflect: { percentPerLevel: 10, maxPercent: 50, maxLevel: 5 },
+    reflect: { percentPerLevel: 10, maxPercent: 50, maxLevel: 5, damageBasis: "playerPhysicalDamage" },
     lifesteal: { percentPerLevel: 5, maxPercent: 25, maxLevel: 5 },
     damageReduction: { percentPerLevel: 10, maxPercent: 50, maxLevel: 5 },
     attackSpeedBuff: { percentPerLevel: 20, maxPercent: 100, maxLevel: 5 }
@@ -1358,7 +1358,7 @@
   function createDefaultAbilityList() {
     return {
       Reflect: {
-        text: "Return ??%(50%) of enemy hit damage to the attacker. Ignores enemy armour.",
+        text: "Return ??%(50%) of your damage to attackers. Reduced by enemy armour.",
         progression: buildAbilityProgression("reflect"),
         level: 0,
         maxLevel: 5
@@ -5049,22 +5049,26 @@
     }
     return { damage: Math.floor(Math.max(1, damage)), isCritical };
   }
-  function calculateEnemyHitDamageForReflect({ enemyDamage, elapsedSeconds }) {
-    let scaled = enemyDamage;
-    if (typeof elapsedSeconds === "number") {
-      scaled = scaleEnemyAttackDamageForElapsed(enemyDamage, elapsedSeconds);
-    }
-    return Math.max(1, Math.floor(scaled));
-  }
-  function calculateReflectDamage(hitDamage, reflectLevel) {
-    if (reflectLevel <= 0 || hitDamage <= 0) return 0;
+  function calculateReflectDamageToEnemy({ playerPhysicalDamage, reflectLevel, enemyArmour = 0 }) {
+    if (reflectLevel <= 0 || playerPhysicalDamage <= 0) return 0;
     const pct = getAbilityPercent("reflect", reflectLevel) / 100;
-    return Math.max(1, Math.floor(hitDamage * pct));
+    const raw = Math.floor(playerPhysicalDamage * pct);
+    if (raw <= 0) return 0;
+    return Math.max(1, raw - Math.max(0, enemyArmour));
   }
-  function applyReflectDamageToAttacker(hitDamage, reflectLevel, attackerHp) {
+  function applyReflectDamageToAttacker({
+    playerPhysicalDamage,
+    reflectLevel,
+    enemyArmour = 0,
+    attackerHp
+  }) {
     const hp = Math.max(0, Number(attackerHp) || 0);
     if (hp <= 0) return { reflected: 0, remainingHp: 0 };
-    const reflected = calculateReflectDamage(hitDamage, reflectLevel);
+    const reflected = calculateReflectDamageToEnemy({
+      playerPhysicalDamage,
+      reflectLevel,
+      enemyArmour
+    });
     if (reflected <= 0) return { reflected: 0, remainingHp: hp };
     return { reflected, remainingHp: hp - reflected };
   }
@@ -10395,10 +10399,6 @@
         this.effects.triggerEnemyAttackAnimation(enemy.element, px, py);
         if (rollChance(s.stats.evade)) return;
         const abilities = this._getAbilityLevels();
-        const reflectBasis = calculateEnemyHitDamageForReflect({
-          enemyDamage: enemy.stats.physicalDamage,
-          elapsedSeconds: s.elapsedSeconds
-        });
         const damage = calculatePlayerIncomingDamage({
           enemyDamage: enemy.stats.physicalDamage,
           playerArmour: s.stats.armour,
@@ -10407,24 +10407,24 @@
           elapsedSeconds: s.elapsedSeconds
         });
         this.dealPlayerDamage(damage);
-        this._applyReflectDamage(enemy, reflectBasis);
+        this._applyReflectDamage(enemy);
       }
     }
     /**
-     * Return-damage Reflect: deals % of pre-mitigation enemy hit back to the attacker.
-     * Works for melee and ranged; does not miss or crit.
+     * Return-damage Reflect: % of player physical damage, reduced by enemy armour.
      * @param {object} enemy
-     * @param {number} hitDamage Pre-mitigation enemy attack damage
      */
-    _applyReflectDamage(enemy, hitDamage) {
+    _applyReflectDamage(enemy) {
       const s = this.state;
       if (!enemy) return;
       const { reflectLevel } = this._getAbilityLevels();
-      const { reflected, remainingHp } = applyReflectDamageToAttacker(
-        hitDamage,
+      if (reflectLevel <= 0) return;
+      const { reflected, remainingHp } = applyReflectDamageToAttacker({
+        playerPhysicalDamage: s.stats.physicalDamage,
         reflectLevel,
-        enemy.stats?.hp ?? 0
-      );
+        enemyArmour: enemy.stats?.armour ?? 0,
+        attackerHp: enemy.stats?.hp ?? 0
+      });
       if (reflected <= 0) return;
       enemy.stats.hp = remainingHp;
       const ex = parseFloat(enemy.element.style.left);
@@ -10453,10 +10453,6 @@
           if (!s.enemies.some((e) => e.id === ownerId && (e.stats?.hp ?? 0) > 0)) return;
           if (rollChance(s.stats.evade)) return;
           const abilities = this._getAbilityLevels();
-          const reflectBasis = calculateEnemyHitDamageForReflect({
-            enemyDamage: damage,
-            elapsedSeconds: s.elapsedSeconds
-          });
           this.dealPlayerDamage(calculatePlayerIncomingDamage({
             enemyDamage: damage,
             playerArmour: s.stats.armour,
@@ -10465,7 +10461,7 @@
             elapsedSeconds: s.elapsedSeconds
           }));
           const attacker = s.enemies.find((e) => e.id === ownerId);
-          if (attacker?.stats?.hp > 0) this._applyReflectDamage(attacker, reflectBasis);
+          if (attacker?.stats?.hp > 0) this._applyReflectDamage(attacker);
         }
       });
     }

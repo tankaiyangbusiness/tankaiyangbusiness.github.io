@@ -57,8 +57,7 @@ export function calculatePlayerDamage(params) {
         damage = (60 + 10 * (abilities.bounceLevel - 1)) / 100 * damage;
     }
 
-    // Reflect damage is computed separately via calculateReflectDamage (from damage taken).
-    // isReflect path no longer uses % of player attack — kept only for bounce/HP-dmg nesting.
+    // Reflect damage is computed via calculateReflectDamageToEnemy (player damage basis).
 
     const isCritical = !isReflect && rollChance(critChance);
     if (isCritical) {
@@ -69,42 +68,48 @@ export function calculatePlayerDamage(params) {
 }
 
 /**
- * Pre-mitigation enemy hit strength — basis for Reflect (not player armour / DR).
+ * Reflect return damage — % of the player's current physical damage, then enemy flat armour.
+ * Basis is always playerPhysicalDamage (not damage taken, not enemy attack power).
+ *
+ * History: an interim build used enemy pre-mitigation hit + true damage to fix "always 1"
+ * when reflect was tied to post-mitigation damage taken; that was reverted to this design.
+ *
  * @param {object} params
- * @param {number} params.enemyDamage Base enemy physical damage stat
- * @param {number} [params.elapsedSeconds] Time-based attack scaling
- * @returns {number}
+ * @param {number} params.playerPhysicalDamage Player stats.physicalDamage at hit time
+ * @param {number} params.reflectLevel Reflect ability level (1–5 → 10%–50%)
+ * @param {number} [params.enemyArmour] Attacker armour (flat subtraction, same as basic attacks)
+ * @returns {number} Damage dealt to attacker HP (0 when reflect inactive)
  */
-export function calculateEnemyHitDamageForReflect({ enemyDamage, elapsedSeconds }) {
-    let scaled = enemyDamage;
-    if (typeof elapsedSeconds === 'number') {
-        scaled = scaleEnemyAttackDamageForElapsed(enemyDamage, elapsedSeconds);
-    }
-    return Math.max(1, Math.floor(scaled));
-}
-
-/**
- * Return-damage (Reflect) = % of the enemy's pre-mitigation hit (true damage to HP).
- * @param {number} hitDamage Pre-mitigation enemy attack damage
- * @param {number} reflectLevel 1–5 → 10%–50%
- */
-export function calculateReflectDamage(hitDamage, reflectLevel) {
-    if (reflectLevel <= 0 || hitDamage <= 0) return 0;
+export function calculateReflectDamageToEnemy({ playerPhysicalDamage, reflectLevel, enemyArmour = 0 }) {
+    if (reflectLevel <= 0 || playerPhysicalDamage <= 0) return 0;
     const pct = getAbilityPercent('reflect', reflectLevel) / 100;
-    return Math.max(1, Math.floor(hitDamage * pct));
+    const raw = Math.floor(playerPhysicalDamage * pct);
+    if (raw <= 0) return 0;
+    return Math.max(1, raw - Math.max(0, enemyArmour));
 }
 
 /**
- * Apply return-damage to a single attacker — true damage; ignores enemy armour.
- * @param {number} hitDamage Pre-mitigation enemy attack damage for this hit
- * @param {number} reflectLevel Reflect ability level (1–5)
- * @param {number} attackerHp Current attacker HP before reflect
+ * Apply return-damage to a single attacker (respects enemy armour).
+ * @param {object} params
+ * @param {number} params.playerPhysicalDamage
+ * @param {number} params.reflectLevel
+ * @param {number} [params.enemyArmour]
+ * @param {number} params.attackerHp Current attacker HP before reflect
  * @returns {{ reflected: number, remainingHp: number }}
  */
-export function applyReflectDamageToAttacker(hitDamage, reflectLevel, attackerHp) {
+export function applyReflectDamageToAttacker({
+    playerPhysicalDamage,
+    reflectLevel,
+    enemyArmour = 0,
+    attackerHp
+}) {
     const hp = Math.max(0, Number(attackerHp) || 0);
     if (hp <= 0) return { reflected: 0, remainingHp: 0 };
-    const reflected = calculateReflectDamage(hitDamage, reflectLevel);
+    const reflected = calculateReflectDamageToEnemy({
+        playerPhysicalDamage,
+        reflectLevel,
+        enemyArmour
+    });
     if (reflected <= 0) return { reflected: 0, remainingHp: hp };
     return { reflected, remainingHp: hp - reflected };
 }

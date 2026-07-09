@@ -2,17 +2,16 @@ import { describe, it, expect } from 'vitest';
 import {
     calculatePlayerDamage,
     calculatePlayerIncomingDamage,
-    calculateEnemyHitDamageForReflect,
+    calculateReflectDamageToEnemy,
     calculateArmourMitigation,
     calculateLifesteal,
-    calculateReflectDamage,
     applyReflectDamageToAttacker,
     applyStatUpgrade,
     applyLevelUpBonuses,
     ARMOUR_MITIGATION_CAP,
     rollEnemyEvade
 } from '../js/systems/combat.js';
-import { getAbilityPercent } from '../js/config/abilityCombatScaling.js';
+import { ABILITY_COMBAT_SCALING, getAbilityPercent } from '../js/config/abilityCombatScaling.js';
 
 describe('calculatePlayerDamage', () => {
     const base = {
@@ -63,19 +62,25 @@ describe('calculatePlayerDamage', () => {
     });
 });
 
-describe('calculateReflectDamage', () => {
-    it('returns percent of pre-mitigation hit damage (10% per level)', () => {
-        expect(calculateReflectDamage(100, 0)).toBe(0);
-        expect(calculateReflectDamage(100, 1)).toBe(10);
-        expect(calculateReflectDamage(100, 5)).toBe(50);
-        expect(calculateReflectDamage(0, 3)).toBe(0);
+describe('calculateReflectDamageToEnemy', () => {
+    it('returns percent of player physical damage (10% per level)', () => {
+        expect(calculateReflectDamageToEnemy({
+            playerPhysicalDamage: 100,
+            reflectLevel: 0
+        })).toBe(0);
+        expect(calculateReflectDamageToEnemy({
+            playerPhysicalDamage: 100,
+            reflectLevel: 1,
+            enemyArmour: 0
+        })).toBe(10);
+        expect(calculateReflectDamageToEnemy({
+            playerPhysicalDamage: 100,
+            reflectLevel: 5,
+            enemyArmour: 0
+        })).toBe(50);
     });
 
-    it('never returns zero for positive hit damage when leveled', () => {
-        expect(calculateReflectDamage(1, 1)).toBe(1);
-    });
-
-    it('scales from enemy hit basis, not post-mitigation player damage', () => {
+    it('scales from player damage even when incoming hits are reduced to 1', () => {
         const dealtToPlayer = calculatePlayerIncomingDamage({
             enemyDamage: 12,
             playerArmour: 200,
@@ -84,32 +89,58 @@ describe('calculateReflectDamage', () => {
         });
         expect(dealtToPlayer).toBe(1);
 
-        const hitBasis = calculateEnemyHitDamageForReflect({
-            enemyDamage: 12,
-            elapsedSeconds: 480
+        const reflected = calculateReflectDamageToEnemy({
+            playerPhysicalDamage: 150,
+            reflectLevel: 5,
+            enemyArmour: 3
         });
-        expect(hitBasis).toBe(12);
-        expect(calculateReflectDamage(hitBasis, 5)).toBe(6);
+        expect(reflected).toBe(72);
+    });
+
+    it('reduces reflect by enemy flat armour (not true damage)', () => {
+        const unarmoured = calculateReflectDamageToEnemy({
+            playerPhysicalDamage: 200,
+            reflectLevel: 5,
+            enemyArmour: 0
+        });
+        const armoured = calculateReflectDamageToEnemy({
+            playerPhysicalDamage: 200,
+            reflectLevel: 5,
+            enemyArmour: 40
+        });
+        expect(unarmoured).toBe(100);
+        expect(armoured).toBe(60);
+    });
+
+    it('enforces minimum 1 when raw reflect exceeds armour', () => {
+        expect(calculateReflectDamageToEnemy({
+            playerPhysicalDamage: 30,
+            reflectLevel: 1,
+            enemyArmour: 25
+        })).toBe(1);
     });
 
     it('reflects independently for each attacker in a swarm', () => {
         const reflectLevel = 5;
-        const hitDamage = 20;
         const attackers = Array.from({ length: 100 }, (_, i) => ({ id: i, hp: 50 }));
 
         attackers.forEach(attacker => {
-            const result = applyReflectDamageToAttacker(hitDamage, reflectLevel, attacker.hp);
-            expect(result.reflected).toBe(10);
+            const result = applyReflectDamageToAttacker({
+                playerPhysicalDamage: 80,
+                reflectLevel,
+                enemyArmour: 5,
+                attackerHp: attacker.hp
+            });
+            expect(result.reflected).toBe(35);
             attacker.hp = result.remainingHp;
         });
 
-        expect(attackers.every(a => a.hp === 40)).toBe(true);
+        expect(attackers.every(a => a.hp === 15)).toBe(true);
     });
 
-    it('reflect damage ignores enemy armour (true damage to HP)', () => {
-        const { reflected, remainingHp } = applyReflectDamageToAttacker(100, 5, 200);
-        expect(reflected).toBe(50);
-        expect(remainingHp).toBe(150);
+    it('documents player damage as the reflect basis in ability scaling config', () => {
+        expect(ABILITY_COMBAT_SCALING.reflect.damageBasis).toBe('playerPhysicalDamage');
+        expect(getAbilityPercent('reflect', 5)).toBe(50);
     });
 });
 
