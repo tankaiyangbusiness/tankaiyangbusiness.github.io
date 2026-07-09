@@ -23,11 +23,13 @@ import {
 import {
     calculatePlayerDamage,
     calculatePlayerIncomingDamage,
-    calculateReflectDamage,
+    calculateEnemyHitDamageForReflect,
+    applyReflectDamageToAttacker,
     calculateLifesteal,
     applyStatUpgrade,
     rollEnemyEvade
 } from '../systems/combat.js';
+import { getAbilityPercent } from '../config/abilityCombatScaling.js';
 import { distanceVw, rollChance } from '../utils/math.js';
 import { deepClone } from '../utils/clone.js';
 import { applyPlayerModel, resetPlayerModel, buildEnemyModelHtml, buildTreasureChestModelHtml } from '../ui/entityModels.js';
@@ -36,6 +38,12 @@ import { SkillRangeDisplay } from '../systems/skillRangeDisplay.js';
 import { PoisonPoolManager } from '../systems/poisonPools.js';
 import { UpgradePanel } from '../ui/upgradePanel.js';
 import { BALANCE, getSpawnIntervalMs } from '../config/balance.js';
+import {
+    applyPlayerDamage,
+    clampPlayerHp,
+    resolvePlayerDefeat,
+    tickPlayerRegen
+} from '../systems/playerVitality.js';
 import { EXP_CONFIG, calculateExpFromKill } from '../config/expProgression.js';
 import { getWaveNumber, getDifficultyIndex } from '../config/waveProgression.js';
 import { KillStreakTracker } from '../systems/killStreak.js';
@@ -56,32 +64,67 @@ import {
 import { isBossWave, rollBossWaveSwarmCount, BOSS_WAVE_HP_MULT } from '../config/bossWaves.js';
 import {
     isFinalVictoryWave,
-    applyFinalBossCombatScaling,
-    rollFinalVictorySwarmCount,
-    rollFinalVictoryGruntCount,
-    rollFinalVictoryEliteCount,
-    FINAL_VICTORY_WAVE
-} from '../config/victory.js';
+    isMidpointVictoryWave,
+    isMilestoneBossWave,
+    applyMilestoneBossCombatScaling,
+    rollBossArmyCount,
+    findLivingMilestoneBoss,
+    getMidpointReinforcementIntervalMs,
+    getMilestoneReinforcementIntervalMs,
+    rollMidpointReinforcementSwarmSize,
+    rollMilestoneReinforcementSwarmSize,
+    MILESTONE_BOSS_SPAWN_OPTS,
+    MILESTONE_BOSS_WORLD_LABELS,
+    BOSS_HUD_LABELS,
+    FINAL_VICTORY_WAVE,
+    MIDPOINT_VICTORY_WAVE,
+    milestoneBossGuaranteesUniqueLoot
+} from '../config/milestoneBosses.js';
 import { EnemyProjectileManager } from '../systems/enemyProjectiles.js';
 import { EnemyGuidePanel } from '../ui/enemyGuidePanel.js';
+import { BossHud } from '../ui/bossHud.js';
+import {
+    applyRuntimeEnemyScaling,
+    getFinalVictoryReinforcementIntervalMs,
+    rollFinalVictoryReinforcementSwarmSize
+} from '../config/enemyScaling.js';
 import { shouldDropGear } from '../config/gearRarity.js';
-import { rollLootDrop, computeDropIlvl } from '../systems/gearGenerator.js';
+import { rollLootDrop, computeDropIlvl, rollGuaranteedUniqueDrop } from '../systems/gearGenerator.js';
 import { RARITY_CONFIG } from '../config/gearRarity.js';
 import {
     loadMetaProgress,
     evaluateAchievements,
     updateCharacterRecord,
-    markCharacterVictory
+    markCharacterVictory,
+    recordCampaignVictoryIfPending
 } from '../systems/metaProgress.js';
+import { buildAchievementContext, reconcileMetaAchievements } from '../systems/achievementContext.js';
 import { AudioManager } from '../systems/audioManager.js';
+import { MobileHudController } from '../ui/mobileHud.js';
+import {
+    advanceGameClock,
+    getLastSimDeltaMs,
+    getElapsedSeconds,
+    getSimulatedMs,
+    getProjectedSimMs,
+    initGameClock,
+    scaleMovementSpeed,
+    scaledRealTimeoutMs,
+    syncClockAfterResume
+} from '../systems/gameClock.js';
+import { GameSpeedControls } from '../ui/gameSpeedControls.js';
+import { bindExclusiveGearUpgradePanels, collapseSidePanelsOnPause } from '../ui/panelCoordinator.js';
+import { StatsPanelController } from '../ui/statsPanelController.js';
 
 export class Game {
     constructor() {
         this.state = new GameState();
         this.ui = new UIManager();
         this.audio = new AudioManager();
+        this.mobileHud = new MobileHudController();
         this.effects = null;
         this.meta = loadMetaProgress();
+        reconcileMetaAchievements(this.meta);
         this.killStreak = new KillStreakTracker();
         this._treasureGuideArrow = null;
         this._treasureGuideRing = null;
@@ -93,8 +136,10 @@ export class Game {
             characterSelect: () => this.quitToCharacterSelect(),
             achievements: () => this.ui.openAchievementsPanel(this.meta)
         });
+        this.mobileHud.bindMenuButton(() => this.handleMenuAction());
         this.ui.bindAudioControls(this.audio);
         this.ui.syncAudioVolumeUi(this.audio);
+        this.mobileHud.setGameplayMenuVisible(false);
         this.ui.showCharacterSelection(name => this.selectCharacter(name), this.meta);
     }
 
@@ -130,11 +175,7 @@ export class Game {
             return;
         }
         if (event.key === 'Escape' && !this.state.characterSelection) {
-            if (this.ui.els.achievementsOverlay?.style.display === 'flex') {
-                this.ui.closeAchievementsPanel();
-                return;
-            }
-            this.togglePause();
+            this.handleMenuAction();
             return;
         }
         if (event.key === 'u' || event.key === 'U') {
@@ -215,7 +256,7 @@ export class Game {
         this.illusionClone = new IllusionCloneManager(this);
         this.characterPassives = new CharacterPassiveManager(this);
         this.buffTracker = new BuffTracker();
-        this.enemyProjectiles = new EnemyProjectileManager(this.state);
+        this.enemyProjectiles = new EnemyProjectileManager(this.state, this.ui.els.gameContainer);
         this.poisonPools = new PoisonPoolManager(this);
         this.skillRanges = new SkillRangeDisplay(
             this.ui.els.gameContainer,
@@ -239,16 +280,41 @@ export class Game {
         );
         this.gearPanel.reset();
         this.enemyGuidePanel = new EnemyGuidePanel();
+        this.bossHud = new BossHud();
+        bindExclusiveGearUpgradePanels(this.gearPanel, this.upgradePanel);
+        this.statsPanel = new StatsPanelController();
+        this.gameSpeedControls = new GameSpeedControls(this.state);
+        this.mobileHud.applyForGame({
+            gearPanel: this.gearPanel,
+            upgradePanel: this.upgradePanel,
+            enemyGuidePanel: this.enemyGuidePanel
+        });
         this.ui.showGame();
+        this.mobileHud.setGameplayMenuVisible(true);
         this.ui.els.playerAnchor.style.left = '50vw';
         this.ui.els.playerAnchor.style.top = '50vh';
         this.ui.updateAttackRange(this.state.stats.attackRange);
         this.ui.updateStats(this.state.stats, this.state.skillList);
-        this._trackMaxHp();
         this.ui.updateMeta(this.state.killCount, this.state.currentWave, this.killStreak.streak);
         this.ui.showWaveAnnouncement(this.state.currentWave);
         this.state.previousWave = this.state.currentWave;
         this.characterPassives?.activate(name);
+        this._beginActiveRun();
+    }
+
+    /**
+     * Unpause, reset the sim clock, refresh the timer UI, and start the main loop.
+     * Must run at the end of character select / restart — keep free of optional side effects.
+     */
+    _beginActiveRun() {
+        const s = this.state;
+        s.gamePaused = false;
+        s.gameOver = false;
+        s.characterSelection = false;
+        s.elapsedSeconds = 0;
+        s.pauseTime = 0;
+        initGameClock(s);
+        this.ui.updateTimer(0);
         this._startGameLoop();
     }
 
@@ -257,9 +323,11 @@ export class Game {
     }
 
     quitToCharacterSelect() {
+        this.enemyGuidePanel?.setPausedHidden(false);
         this._endRun(false);
         this.state.characterSelection = true;
         this.state.gameOver = false;
+        this.mobileHud.setGameplayMenuVisible(false);
         this.ui.hideGameOver();
         this.ui.showPause(false);
         this.ui.showCharacterSelection(name => this.selectCharacter(name), this.meta);
@@ -274,6 +342,7 @@ export class Game {
         }
         this.state.gamePaused = false;
         this.ui.showPause(false);
+        this.enemyGuidePanel?.setPausedHidden(false);
         this._endRun(false);
         this.selectCharacter(name);
     }
@@ -282,6 +351,7 @@ export class Game {
     _endRun(died) {
         const s = this.state;
         if (s.stats && s.selectedCharacterName) {
+            recordCampaignVictoryIfPending(this.meta, s.selectedCharacterName, s);
             updateCharacterRecord(this.meta, {
                 character: s.selectedCharacterName,
                 level: s.stats.level,
@@ -307,8 +377,23 @@ export class Game {
         this.buffTracker?.clear();
         this.ui?.updateBuffBar?.([]);
         this.enemyProjectiles?.clearAll();
+        this.bossHud?.clear();
         this.gearInventory = null;
         if (died) s.gameOver = true;
+    }
+
+    /** Shared handler for Escape key and the mobile menu button. */
+    handleMenuAction() {
+        if (this.state.gameOver && !this.state.gamePaused) {
+            this.restart();
+            return;
+        }
+        if (this.state.characterSelection) return;
+        if (this.ui.els.achievementsOverlay?.style.display === 'flex') {
+            this.ui.closeAchievementsPanel();
+            return;
+        }
+        this.togglePause();
     }
 
     togglePause() {
@@ -327,6 +412,9 @@ export class Game {
         s.gamePaused = true;
         s.pauseTime = Date.now();
         if (!silent) this.ui.showPause(true);
+        collapseSidePanelsOnPause(this.gearPanel, this.upgradePanel);
+        this.enemyGuidePanel?.collapse();
+        this.enemyGuidePanel?.setPausedHidden(true);
         if (s.gameLoopId) {
             s.cancelAnimation(s.gameLoopId);
             s.gameLoopId = null;
@@ -344,19 +432,14 @@ export class Game {
         s.gamePaused = false;
         this._pausedByTabHidden = false;
         this.ui.showPause(false);
+        this.enemyGuidePanel?.setPausedHidden(false);
 
         const elapsed = Date.now() - s.pauseTime;
-        s.lastAttackTime += elapsed;
-        s.timerStart += elapsed;
-        s.bossSpawnTime += elapsed;
-        s.eliteSpawnTime += elapsed;
-        s.rareEnemySpawnTime += elapsed;
-        s.normalSpawnTime += elapsed;
-        s.attackSpeedBuffTime += elapsed;
-        s.healthRegenTime += elapsed;
-        if (this.treasureEvents) this.treasureEvents.lastSpawnTime += elapsed;
+        syncClockAfterResume(s);
+        if (this.treasureEvents?.lastSpawnTime != null) {
+            this.treasureEvents.lastSpawnTime += elapsed;
+        }
         s.enemies.forEach(e => {
-            s.enemyAttackCooldown[e.id] = (s.enemyAttackCooldown[e.id] || 0) + elapsed;
             this._startEnemyMovement(e);
         });
         s.bullets.forEach(b => this._startBulletMovement(b));
@@ -381,91 +464,58 @@ export class Game {
         const s = this.state;
         if (s.gamePaused || s.gameOver) return;
 
-        const now = Date.now();
+        const realNow = Date.now();
+        const simNow = advanceGameClock(s, realNow);
+        const simDeltaMs = getLastSimDeltaMs(s);
 
-        if (now - s.lastAttackTime >= 1000 / s.stats.attackSpeed) {
+        if (simNow - s.lastAttackTime >= 1000 / s.stats.attackSpeed) {
             const { x, y } = this.ui.getPlayerPosition();
             this._attackNearestEnemy(x, y);
         }
 
-        this._tickBuffs(now);
-        this.buffTracker?.tick(now);
-        this.ui?.updateBuffBar?.(this.buffTracker?.getActiveBuffs(now) || []);
-        this._tickTimer(now);
-        this._tickSpawns(now);
-        this._tickEnemyAttacks(now);
-        this._tickRegen(now);
-        this._tickStatusEffects(now);
-        this.skillExecutor?.tick(now);
-        this.characterPassives?.tick(now);
-        this.illusionClone?.tick(now);
-        this.poisonPools?.tick(now);
-        this.treasureEvents?.tick(now);
-        this.killStreak.tick(now);
+        this._tickBuffs(simNow);
+        this.buffTracker?.tick(simNow);
+        this.ui?.updateBuffBar?.(this.buffTracker?.getActiveBuffs(simNow) || []);
+        this.effects?.setTimeScale(s.timeScale ?? 1);
+        this.skillRanges?.setTimeScale(s.timeScale ?? 1);
+        this.enemyProjectiles?.tick(simDeltaMs, {
+            getPlayerPosition: () => this.ui.getPlayerPosition(),
+            innerWidth: window.innerWidth,
+            innerHeight: window.innerHeight
+        });
+        this._tickTimer(simNow);
+        this._tickSpawns(simNow);
+        this._tickEnemyAttacks(simNow);
+        this._tickStatusEffects(simNow);
+        this.skillExecutor?.tick(simNow);
+        this.characterPassives?.tick(simNow);
+        this.illusionClone?.tick(simNow);
+        this.poisonPools?.tick(simNow);
+        this.treasureEvents?.tick(simNow);
+        this.killStreak.tick(simNow);
         this.skillRanges?.update(s.skillList, s.stats.attackRange);
 
         this.enemyPopulation?.enforceCap(this);
 
-        if (s.stats.hp <= 0) {
-            s.gameOver = true;
-            s.cancelAllAnimations();
-            this.enemyProjectiles?.clearAll();
-            this.effects?.cleanup();
-            this.skillExecutor?.cleanup();
-            updateCharacterRecord(this.meta, {
-                character: s.selectedCharacterName,
-                level: s.stats.level,
-                time: s.elapsedSeconds,
-                kills: s.killCount,
-                wave: s.currentWave
-            });
-            this.ui.showGameOver(s.stats, s.elapsedSeconds, s.killCount, s.currentWave);
-            return;
-        }
+        this.bossHud?.syncFromEnemies(s.enemies);
+
+        tickPlayerRegen(s, simNow);
+
+        if (this._resolvePlayerVitalityEndOfTick()) return;
 
         this.ui.updateStats(s.stats, s.skillList);
         this.ui.updateMeta(s.killCount, s.currentWave, this.killStreak.streak);
-        this._trackMaxHp();
         this._checkAchievements();
     }
 
-    /** Track peak max HP for achievements. */
-    _trackMaxHp() {
-        const s = this.state;
-        if (!s.stats) return;
-        const peak = s.stats.maxHp || 0;
-        if (peak > (s.maxHpReached || 0)) s.maxHpReached = peak;
-    }
-
     _checkAchievements() {
-        const s = this.state;
-        const equipped = this.gearInventory?.equipped || {};
-        const equippedValues = Object.values(equipped).filter(Boolean);
-        const equippedRareCount = equippedValues.filter(i => i.rarity === 'rare' || i.rarity === 'unique').length;
-        const equippedUniqueCount = equippedValues.filter(i => i.rarity === 'unique').length;
-        const skillEntries = Object.values(s.skillList || {});
-        const skillLevelSum = skillEntries.reduce((sum, sk) => sum + (sk?.level || 0), 0);
-        const skillsAtMax = skillEntries.filter(sk => sk && sk.level >= (sk.maxLevel || 5)).length;
-        const unlocked = evaluateAchievements(this.meta, {
-            killCount: s.killCount,
-            level: s.stats.level,
-            elapsedSeconds: s.elapsedSeconds,
-            bestStreak: this.killStreak.bestStreak,
-            treasuresOpened: this.treasureEvents?.treasuresOpened ?? 0,
-            itemsLooted: s.itemsLooted ?? 0,
-            equippedRareCount,
-            equippedUniqueCount,
-            equippedGearCount: this.gearInventory?.getEquippedCount() ?? 0,
-            currentWave: s.currentWave,
-            maxWaveReached: s.maxWaveReached ?? s.currentWave,
-            skillLevelSum,
-            skillsAtMax,
-            elitesKilled: s.elitesKilled ?? 0,
-            bossesKilled: s.bossesKilled ?? 0,
-            maxHpReached: s.maxHpReached ?? s.stats.maxHp,
-            maxHp: s.stats.maxHp,
-            finalVictoryAchieved: Boolean(s.finalVictoryAchieved)
-        });
+        const unlocked = evaluateAchievements(this.meta, buildAchievementContext({
+            state: this.state,
+            killStreak: this.killStreak,
+            treasureEvents: this.treasureEvents,
+            gearInventory: this.gearInventory,
+            meta: this.meta
+        }));
         unlocked.forEach(id => this.ui.showAchievementUnlock(id));
     }
 
@@ -487,15 +537,16 @@ export class Game {
         const s = this.state;
         if (s.stats.buffList[name]) this._removeBuff(name);
         if (name === 'Attack Speed Buff') {
-            const bonus = s.abilityList[name].level * s.stats.attackSpeed * 16 / 100;
+            const level = s.abilityList[name].level;
+            const displayPct = getAbilityPercent('attackSpeedBuff', level);
+            const bonus = s.stats.attackSpeed * displayPct / 100;
             s.stats.buffList[name] = bonus;
             s.stats.attackSpeed += bonus;
-            const pct = Math.round(s.abilityList[name].level * 16);
             this.buffTracker?.apply({
                 id: 'attack-speed-buff',
                 name: 'Attack Speed Buff',
                 icon: '⚡',
-                description: `+${pct}% attack speed`,
+                description: `+${displayPct}% attack speed`,
                 durationMs: s.attackSpeedBuffDuration,
                 now
             });
@@ -512,11 +563,12 @@ export class Game {
         delete s.stats.buffList[name];
     }
 
-    _tickTimer(now) {
+    _tickTimer(simNow) {
         const s = this.state;
-        if (now - s.timerStart < 1000) return;
+        const elapsedSec = getElapsedSeconds(s);
+        if (elapsedSec === s.elapsedSeconds) return;
 
-        s.elapsedSeconds = Math.floor((now - s.timerStart) / 1000);
+        s.elapsedSeconds = elapsedSec;
         this.ui.updateTimer(s.elapsedSeconds);
         s.currentWave = getWaveNumber(s.elapsedSeconds);
         if (s.currentWave > (s.maxWaveReached || 1)) s.maxWaveReached = s.currentWave;
@@ -531,7 +583,7 @@ export class Game {
             s.rareEnemySpawnInterval = getSpawnIntervalMs('rare', maxDiff);
             s.eliteSpawnInterval = getSpawnIntervalMs('elite', maxDiff);
             s.bossSpawnInterval = getSpawnIntervalMs('boss', maxDiff);
-            if (isBossWave(s.currentWave)) {
+            if (isMilestoneBossWave(s.currentWave) || isBossWave(s.currentWave)) {
                 this._spawnBossWaveEvent(s.currentWave);
             }
         }
@@ -543,8 +595,8 @@ export class Game {
      * @param {number} wave
      */
     _spawnBossWaveEvent(wave) {
-        if (isFinalVictoryWave(wave)) {
-            this._spawnFinalVictoryBossEvent(wave);
+        if (isMilestoneBossWave(wave)) {
+            this._spawnTrackedBossEvent(wave);
             return;
         }
 
@@ -581,26 +633,89 @@ export class Game {
     }
 
     /**
-     * Wave 100 finale — 20× boss HP, 2× damage/armour, and a large multi-edge army.
+     * Tracked milestone boss (waves 25, 50, 75, 100) — scaled HP, escort army, HUD.
      * @param {number} wave
      */
-    _spawnFinalVictoryBossEvent(wave) {
+    _spawnTrackedBossEvent(wave) {
+        this._spawnMilestoneBoss(wave);
+
         const difficulty = this.state.currentDifficultyLevel;
-        const boss = this._spawnWithType('boss', pickEnemyType(difficulty));
-        if (boss?.stats) {
-            applyFinalBossCombatScaling(boss.stats);
+        const edges = [0, 1, 2, 3];
+        this._spawnVictoryArmyPack(edges[0], rollBossArmyCount(wave, 'swarm'), 'normal', 'swarm');
+        this._spawnVictoryArmyPack(edges[1], rollBossArmyCount(wave, 'grunt'), 'normal', 'grunt');
+        this._spawnVictoryArmyPack(edges[2], rollBossArmyCount(wave, 'elite'), 'elite', pickEnemyType(difficulty));
+        this._spawnVictoryArmyPack(edges[3], rollBossArmyCount(wave, 'swarm'), 'normal', 'swarm');
+
+        if (isFinalVictoryWave(wave)) {
+            this.ui.showFinalVictoryBossIncoming(wave);
+        } else if (isMidpointVictoryWave(wave)) {
+            this.ui.showMidpointVictoryBossIncoming(wave);
+        } else {
+            this.ui.showMiniBossIncoming(wave);
+        }
+    }
+
+    /** @deprecated Use _spawnTrackedBossEvent */
+    _spawnMidpointVictoryBossEvent(wave) {
+        this._spawnTrackedBossEvent(wave);
+    }
+
+    /** @deprecated Use _spawnTrackedBossEvent */
+    _spawnFinalVictoryBossEvent(wave) {
+        this._spawnTrackedBossEvent(wave);
+    }
+
+    /**
+     * Spawn a Wave 50 / Wave 100 milestone boss — bypasses population cap and applies HUD tracking.
+     * @param {number} milestoneWave MIDPOINT_VICTORY_WAVE or FINAL_VICTORY_WAVE
+     * @returns {object|null}
+     */
+    _spawnMilestoneBoss(milestoneWave) {
+        const s = this.state;
+        const difficulty = s.currentDifficultyLevel;
+        const simNow = getSimulatedMs(s);
+        const edge = Math.floor(Math.random() * 4);
+        const anchor = getEdgeSpawnAnchor(edge);
+
+        const boss = this._spawnEnemy('boss', pickEnemyType(difficulty), {
+            ...MILESTONE_BOSS_SPAWN_OPTS,
+            at: {
+                x: anchor.x + (Math.random() - 0.5) * 8,
+                y: anchor.y + (Math.random() - 0.5) * 8
+            }
+        });
+
+        if (!boss?.stats) return null;
+
+        applyMilestoneBossCombatScaling(boss.stats, milestoneWave);
+        boss.milestoneBossWave = milestoneWave;
+        boss.isWaveBoss = true;
+        if (milestoneWave === FINAL_VICTORY_WAVE) {
             boss.isFinalVictoryBoss = true;
-            boss.isWaveBoss = true;
-            this._updateEnemyHealthBar(boss);
         }
 
-        const edges = [0, 1, 2, 3];
-        this._spawnVictoryArmyPack(edges[0], rollFinalVictorySwarmCount(), 'normal', 'swarm');
-        this._spawnVictoryArmyPack(edges[1], rollFinalVictoryGruntCount(), 'normal', 'grunt');
-        this._spawnVictoryArmyPack(edges[2], rollFinalVictoryEliteCount(), 'elite', pickEnemyType(difficulty));
-        this._spawnVictoryArmyPack(edges[3], rollFinalVictorySwarmCount(), 'normal', 'swarm');
+        this._applyMilestoneBossPresentation(boss, milestoneWave);
+        this._updateEnemyHealthBar(boss);
+        this.bossHud.track(boss);
+        s.milestoneBossReinforceTime = simNow;
+        return boss;
+    }
 
-        this.ui.showFinalVictoryBossIncoming(wave);
+    /**
+     * Larger in-world HP bar + label for milestone bosses (Wave 50 / 100).
+     * @param {object} enemy
+     * @param {number} milestoneWave
+     */
+    _applyMilestoneBossPresentation(enemy, milestoneWave) {
+        enemy.element.classList.add('enemy-milestone-boss');
+        const bar = enemy.element.querySelector('.enemy-health-bar');
+        if (bar) {
+            bar.classList.add('enemy-health-bar--milestone');
+            const tag = bar.querySelector('.enemy-boss-label');
+            if (tag) {
+                tag.textContent = MILESTONE_BOSS_WORLD_LABELS[milestoneWave] || 'BOSS';
+            }
+        }
     }
 
     /**
@@ -623,10 +738,19 @@ export class Game {
     _onFinalVictoryBossDefeated() {
         const s = this.state;
         if (s.finalVictoryAchieved) return;
+        s.finalBossDefeatedThisRun = true;
         s.finalVictoryAchieved = true;
-        markCharacterVictory(this.meta, s.selectedCharacterName);
+        if (!s.campaignVictoryRecorded) {
+            markCharacterVictory(this.meta, s.selectedCharacterName);
+            s.campaignVictoryRecorded = true;
+        }
         this.ui.showFinalVictoryCelebration(s.selectedCharacterName);
         this._checkAchievements();
+    }
+
+    /** Victory requires killing the Wave 100 boss — wave 101+ alone does not count. */
+    _hasCampaignVictory() {
+        return Boolean(this.state.finalVictoryAchieved);
     }
 
     _tickSpawns(now) {
@@ -649,6 +773,53 @@ export class Game {
         if (pop?.shouldSpawnNow('normal', elapsed, s.normalSpawnTime, s.normalSpawnInterval, now)) {
             s.normalSpawnTime = now;
             this._spawnWithType('normal', pickEnemyType(s.currentDifficultyLevel));
+        }
+
+        this._tickMilestoneBossReinforcements(now);
+    }
+
+    /** Ongoing reinforcements while a Wave 50 or Wave 100 milestone boss lives. */
+    _tickMilestoneBossReinforcements(now) {
+        const s = this.state;
+        const boss = findLivingMilestoneBoss(s.enemies);
+        if (!boss?.milestoneBossWave) return;
+        if (s.currentWave < boss.milestoneBossWave) return;
+
+        const milestoneWave = boss.milestoneBossWave;
+        const interval = milestoneWave === FINAL_VICTORY_WAVE
+            ? getFinalVictoryReinforcementIntervalMs(s.elapsedSeconds, s.currentWave)
+            : getMilestoneReinforcementIntervalMs(milestoneWave);
+        if (now - (s.milestoneBossReinforceTime || 0) < interval) return;
+        s.milestoneBossReinforceTime = now;
+
+        const difficulty = s.currentDifficultyLevel;
+        const edge = Math.floor(Math.random() * 4);
+
+        if (milestoneWave === FINAL_VICTORY_WAVE) {
+            const swarmCount = rollFinalVictoryReinforcementSwarmSize(s.elapsedSeconds, s.currentWave);
+            this._spawnVictoryArmyPack(edge, swarmCount, 'normal', 'swarm');
+
+            if (Math.random() < 0.55) {
+                const edge2 = (edge + 1 + Math.floor(Math.random() * 3)) % 4;
+                this._spawnVictoryArmyPack(
+                    edge2,
+                    2 + Math.floor(Math.random() * 4),
+                    Math.random() < 0.35 ? 'elite' : 'normal',
+                    pickEnemyType(difficulty)
+                );
+            }
+            return;
+        }
+
+        this._spawnVictoryArmyPack(edge, rollMilestoneReinforcementSwarmSize(milestoneWave), 'normal', 'swarm');
+        if (Math.random() < 0.45) {
+            const edge2 = (edge + 2) % 4;
+            this._spawnVictoryArmyPack(
+                edge2,
+                2 + Math.floor(Math.random() * 3),
+                'normal',
+                Math.random() < 0.25 ? 'grunt' : 'swarm'
+            );
         }
     }
 
@@ -674,7 +845,9 @@ export class Game {
     }
 
     _tickEnemyAttacks(now) {
-        this.state.enemies.forEach(enemy => {
+        const enemies = [...this.state.enemies];
+        enemies.forEach(enemy => {
+            if ((enemy.stats?.hp ?? 0) <= 0) return;
             const last = this.state.enemyAttackCooldown[enemy.id] || 0;
             if (now - last >= 1000 / enemy.stats.attackSpeed) {
                 this.state.enemyAttackCooldown[enemy.id] = now;
@@ -684,14 +857,51 @@ export class Game {
     }
 
     _tickRegen(now) {
+        tickPlayerRegen(this.state, now);
+    }
+
+    /**
+     * Apply incoming damage to the player, refresh the HP bar, and return damage dealt after passives.
+     * Defeat is only resolved at end-of-tick after regen (see resolvePlayerDefeat).
+     * @param {number} rawDamage
+     * @returns {number}
+     */
+    dealPlayerDamage(rawDamage) {
         const s = this.state;
-        const regenBoost = s.abilityList['Regen To Damage'].level > 0
-            ? s.abilityList['Regen To Damage'].level * 20 / 100 : 0;
-        const interval = s.healthRegenInterval / (1 + regenBoost);
-        if (now - s.healthRegenTime >= interval) {
-            s.healthRegenTime = now;
-            s.stats.hp += s.stats.hpRegen;
-        }
+        const dealt = this.characterPassives?.absorbDamage(rawDamage) ?? rawDamage;
+        applyPlayerDamage(s.stats, dealt);
+        this._onPlayerDamaged();
+        this.ui.syncPlayerHp(s.stats);
+        return dealt;
+    }
+
+    /** @returns {boolean} True when defeat was triggered. */
+    _resolvePlayerVitalityEndOfTick() {
+        const s = this.state;
+        if (!resolvePlayerDefeat(s.stats)) return false;
+        this._triggerPlayerDefeat();
+        return true;
+    }
+
+    _triggerPlayerDefeat() {
+        const s = this.state;
+        if (s.gameOver) return;
+
+        s.gameOver = true;
+        s.cancelAllAnimations();
+        this.enemyProjectiles?.clearAll();
+        this.effects?.cleanup();
+        this.skillExecutor?.cleanup();
+        updateCharacterRecord(this.meta, {
+            character: s.selectedCharacterName,
+            level: s.stats.level,
+            time: s.elapsedSeconds,
+            kills: s.killCount,
+            wave: s.currentWave
+        });
+        this.mobileHud.setGameplayMenuVisible(false);
+        this.ui.syncPlayerHp(s.stats);
+        this.ui.showGameOver(s.stats, s.elapsedSeconds, s.killCount, s.currentWave);
     }
 
     _tickStatusEffects(now) {
@@ -774,6 +984,7 @@ export class Game {
         const { stats, typeConfig, rarityConfig } = buildEnemyStats(
             enemyType, rarity, s.currentDifficultyLevel
         );
+        applyRuntimeEnemyScaling(stats, s.elapsedSeconds, s.currentWave);
 
         const el = document.createElement('div');
         el.id = `enemy-${s.nextEnemyId++}`;
@@ -945,14 +1156,14 @@ export class Game {
 
             const { x: px, y: py } = this.ui.getPlayerPosition();
             const behavior = enemy.typeConfig.behavior;
-            const now = Date.now();
-            let speed = enemy.stats.moveSpeed;
+            const simNow = getProjectedSimMs(s);
+            let speed = scaleMovementSpeed(s, enemy.stats.moveSpeed);
 
-            if (behavior === 'dash' && !enemy.dashing && now - enemy.lastDashTime >= (enemy.typeConfig.dashCooldown || 3000)) {
+            if (behavior === 'dash' && !enemy.dashing && simNow - enemy.lastDashTime >= (enemy.typeConfig.dashCooldown || 3000)) {
                 enemy.dashing = true;
-                enemy.lastDashTime = now;
+                enemy.lastDashTime = simNow;
                 speed *= enemy.typeConfig.dashSpeed || 2.5;
-                const dashTimeout = setTimeout(() => { enemy.dashing = false; }, 400);
+                const dashTimeout = setTimeout(() => { enemy.dashing = false; }, scaledRealTimeoutMs(s, 400));
                 s.trackTimeout(dashTimeout);
             }
 
@@ -1001,7 +1212,7 @@ export class Game {
         const isMelee = !forceProjectile && usesMeleeBasicAttack(s.selectedModelClass);
 
         if (!excludeTarget && !attackOpts.skipPlayerAnim) {
-            s.lastAttackTime = Date.now();
+            s.lastAttackTime = getProjectedSimMs(s);
             const tx = parseFloat(nearest.element.style.left);
             const ty = parseFloat(nearest.element.style.top);
             if (isMelee) {
@@ -1230,31 +1441,36 @@ export class Game {
     _applyBurn(enemy, totalBurnDamage, duration) {
         if (totalBurnDamage <= 0) return;
         const s = this.state;
+        const simNow = getProjectedSimMs(s);
         this.effects.applyBurnAura(enemy.element);
         if (!s.statusEffects[enemy.id]) s.statusEffects[enemy.id] = {};
         s.statusEffects[enemy.id].burn = {
             damagePerTick: totalBurnDamage / 6,
-            endTime: Date.now() + duration,
-            lastTick: Date.now()
+            endTime: simNow + duration,
+            lastTick: simNow
         };
     }
 
     _applySlow(enemy, slowPercent, duration) {
         const s = this.state;
+        const simNow = getProjectedSimMs(s);
         this.effects.applyFrostAura(enemy.element);
         enemy.stats.moveSpeed = enemy.baseMoveSpeed * (1 - slowPercent / 100);
         if (!s.statusEffects[enemy.id]) s.statusEffects[enemy.id] = {};
-        s.statusEffects[enemy.id].slow = { endTime: Date.now() + duration };
+        s.statusEffects[enemy.id].slow = { endTime: simNow + duration };
     }
 
     _applyFreeze(enemy, duration) {
         const s = this.state;
+        const simNow = getProjectedSimMs(s);
         enemy.frozen = true;
         if (!s.statusEffects[enemy.id]) s.statusEffects[enemy.id] = {};
-        s.statusEffects[enemy.id].freeze = { endTime: Date.now() + duration };
+        s.statusEffects[enemy.id].freeze = { endTime: simNow + duration };
     }
 
     _enemyAttackPlayer(enemy) {
+        if ((enemy.stats?.hp ?? 0) <= 0) return;
+
         const s = this.state;
         const { x: px, y: py } = this.ui.getPlayerPosition();
         const ex = parseFloat(enemy.element.style.left);
@@ -1272,6 +1488,10 @@ export class Game {
             if (rollChance(s.stats.evade)) return;
 
             const abilities = this._getAbilityLevels();
+            const reflectBasis = calculateEnemyHitDamageForReflect({
+                enemyDamage: enemy.stats.physicalDamage,
+                elapsedSeconds: s.elapsedSeconds
+            });
             const damage = calculatePlayerIncomingDamage({
                 enemyDamage: enemy.stats.physicalDamage,
                 playerArmour: s.stats.armour,
@@ -1280,76 +1500,72 @@ export class Game {
                 elapsedSeconds: s.elapsedSeconds
             });
 
-            s.stats.hp -= this.characterPassives?.absorbDamage(damage) ?? damage;
-            this._onPlayerDamaged();
-            this._applyReflectDamage(enemy, damage);
+            this.dealPlayerDamage(damage);
+            this._applyReflectDamage(enemy, reflectBasis);
         }
     }
 
     /**
-     * Return-damage Reflect: deals % of damage just taken back to the attacker.
+     * Return-damage Reflect: deals % of pre-mitigation enemy hit back to the attacker.
      * Works for melee and ranged; does not miss or crit.
      * @param {object} enemy
-     * @param {number} damageTaken
+     * @param {number} hitDamage Pre-mitigation enemy attack damage
      */
-    _applyReflectDamage(enemy, damageTaken) {
+    _applyReflectDamage(enemy, hitDamage) {
         const s = this.state;
-        if (!enemy || enemy.stats?.hp <= 0) return;
-        const reflectLevel = s.abilityList.Reflect?.level || 0;
-        const reflected = calculateReflectDamage(damageTaken, reflectLevel);
+        if (!enemy) return;
+        const { reflectLevel } = this._getAbilityLevels();
+        const { reflected, remainingHp } = applyReflectDamageToAttacker(
+            hitDamage,
+            reflectLevel,
+            enemy.stats?.hp ?? 0
+        );
         if (reflected <= 0) return;
 
-        enemy.stats.hp -= reflected;
+        enemy.stats.hp = remainingHp;
         const ex = parseFloat(enemy.element.style.left);
         const ey = parseFloat(enemy.element.style.top);
         this.effects.triggerEnemyHitAnimation(enemy.element);
-        this.effects.spawnHitEffect(ex, ey, 'physical');
-        this.effects.spawnDamageNumber(ex, ey - 2, reflected, false, 'physical');
+        if (!this.effects.isCosmeticThrottled()) {
+            this.effects.spawnHitEffect(ex, ey, 'reflect');
+        }
+        this.effects.spawnDamageNumber(ex, ey - 2, reflected, false, 'reflect');
         this._updateEnemyHealthBar(enemy);
         if (enemy.stats.hp <= 0) this._removeEnemy(enemy);
     }
 
     _fireEnemyProjectile(enemy) {
+        if ((enemy.stats?.hp ?? 0) <= 0) return;
+
         const s = this.state;
-        const el = document.createElement('div');
-        el.className = 'enemy-projectile';
         const ex = parseFloat(enemy.element.style.left);
         const ey = parseFloat(enemy.element.style.top);
-        el.style.left = `${ex}vw`;
-        el.style.top = `${ey}vh`;
-        this.ui.els.gameContainer.appendChild(el);
-
         const ignoreArmour = Boolean(enemy.stats.ignoreArmour);
+        const damage = enemy.stats.physicalDamage;
+        const ownerId = enemy.id;
 
-        this.enemyProjectiles.track(el, () => {
-            const { x: px, y: py } = this.ui.getPlayerPosition();
-            const bx = parseFloat(el.style.left);
-            const by = parseFloat(el.style.top);
-            const angle = Math.atan2(py - by, px - bx);
-            const nx = bx + Math.cos(angle) * 1.5;
-            const ny = by + Math.sin(angle) * 1.5;
-            el.style.left = `${nx}vw`;
-            el.style.top = `${ny}vh`;
-
-            const dist = distanceVw(nx, ny, px, py, window.innerWidth, window.innerHeight);
-            if (dist < 30) {
-                if (!rollChance(s.stats.evade)) {
-                    const abilities = this._getAbilityLevels();
-                    const damage = calculatePlayerIncomingDamage({
-                        enemyDamage: enemy.stats.physicalDamage,
-                        playerArmour: s.stats.armour,
-                        damageReductionLevel: abilities.damageReductionLevel,
-                        ignoreArmour,
-                        elapsedSeconds: s.elapsedSeconds
-                    });
-                    s.stats.hp -= this.characterPassives?.absorbDamage(damage) ?? damage;
-                    this._onPlayerDamaged();
-                    // Reflect works on ranged hits too (same % of damage taken).
-                    if (enemy.stats?.hp > 0) this._applyReflectDamage(enemy, damage);
-                }
-                return false;
+        this.enemyProjectiles.spawn({
+            x: ex,
+            y: ey,
+            ownerId,
+            onHit: () => {
+                if (!s.enemies.some(e => e.id === ownerId && (e.stats?.hp ?? 0) > 0)) return;
+                if (rollChance(s.stats.evade)) return;
+                const abilities = this._getAbilityLevels();
+                const reflectBasis = calculateEnemyHitDamageForReflect({
+                    enemyDamage: damage,
+                    elapsedSeconds: s.elapsedSeconds
+                });
+                this.dealPlayerDamage(calculatePlayerIncomingDamage({
+                    enemyDamage: damage,
+                    playerArmour: s.stats.armour,
+                    damageReductionLevel: abilities.damageReductionLevel,
+                    ignoreArmour,
+                    elapsedSeconds: s.elapsedSeconds
+                }));
+                const attacker = s.enemies.find(e => e.id === ownerId);
+                if (attacker?.stats?.hp > 0) this._applyReflectDamage(attacker, reflectBasis);
             }
-            return true;
         });
     }
 
@@ -1405,8 +1621,13 @@ export class Game {
 
         handleEnemyDeathEffects(this, enemy, ex, ey, grantRewards);
 
+        if (enemy.milestoneBossWave) {
+            this.bossHud.onBossDeath(enemy, s.enemies);
+        }
+
         s.cancelAnimation(enemy.moveAnimationId);
         delete s.enemyAttackCooldown[enemy.id];
+        this.enemyProjectiles?.removeForOwner(enemy.id);
         enemy.element.remove();
         const idx = s.enemies.indexOf(enemy);
         if (idx !== -1) s.enemies.splice(idx, 1);
@@ -1414,19 +1635,25 @@ export class Game {
 
     /** @param {object} enemy @param {number} x @param {number} y */
     _tryDropGear(enemy, x, y) {
-        const category = enemy.isTreasure ? 'treasure' : enemy.rarity;
-        if (!shouldDropGear(category, this.state.currentWave)) return;
-
         const ilvl = computeDropIlvl(
             this.state.stats.level,
             this.state.currentDifficultyLevel
         );
-        const item = rollLootDrop(category, ilvl);
 
-        if (this.gearLootFilter?.shouldAutoDelete(item.rarity)) {
+        if (enemy.milestoneBossWave && milestoneBossGuaranteesUniqueLoot(enemy.milestoneBossWave)) {
+            this._grantGearItem(rollGuaranteedUniqueDrop(ilvl), x, y);
             return;
         }
 
+        const category = enemy.isTreasure ? 'treasure' : enemy.rarity;
+        if (!shouldDropGear(category, this.state.currentWave)) return;
+
+        this._grantGearItem(rollLootDrop(category, ilvl), x, y);
+    }
+
+    /** @param {object} item @param {number} x @param {number} y */
+    _grantGearItem(item, x, y) {
+        if (this.gearLootFilter?.shouldAutoDelete(item.rarity)) return;
         if (!this.gearInventory.addItem(item)) return;
 
         this.state.itemsLooted += 1;
@@ -1612,6 +1839,9 @@ export class Game {
         const fill = enemy.element.querySelector('.enemy-health-bar-fill');
         if (fill) {
             fill.style.width = `${(enemy.stats.hp / enemy.stats.maxHp) * 100}%`;
+        }
+        if (enemy.milestoneBossWave) {
+            this.bossHud.update(enemy);
         }
     }
 }

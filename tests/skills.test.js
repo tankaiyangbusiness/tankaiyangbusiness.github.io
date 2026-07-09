@@ -8,6 +8,8 @@ import {
     getFrostboltConfig,
     getRighteousFireConfig,
     getSparkConfig,
+    SPARK_COOLDOWN_BASE_MS,
+    SPARK_COOLDOWN_FLOOR_MS,
     getIllusionConfig,
     getPoisonDaggerConfig,
     getHammerSweepConfig,
@@ -49,7 +51,7 @@ describe('active skill configs', () => {
 
     it('scales fireball with level and cast range', () => {
         const cfg = getFireballConfig(3);
-        expect(cfg.directDamageMult).toBeCloseTo(1.05);
+        expect(cfg.directDamageMult).toBeCloseTo(1.18);
         expect(cfg.splashRadius).toBe(130);
         expect(cfg.castRange).toBe(265);
     });
@@ -81,7 +83,7 @@ describe('active skill configs', () => {
 
     it('scales frostbolt travel, cooldown, and pierce', () => {
         const cfg = getFrostboltConfig(3);
-        expect(cfg.damageMult).toBeCloseTo(0.85);
+        expect(cfg.damageMult).toBeCloseTo(1.02);
         expect(cfg.maxTravel).toBeGreaterThan(50);
         expect(cfg.maxTravel).toBeLessThan(120);
         expect(cfg.projectileSpeed).toBeGreaterThan(0.5);
@@ -90,11 +92,11 @@ describe('active skill configs', () => {
         expect(cfg.pierceAll).toBe(true);
     });
 
-    it('scales righteous fire aura from 12% at level 1', () => {
+    it('scales righteous fire aura with weak level 1 and stronger upgrades', () => {
         const cfg = getRighteousFireConfig(1);
-        expect(cfg.tickDamageMult).toBeCloseTo(0.12, 5);
+        expect(cfg.tickDamageMult).toBeCloseTo(0.096, 5);
         expect(getRighteousFireConfig(4).radius).toBe(191);
-        expect(getRighteousFireConfig(4).tickDamageMult).toBeGreaterThan(0.1);
+        expect(getRighteousFireConfig(4).tickDamageMult).toBeGreaterThan(0.15);
     });
 
     it('scales spark count, duration, wander, large AOE, and pierce 2', () => {
@@ -107,11 +109,18 @@ describe('active skill configs', () => {
         expect(cfg.maxPierce).toBe(2);
     });
 
+    it('uses longer spark cooldown than before balance pass', () => {
+        expect(SPARK_COOLDOWN_BASE_MS).toBeGreaterThanOrEqual(3600);
+        expect(SPARK_COOLDOWN_FLOOR_MS).toBeGreaterThanOrEqual(2000);
+        expect(getSparkConfig(1).cooldown).toBe(3360);
+        expect(getSparkConfig(5).cooldown).toBe(2400);
+    });
+
     it('scales illusion clone damage cooldown and duration', () => {
         const low = getIllusionConfig(1);
         const high = getIllusionConfig(5);
-        expect(low.damagePercent).toBe(30);
-        expect(high.damagePercent).toBe(60);
+        expect(low.damagePercent).toBe(24);
+        expect(high.damagePercent).toBe(99);
         expect(low.cooldown).toBe(9800);
         expect(high.cooldown).toBe(5000);
         expect(high.duration).toBeGreaterThan(low.duration);
@@ -126,9 +135,9 @@ describe('active skill configs', () => {
         expect(computePoisonDaggerForkDamage(100, 3)).toBeGreaterThan(30);
     });
 
-    it('scales hammer sweep to 96% at level 1 and throw spear pierce 6', () => {
+    it('scales hammer sweep with weak level 1 and throw spear pierce 6', () => {
         const hammer = getHammerSweepConfig(1);
-        expect(hammer.damageMult).toBeCloseTo(0.96, 5);
+        expect(hammer.damageMult).toBeCloseTo(0.768, 5);
         const hammer3 = getHammerSweepConfig(3);
         const spear = getThrowSpearConfig(3);
         expect(hammer3.radius).toBe(135);
@@ -143,27 +152,27 @@ describe('active skill configs', () => {
 
 describe('skill damage helpers', () => {
     it('computes fireball direct damage', () => {
-        expect(computeSkillDamage(100, 'fireball', 2)).toBe(95);
+        expect(computeSkillDamage(100, 'fireball', 2)).toBe(93);
     });
 
     it('computes frostbolt and spark damage', () => {
-        expect(computeSkillDamage(100, 'frostbolt', 2)).toBe(75);
-        expect(computeSkillDamage(100, 'spark', 2)).toBe(40);
+        expect(computeSkillDamage(100, 'frostbolt', 2)).toBe(77);
+        expect(computeSkillDamage(100, 'spark', 2)).toBe(42);
     });
 
     it('computes physical and chaos skill damage', () => {
-        expect(computeSkillDamage(100, 'hammerSweep', 1)).toBe(96);
+        expect(computeSkillDamage(100, 'hammerSweep', 1)).toBe(76);
         expect(computeSkillDamage(100, 'throwSpear', 2)).toBeGreaterThan(70);
         expect(computeSkillDamage(100, 'poisonDagger', 2)).toBeGreaterThan(50);
-        expect(computeSkillDamage(100, 'righteousFire', 1)).toBe(12);
+        expect(computeSkillDamage(100, 'righteousFire', 1)).toBe(9);
     });
 
     it('computes righteous fire tick damage', () => {
-        expect(computeSkillDamage(100, 'righteousFire', 2)).toBeGreaterThanOrEqual(11);
+        expect(computeSkillDamage(100, 'righteousFire', 2)).toBeGreaterThanOrEqual(15);
     });
 
     it('computes poison tick damage', () => {
-        expect(computePoisonTickDamage(100, 3)).toBe(17);
+        expect(computePoisonTickDamage(100, 3)).toBe(25);
     });
 
     it('computes poison pool tick count', () => {

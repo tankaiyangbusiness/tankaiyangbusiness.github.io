@@ -3,6 +3,10 @@
  * Owned VFX nodes and class timers are tracked separately so trim/cleanup
  * cannot accidentally remove live enemy or player DOM.
  */
+import { getRuntimeBudgets, shouldThrottleCosmeticEffects } from './runtimeBudget.js';
+import { RUNTIME_BUDGET } from '../config/runtimeBudget.js';
+import { DomPool } from '../utils/domPool.js';
+
 export class EffectManager {
     /** @param {HTMLElement} container */
     constructor(container) {
@@ -12,8 +16,74 @@ export class EffectManager {
         /** Class-only timers (do not own the element). */
         /** @type {{ el: HTMLElement, className: string, id: ReturnType<typeof setTimeout>, onDone: (() => void)|null }[]} */
         this._classTimers = [];
-        /** Soft cap for owned VFX nodes under swarm pressure. */
-        this.maxEffects = 64;
+        const budgets = getRuntimeBudgets();
+        this.maxEffects = budgets.maxEffects;
+        this._maxClassTimers = budgets.maxClassTimers;
+        this._timeScale = 1;
+        this._damageNumberBudget = RUNTIME_BUDGET.damageNumberBudgetPerWindow;
+        this._damageNumberBudgetWindowStart = 0;
+        this._hitEffectPool = new DomPool(() => this._createHitEffectElement(), RUNTIME_BUDGET.poolPrewarm.hitEffects);
+        this._expOrbPool = new DomPool(() => this._createExpOrbElement(), RUNTIME_BUDGET.poolPrewarm.expOrbs);
+        this._damageNumberPool = new DomPool(
+            () => this._createDamageNumberElement(),
+            RUNTIME_BUDGET.poolPrewarm.damageNumbers ?? 12
+        );
+    }
+
+    _createDamageNumberElement() {
+        const el = document.createElement('div');
+        el.className = 'damage-number';
+        return el;
+    }
+
+    _createHitEffectElement() {
+        const el = document.createElement('div');
+        el.className = 'hit-effect hit-effect-physical particle-25d';
+        el.innerHTML = '<span class="particle-25d-face"></span><span class="particle-25d-shadow"></span>';
+        return el;
+    }
+
+    _createExpOrbElement() {
+        const el = document.createElement('div');
+        el.className = 'world-exp-orb particle-25d';
+        el.innerHTML = '<span class="particle-25d-face"></span><span class="particle-25d-shadow"></span>';
+        return el;
+    }
+
+    /** @param {HTMLElement} el @param {'hit'|'exp'|'damage'} kind */
+    _releasePooledElement(el, kind) {
+        if (kind === 'hit') this._hitEffectPool.release(el);
+        else if (kind === 'damage') this._damageNumberPool.release(el);
+        else this._expOrbPool.release(el);
+    }
+
+    /** @param {number} scale — affects VFX lifetime only (sim-time), not spawn rules or caps. */
+    setTimeScale(scale) {
+        this._timeScale = Math.max(1, scale || 1);
+        this._trimEffects();
+        this._trimClassTimers();
+    }
+
+    _isCosmeticThrottled() {
+        return shouldThrottleCosmeticEffects(this.activeEffects.length, this.maxEffects);
+    }
+
+    /** Public check for gameplay code that should skip heavy VFX under load. */
+    isCosmeticThrottled() {
+        return this._isCosmeticThrottled();
+    }
+
+    _consumeDamageNumberBudget() {
+        const now = Date.now();
+        const windowMs = RUNTIME_BUDGET.damageNumberBudgetWindowMs / this._timeScale;
+        if (!this._damageNumberBudgetWindowStart || now - this._damageNumberBudgetWindowStart >= windowMs) {
+            this._damageNumberBudgetWindowStart = now;
+            const base = RUNTIME_BUDGET.damageNumberBudgetPerWindow;
+            this._damageNumberBudget = Math.max(4, Math.floor(base / this._timeScale));
+        }
+        if (this._damageNumberBudget <= 0) return false;
+        this._damageNumberBudget -= 1;
+        return true;
     }
 
     /**
@@ -22,15 +92,32 @@ export class EffectManager {
      * @param {number} lifetimeMs
      * @returns {HTMLElement}
      */
-    _trackEffect(el, lifetimeMs) {
+    _trackEffect(el, lifetimeMs, poolKind = null) {
         this.container.appendChild(el);
+        const maxLife = RUNTIME_BUDGET.maxTransientDomLifetimeMs ?? 15000;
+        const scaledMs = Math.min(maxLife, Math.max(80, lifetimeMs / this._timeScale));
         const id = setTimeout(() => {
-            el.remove();
+            if (poolKind) {
+                this._releasePooledElement(el, poolKind);
+            } else {
+                el.remove();
+            }
             this.activeEffects = this.activeEffects.filter(e => e.el !== el);
-        }, lifetimeMs);
-        this.activeEffects.push({ el, id });
+        }, scaledMs);
+        this.activeEffects.push({ el, id, poolKind });
         this._trimEffects();
         return el;
+    }
+
+    _trimClassTimers() {
+        const cap = this._maxClassTimers ?? 120;
+        while (this._classTimers.length > cap) {
+            const old = this._classTimers.shift();
+            if (!old) break;
+            clearTimeout(old.id);
+            old.el.classList.remove(old.className);
+            old.onDone?.();
+        }
     }
 
     _trimEffects() {
@@ -38,19 +125,20 @@ export class EffectManager {
             const old = this.activeEffects.shift();
             if (old) {
                 clearTimeout(old.id);
-                old.el?.remove();
+                if (old.poolKind) this._releasePooledElement(old.el, old.poolKind);
+                else old.el?.remove();
             }
         }
     }
 
     /** @param {number} x @param {number} y @param {string} type */
     spawnHitEffect(x, y, type = 'physical') {
-        const el = document.createElement('div');
+        if (this._isCosmeticThrottled()) return null;
+        const el = this._hitEffectPool.acquire();
         el.className = `hit-effect hit-effect-${type} particle-25d`;
-        el.innerHTML = '<span class="particle-25d-face"></span><span class="particle-25d-shadow"></span>';
         el.style.left = `${x}vw`;
         el.style.top = `${y}vh`;
-        return this._trackEffect(el, 550);
+        return this._trackEffect(el, 550, 'hit');
     }
 
     /** @param {number} x1 @param {number} y1 @param {number} x2 @param {number} y2 @param {boolean} [enhanced] */
@@ -149,6 +237,8 @@ export class EffectManager {
         slash.innerHTML = '<span class="melee-sword-blade" aria-hidden="true"></span><span class="melee-sword-tip" aria-hidden="true"></span>';
         this._trackEffect(slash, 320);
 
+        if (this._isCosmeticThrottled()) return slash;
+
         const spark = document.createElement('div');
         spark.className = 'melee-sword-impact';
         spark.style.left = `${toX}vw`;
@@ -194,6 +284,7 @@ export class EffectManager {
      * @param {(() => void)|null} [onDone]
      */
     _trackClassTimeout(el, className, ms, onDone = null) {
+        const scaledMs = Math.max(40, ms / this._timeScale);
         // Replace any existing timer for same el+class to avoid stacking
         for (let i = this._classTimers.length - 1; i >= 0; i--) {
             const t = this._classTimers[i];
@@ -206,16 +297,9 @@ export class EffectManager {
             el.classList.remove(className);
             onDone?.();
             this._classTimers = this._classTimers.filter(t => t.id !== id);
-        }, ms);
+        }, scaledMs);
         this._classTimers.push({ el, className, id, onDone });
-        // Soft cap class timers (clear oldest only — never remove host DOM)
-        while (this._classTimers.length > 120) {
-            const old = this._classTimers.shift();
-            if (!old) break;
-            clearTimeout(old.id);
-            old.el.classList.remove(old.className);
-            old.onDone?.();
-        }
+        this._trimClassTimers();
     }
 
     spawnDeathExplosion(x, y, type = 'normal') {
@@ -243,7 +327,10 @@ export class EffectManager {
     }
 
     spawnDamageNumber(x, y, damage, isCrit, element = null) {
-        const el = document.createElement('div');
+        if (this._isCosmeticThrottled()) return null;
+        if (!this._consumeDamageNumberBudget()) return null;
+        if (this.activeEffects.length >= this.maxEffects) return null;
+        const el = this._damageNumberPool.acquire();
         let className = 'damage-number';
         if (isCrit) className += ' damage-crit';
         if (element) className += ` damage-${element}`;
@@ -251,7 +338,8 @@ export class EffectManager {
         el.textContent = String(damage);
         el.style.left = `${x}vw`;
         el.style.top = `${y}vh`;
-        this._trackEffect(el, 1100);
+        el.classList.remove('damage-float');
+        this._trackEffect(el, 1100, 'damage');
         requestAnimationFrame(() => {
             el.classList.add('damage-float');
         });
@@ -269,16 +357,17 @@ export class EffectManager {
 
     /** @param {number} x @param {number} y @param {number} [count] */
     spawnExpOrbs(x, y, count = 3) {
+        if (this._isCosmeticThrottled()) {
+            count = 1;
+        }
         const n = Math.min(count, 4);
         for (let i = 0; i < n; i++) {
-            const el = document.createElement('div');
-            el.className = 'world-exp-orb particle-25d';
-            el.innerHTML = '<span class="particle-25d-face"></span><span class="particle-25d-shadow"></span>';
+            const el = this._expOrbPool.acquire();
             const ox = (Math.random() - 0.5) * 4;
             el.style.left = `${x + ox}vw`;
             el.style.top = `${y}vh`;
             el.style.animationDelay = `${i * 0.06}s`;
-            this._trackEffect(el, 750);
+            this._trackEffect(el, 750, 'exp');
         }
     }
 
@@ -298,9 +387,10 @@ export class EffectManager {
     }
 
     cleanup() {
-        this.activeEffects.forEach(({ el, id }) => {
+        this.activeEffects.forEach(({ el, id, poolKind }) => {
             clearTimeout(id);
-            el?.remove();
+            if (poolKind) this._releasePooledElement(el, poolKind);
+            else el?.remove();
         });
         this.activeEffects = [];
         this._classTimers.forEach(({ el, className, id, onDone }) => {

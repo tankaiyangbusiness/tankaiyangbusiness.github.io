@@ -263,6 +263,31 @@ export function pickTieredAffix(pool, slot, usedIds, ilvl) {
     return rolled;
 }
 
+/**
+ * Boss-drop fallback — re-roll an affix when the unique slot pool is exhausted.
+ * Duplicate rolls use suffixed ids so labels can repeat with independent values.
+ * @param {TieredAffixDef[]} pool
+ * @param {string} slot
+ * @param {Set<string>} usedIds
+ * @param {number} ilvl
+ */
+export function pickTieredAffixAllowDuplicate(pool, slot, usedIds, ilvl) {
+    const candidates = pool.filter(a => !a.slots || a.slots.includes(slot));
+    if (candidates.length === 0) return null;
+    const def = pickWeightedAffixDef(candidates);
+    if (!def) return null;
+    const rolled = rollTieredAffixValue(def, slot, ilvl);
+    if (!rolled) return null;
+    let dupKey = `${def.id}#2`;
+    let n = 2;
+    while (usedIds.has(dupKey)) {
+        n += 1;
+        dupKey = `${def.id}#${n}`;
+    }
+    usedIds.add(dupKey);
+    return { ...rolled, id: dupKey };
+}
+
 /** @param {string} stat */
 export function getTierDefForBaseStat(stat) {
     const prefixId = BASE_STAT_TIER_DEF[stat];

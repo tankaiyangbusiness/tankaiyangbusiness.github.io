@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
     ACHIEVEMENTS,
     ACHIEVEMENT_TARGET_COUNT,
+    COMBO_ACHIEVEMENT_LIMITS,
     getAchievementCount,
     getAchievementDefinition,
     getAchievementTooltipText
@@ -71,13 +72,12 @@ describe('achievements catalog', () => {
         expect(meta.unlockedAchievements.length).toBe(unlocked.length);
     });
 
-    it('keeps time-gated combo achievements challenging', () => {
+    it('keeps time-gated combo achievements challenging after swarm unlock', () => {
         const meta = createDefaultMeta();
-        // Prior easy thresholds: 200 kills / 2 min, wave 12 / 8 min — must NOT unlock rebalanced combos
         const unlocked = evaluateAchievements(meta, {
             killCount: 200,
             level: 10,
-            elapsedSeconds: 200, // past 3-min blitz window, still under 10 min
+            elapsedSeconds: 301, // past 5-min blitz window
             bestStreak: 15,
             treasuresOpened: 3,
             itemsLooted: 10,
@@ -91,17 +91,29 @@ describe('achievements catalog', () => {
             elitesKilled: 0,
             bossesKilled: 0
         });
-        expect(unlocked).not.toContain('combo_slayer_time'); // needs 1000 kills
-        expect(unlocked).not.toContain('combo_speed'); // needs wave 24
-        expect(unlocked).not.toContain('combo_blitz'); // 200 kills but past 3 minutes
-        expect(unlocked).not.toContain('combo_kills_wave'); // needs 120 kills by wave ≤ 8
+        expect(unlocked).not.toContain('combo_slayer_time');
+        expect(unlocked).not.toContain('combo_speed');
+        expect(unlocked).not.toContain('combo_blitz');
+        expect(unlocked).not.toContain('combo_kills_wave');
     });
 
-    it('includes slayer_10000 and hp_5000 achievements', () => {
+    it('includes new stat milestones and roster victories', () => {
         const ids = ACHIEVEMENTS.map(a => a.id);
         expect(ids).toContain('slayer_10000');
         expect(ids).toContain('hp_5000');
+        expect(ids).toContain('hp_10000');
+        expect(ids).toContain('crit_100');
+        expect(ids).toContain('crit_dmg_500');
+        expect(ids).toContain('regen_1000');
+        expect(ids).toContain('damage_3000');
+        expect(ids).toContain('victory_trio');
+        expect(ids).toContain('victory_full_roster');
         expect(ids).toContain('wave_100_champion');
+        expect(ids).not.toContain('skill_15');
+        expect(ids).not.toContain('skill_30');
+        expect(ids).not.toContain('skill_max_1');
+        expect(ids).not.toContain('skill_max_3');
+        expect(ids).not.toContain('treasure_10');
     });
 
     it('unlocks arena champion when final boss is defeated', () => {
@@ -126,20 +138,31 @@ describe('achievements catalog', () => {
         expect(unlocked).toContain('hp_5000');
     });
 
+    it('unlocks trio victory when three characters beat the game', () => {
+        const meta = createDefaultMeta();
+        const unlocked = evaluateAchievements(meta, {
+            killCount: 0, level: 1, elapsedSeconds: 0,
+            bestStreak: 0, treasuresOpened: 0, itemsLooted: 0,
+            equippedRareCount: 0, equippedGearCount: 0,
+            charactersBeatGame: 3
+        });
+        expect(unlocked).toContain('victory_trio');
+    });
+
     it('unlocks rebalanced killer and blitz combos at intended bars', () => {
         const meta = createDefaultMeta();
         const unlocked = evaluateAchievements(meta, {
-            killCount: 1000,
+            killCount: COMBO_ACHIEVEMENT_LIMITS.slayerTimeKills,
             level: 20,
-            elapsedSeconds: 180,
+            elapsedSeconds: COMBO_ACHIEVEMENT_LIMITS.blitzMaxSeconds - 1,
             bestStreak: 40,
             treasuresOpened: 5,
             itemsLooted: 20,
             equippedRareCount: 1,
             equippedUniqueCount: 0,
             equippedGearCount: 7,
-            currentWave: 24,
-            maxWaveReached: 24,
+            currentWave: COMBO_ACHIEVEMENT_LIMITS.speedMinWave,
+            maxWaveReached: COMBO_ACHIEVEMENT_LIMITS.speedMinWave,
             skillLevelSum: 10,
             skillsAtMax: 1,
             elitesKilled: 2,

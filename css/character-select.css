@@ -1,0 +1,419 @@
+/**
+ * Character selection — compact mobile cards, full detail on desktop.
+ * Cards are <article> elements (not buttons) so passive <details> is valid HTML.
+ */
+
+/* --- Card shell --- */
+.character-card {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    position: relative;
+    z-index: 0;
+    overflow: visible;
+    min-height: 0;
+    margin: 0;
+    -webkit-appearance: none;
+    appearance: none;
+    text-align: left;
+    cursor: pointer;
+    outline: none;
+}
+
+.character-card:focus-visible {
+    z-index: 2;
+    box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.65);
+}
+
+.character-card-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+/* --- Header row: preview + meta + passive icon --- */
+.character-card-main {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.65rem;
+    width: 100%;
+    min-width: 0;
+}
+
+.character-card-preview {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.2rem;
+}
+
+.character-card-preview .char-preview-svg {
+    display: block;
+    width: 64px;
+    height: 64px;
+}
+
+.character-card-meta {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.character-card-meta h3 {
+    margin: 0;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.08rem;
+    line-height: 1.2;
+}
+
+.character-best-run {
+    display: block;
+    font-size: 0.76rem;
+    color: #64748b;
+    line-height: 1.3;
+    overflow-wrap: anywhere;
+}
+
+.character-record-lines {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+
+.character-champion-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.22rem;
+    line-height: 1;
+    min-height: 1rem;
+}
+
+.character-champion-count {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: #fcd34d;
+}
+
+.character-champion-star {
+    font-size: 0.78rem;
+    color: #fde68a;
+    text-shadow: 0 0 8px rgba(251, 191, 36, 0.45);
+}
+
+.character-best-run.has-record {
+    color: #a5b4fc;
+}
+
+.character-card--champion .character-best-run.has-record {
+    color: #e2e8f0;
+    font-weight: 600;
+}
+
+/* --- Stats grid --- */
+.character-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.35rem;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.4rem 0.45rem;
+    border-radius: 8px;
+    border: 1px solid rgba(56, 189, 248, 0.22);
+    background: rgba(15, 23, 42, 0.55);
+}
+
+.char-stat-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.08rem;
+    min-width: 0;
+    padding: 0.18rem 0.12rem;
+    border-radius: 6px;
+    background: rgba(30, 41, 59, 0.65);
+}
+
+.char-stat-cell .char-stat-ico {
+    font-size: 0.82rem;
+    line-height: 1;
+}
+
+.char-stat-label {
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: #64748b;
+}
+
+.char-stat-value {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #e2e8f0;
+    line-height: 1.1;
+}
+
+.char-stat-cell.char-stat-hp .char-stat-value { color: #f87171; }
+.char-stat-cell.char-stat-dmg .char-stat-value { color: #fbbf24; }
+.char-stat-cell.char-stat-aoe .char-stat-value { color: #38bdf8; }
+.char-stat-cell.char-stat-def .char-stat-value { color: #a78bfa; }
+
+/* --- Character description (desktop) --- */
+.character-desc {
+    margin: 0;
+    color: #94a3b8;
+    font-size: 0.86rem;
+    line-height: 1.4;
+}
+
+/* --- Passive reveal (<details>) --- */
+.character-passive-reveal {
+    flex-shrink: 0;
+    position: relative;
+    z-index: 3;
+    margin: 0;
+}
+
+.character-passive-reveal-summary {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.35rem;
+    height: 2.35rem;
+    padding: 0;
+    list-style: none;
+    cursor: pointer;
+    border-radius: 8px;
+    border: 1px solid rgba(251, 191, 36, 0.45);
+    background: rgba(251, 191, 36, 0.12);
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.character-passive-reveal-summary::-webkit-details-marker {
+    display: none;
+}
+
+.character-passive-reveal-icon {
+    font-size: 1.1rem;
+    line-height: 1;
+}
+
+.character-passive-reveal-name {
+    display: none;
+}
+
+.character-passive-reveal-body {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    width: min(240px, calc(100vw - 2.5rem));
+    padding: 0.45rem 0.55rem;
+    border-radius: 8px;
+    border: 1px solid rgba(251, 191, 36, 0.4);
+    background: rgba(15, 23, 42, 0.98);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+    z-index: 5;
+}
+
+.character-passive-reveal:not([open]) .character-passive-reveal-body {
+    display: none;
+}
+
+.character-passive-reveal-desc {
+    margin: 0;
+    font-size: 0.74rem;
+    line-height: 1.35;
+    color: #cbd5e1;
+}
+
+.character-passive-reveal[open] {
+    z-index: 6;
+}
+
+.character-passive-reveal[open] + .character-stats-grid,
+.character-card-main:has(.character-passive-reveal[open]) {
+    z-index: 1;
+}
+
+.character-stats-line {
+    display: none;
+}
+
+#character-list .character-card {
+    align-self: stretch;
+}
+
+/* --- Desktop: compact header + floating tooltips (see characterSelectTooltips.js) --- */
+@media (min-width: 769px) {
+    .character-card-inner {
+        gap: 0.55rem;
+    }
+
+    .character-card-main {
+        flex-wrap: nowrap;
+        align-items: flex-start;
+        position: relative;
+        padding-right: 0;
+    }
+
+    .character-card-meta {
+        flex: 1;
+        min-width: 0;
+        padding-right: 3rem;
+    }
+
+    .character-card-meta h3 {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 100%;
+    }
+
+    .character-desc {
+        display: none !important;
+    }
+
+    .character-passive-reveal {
+        position: absolute;
+        top: 0.45rem;
+        right: 0.35rem;
+        flex: none;
+        width: auto;
+        z-index: 4;
+    }
+
+    .character-passive-reveal-summary {
+        width: 2.35rem;
+        height: 2.35rem;
+        padding: 0;
+        justify-content: center;
+        pointer-events: auto;
+        cursor: help;
+        border: 1px solid rgba(251, 191, 36, 0.45);
+        background: rgba(251, 191, 36, 0.12);
+    }
+
+    .character-passive-reveal-name {
+        display: none;
+    }
+
+    .character-passive-reveal-body {
+        display: none !important;
+    }
+}
+
+@media (min-width: 769px) and (max-width: 980px) {
+    .character-stats-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+/* --- Mobile: ultra-compact cards --- */
+@media (max-width: 768px) {
+    #character-selection .char-select-body {
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    #character-selection #character-list {
+        flex: 1;
+        min-height: 0;
+        overflow-x: hidden;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        align-content: start;
+        gap: 0.45rem;
+    }
+
+    .character-card {
+        min-height: unset;
+        padding: 0.5rem 1.85rem 0.5rem 0.55rem;
+    }
+
+    .character-card-inner {
+        gap: 0.35rem;
+    }
+
+    .character-card-main {
+        gap: 0.45rem;
+        align-items: center;
+    }
+
+    .character-card-preview .char-preview-svg {
+        width: 44px;
+        height: 44px;
+    }
+
+    .character-card-meta h3 {
+        font-size: clamp(0.92rem, 4vw, 1rem);
+        overflow-wrap: anywhere;
+    }
+
+    .character-role {
+        font-size: 0.62rem;
+        margin-bottom: 0;
+    }
+
+    .character-best-run {
+        font-size: 0.66rem;
+        line-height: 1.25;
+    }
+
+    /* Hide long text blocks — passive icon + tap popover only */
+    .character-desc {
+        display: none;
+    }
+
+    .character-stats-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 0.2rem;
+        padding: 0.28rem 0.32rem;
+    }
+
+    .char-stat-label {
+        display: none;
+    }
+
+    .char-stat-cell {
+        flex-direction: column;
+        padding: 0.15rem 0.1rem;
+        gap: 0.05rem;
+    }
+
+    .char-stat-value {
+        font-size: 0.72rem;
+    }
+
+    .character-passive-reveal-summary {
+        width: 2.15rem;
+        height: 2.15rem;
+    }
+
+    .character-passive-reveal-icon {
+        font-size: 1rem;
+    }
+
+    .character-passive-reveal-body {
+        width: min(220px, calc(100vw - 2rem));
+    }
+
+    .character-passive-reveal-desc {
+        font-size: 0.72rem;
+    }
+}

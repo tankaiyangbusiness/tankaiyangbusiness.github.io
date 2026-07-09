@@ -6,7 +6,8 @@ export const SURVIVAL_TARGET_MINUTES = 20;
 
 export const BALANCE = {
     /** Seconds before difficulty tier increases — slower ramp for longer runs */
-    difficultyIntervalSec: 20,
+    /** 12s per wave → wave 100 at 20 minutes (1200s). */
+    difficultyIntervalSec: 12,
 
     /** Extended warmup — gentler first ~3 minutes */
     /**
@@ -41,18 +42,11 @@ export const BALANCE = {
     /** Early-wave EXP bonus (+50% through wave 11) */
     earlyWaveExpMultiplier: 1.50,
 
-    /**
-     * Every N completed 1-based waves, non-HP / non-moveSpeed combat stats ×(1+bonus).
-     * Applied as floor(wave / interval) stacks (waves 12, 24, 36…).
-     */
-    waveStatBoostInterval: 12,
-    waveStatBoostBonus: 0.25,
-
     spawnsPerMinute: {
-        normal: 30,
-        rare: 11.5,
-        elite: 2.4,
-        boss: 0.7
+        normal: 22.5,
+        rare: 8.625,
+        elite: 1.8,
+        boss: 0.525
     },
 
     spawnScaling: {
@@ -64,9 +58,10 @@ export const BALANCE = {
 
     maxDifficultyForSpawn: 300,
 
-    enemyHpScale: 0.63,
-    /** Prior patch damage scale — starting +20% combat boost is applied separately; +5% global HP patch */
-    enemyDamageScale: 0.7686525,
+    /** Enemy HP scale — tuned with BASE_ENEMY_STATS.hp. */
+    enemyHpScale: 0.52,
+    /** Direct damage scale (includes prior global −19% folded in). */
+    enemyDamageScale: 0.62261,
     /** +10% exp vs prior patch (0.842 × 1.1) */
     enemyExpScale: 0.926,
 
@@ -81,6 +76,16 @@ export const BALANCE = {
     playerPressure: {
         moveSpeedPerTier: 0.008,
         moveSpeedCap: 1.28
+    },
+
+    /**
+     * Fewer ambient spawns during the mid-campaign (waves 6–49) to reduce clutter
+     * before the Wave 50 milestone.
+     */
+    midCampaignSpawnReduction: {
+        afterWave: 5,
+        beforeWave: 50,
+        multiplier: 0.51
     }
 };
 
@@ -91,6 +96,20 @@ export function getSpawnIntervalMs(category, difficulty) {
     const scale = BALANCE.spawnScaling[category];
     const rate = base + scale * cap;
     return 1000 * 60 / rate;
+}
+
+/**
+ * Ambient spawn density by wave — reduced between waves 6 and 49 (exclusive bounds).
+ * @param {number} currentWave 1-based
+ * @returns {number} multiplier in (0, 1]
+ */
+export function getWaveSpawnDensityMultiplier(currentWave) {
+    const cfg = BALANCE.midCampaignSpawnReduction;
+    if (!cfg) return 1;
+    if (currentWave > cfg.afterWave && currentWave < cfg.beforeWave) {
+        return cfg.multiplier;
+    }
+    return 1;
 }
 
 /** @param {number} stat @param {'hp'|'damage'|'exp'} type */
@@ -159,35 +178,22 @@ export function applyEarlyWaveExpBonus(exp, difficultyWave) {
 }
 
 /**
- * Milestone stacks for waves 12, 24, 36… (1-based wave number).
  * @param {number} wave 1-based
  * @returns {number}
+ * @deprecated Wave milestone combat boosts removed — always 0 stacks.
  */
 export function getWaveStatBoostStacks(wave) {
-    const w = Math.max(0, Math.floor(Number(wave) || 0));
-    const interval = BALANCE.waveStatBoostInterval || 12;
-    return Math.floor(w / interval);
+    void wave;
+    return 0;
 }
 
 /**
- * Multiply non-HP / non-moveSpeed combat stats by milestone bonus.
- * Skips evadeChance (already has its own difficulty curve + soft cap).
  * @param {object} stats
  * @param {number} wave 1-based
+ * @deprecated No-op — wave milestone boosts removed.
  */
 export function applyWaveStatBoost(stats, wave) {
-    const stacks = getWaveStatBoostStacks(wave);
-    if (stacks <= 0 || !stats) return stats;
-    const mult = 1 + stacks * (BALANCE.waveStatBoostBonus || 0.25);
-    if (typeof stats.physicalDamage === 'number') {
-        stats.physicalDamage = Math.max(1, Math.floor(stats.physicalDamage * mult + 1e-9));
-    }
-    if (typeof stats.armour === 'number') {
-        stats.armour = Math.max(0, Math.floor(stats.armour * mult + 1e-9));
-    }
-    if (typeof stats.attackSpeed === 'number') {
-        stats.attackSpeed = Math.max(0.1, Number((stats.attackSpeed * mult).toFixed(3)));
-    }
+    void wave;
     return stats;
 }
 
@@ -211,4 +217,23 @@ export function applyEnemyStartingCombatBoost(stats) {
         stats.armour = Math.max(0, Math.floor(stats.armour * armMult + 1e-9));
     }
     return stats;
+}
+
+/** Global −25% starting HP regen; Healer receives an additional +10% on the reduced value. */
+export const CHARACTER_REGEN_BALANCE = {
+    globalMultiplier: 0.75,
+    healerBonus: 1.10
+};
+
+/**
+ * @param {number} hpRegen Base character regen before balance.
+ * @param {string} characterName
+ * @returns {number}
+ */
+export function balanceCharacterHpRegen(hpRegen, characterName) {
+    let value = hpRegen * CHARACTER_REGEN_BALANCE.globalMultiplier;
+    if (characterName === 'Healer') {
+        value *= CHARACTER_REGEN_BALANCE.healerBonus;
+    }
+    return Math.max(0, Math.round(value * 100) / 100);
 }

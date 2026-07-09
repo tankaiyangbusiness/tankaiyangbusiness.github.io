@@ -1,15 +1,14 @@
 import { CHARACTERS } from '../config/characters.js';
 import { SKILL_DEFINITIONS, SKILL_IDS, syncPlayerSkillLevels, formatSkillTooltipHtml } from '../config/skills.js';
 import { formatTime } from '../utils/math.js';
-import { getCharacterPreviewHtml } from './entityModels.js';
-import { getAchievementById, getCharacterRecord, hasCharacterBeatGame } from '../systems/metaProgress.js';
+import { CharacterSelectTooltips } from './characterSelectTooltips.js';
+import { buildCharacterCard } from './characterSelectCard.js';
+import { getAchievementById } from '../systems/metaProgress.js';
 import { ACHIEVEMENTS, getAchievementTooltipText } from '../config/achievements.js';
-import { FINAL_VICTORY_WAVE } from '../config/victory.js';
+import { FINAL_VICTORY_WAVE, MIDPOINT_VICTORY_WAVE, MINI_BOSS_WAVES } from '../config/milestoneBosses.js';
 import { computeTooltipPlacement } from '../utils/tooltipClamp.js';
-import {
-    getCharacterPassive,
-    formatPassiveTooltipHtml
-} from '../config/characterPassives.js';
+import { formatPassiveTooltipHtml } from '../config/characterPassives.js';
+import { clampPlayerHp } from '../systems/playerVitality.js';
 
 /** Reliable icons — emoji fallbacks for platforms missing glyphs. */
 const SKILL_ICON_HTML = {
@@ -71,6 +70,7 @@ export class UIManager {
         this._gearLootTimer = null;
         this._treasurePingTimer = null;
         this._lastStreak = 0;
+        this.characterSelectTooltips = new CharacterSelectTooltips();
         this._initPauseMenu();
     }
 
@@ -260,51 +260,9 @@ export class UIManager {
 
         this.els.characterList.innerHTML = '';
         CHARACTERS.forEach((char, index) => {
-            const record = meta ? getCharacterRecord(meta, char.name) : null;
-            const hasRecord = record && record.level > 0;
-            const beatGame = meta ? hasCharacterBeatGame(meta, char.name) : false;
-            const bestText = beatGame
-                ? `★ Champion — Beat Wave ${FINAL_VICTORY_WAVE}!`
-                : hasRecord
-                    ? `Best: Lv.${record.level} · Wave ${record.wave} · ${record.kills} kills · ${formatTime(record.time)}`
-                    : 'No record yet';
-
-            const passive = getCharacterPassive(char.name);
-            const passiveChip = passive
-                ? `<span class="character-passive-chip" title="${passive.name}">
-                        <span aria-hidden="true">${passive.icon}</span>
-                        <span>${passive.name}</span>
-                        <span class="chip-tip"><strong>${passive.name}</strong><br>${passive.description}</span>
-                   </span>`
-                : '';
-
-            const card = document.createElement('button');
-            card.className = 'character-card' + (beatGame ? ' character-card--champion' : '');
-            card.dataset.character = char.name;
-            const keyHint = index < 9 ? index + 1 : (index === 9 ? '0' : '-');
-            card.innerHTML = `
-                <span class="character-index">${keyHint}</span>
-                ${getCharacterPreviewHtml(char.name)}
-                <div class="character-card-body">
-                    <h3>${char.name}</h3>
-                    <span class="character-role">${char.role}</span>
-                    <p class="character-desc">${char.description}</p>
-                    ${passiveChip}
-                    <div class="character-stats-line">
-                        <span class="char-stat" title="Hit Points"><span class="char-stat-ico char-stat-hp">♥</span>${char.stats.maxHp}</span>
-                        <span class="char-stat-sep">·</span>
-                        <span class="char-stat" title="Damage"><span class="char-stat-ico char-stat-dmg">⚔</span>${char.stats.physicalDamage}</span>
-                        <span class="char-stat-sep">·</span>
-                        <span class="char-stat" title="Attack Range"><span class="char-stat-ico char-stat-aoe">◎</span>${char.stats.attackRange}</span>
-                        <span class="char-stat-sep">·</span>
-                        <span class="char-stat" title="Defence"><span class="char-stat-ico char-stat-def">🛡</span>${char.stats.armour}</span>
-                    </div>
-                    <span class="character-best-run ${hasRecord || beatGame ? 'has-record' : ''}">${bestText}</span>
-                </div>
-            `;
-            card.addEventListener('click', () => onSelect(char.name));
-            this.els.characterList.appendChild(card);
+            this.els.characterList.appendChild(buildCharacterCard(char, index, meta, onSelect));
         });
+        this.characterSelectTooltips.bind(this.els.characterList);
     }
 
     showGame() {
@@ -320,12 +278,15 @@ export class UIManager {
     }
 
     updateStats(stats, skillList) {
-        if (stats.hp > stats.maxHp) stats.hp = stats.maxHp;
+        clampPlayerHp(stats);
 
         const fmt = (n, dec = 2) => Number(n).toFixed(dec).replace(/\.?0+$/, '');
+        const maxHp = Math.max(1, stats.maxHp || 1);
+        const displayHp = Math.max(0, Math.floor(stats.hp));
+        const hpPct = Math.min(100, Math.max(0, (displayHp / maxHp) * 100));
 
-        this.els.hpBarFill.style.width = `${(stats.hp / stats.maxHp) * 100}%`;
-        this.els.hpValue.textContent = `${Math.max(0, Math.floor(stats.hp))} / ${stats.maxHp}`;
+        this.els.hpBarFill.style.width = `${hpPct}%`;
+        this.els.hpValue.textContent = `${displayHp} / ${maxHp}`;
         this.els.expBarFill.style.width = `${(stats.exp / stats.expThreshold) * 100}%`;
         this.els.expValue.textContent = `${stats.exp} / ${stats.expThreshold}`;
         this.els.level.textContent = `Lv. ${stats.level}`;
@@ -340,6 +301,17 @@ export class UIManager {
 
         syncPlayerSkillLevels(stats.skills, skillList);
         this.updateSkillBar(stats.skills, skillList);
+    }
+
+    /** Lightweight HP bar refresh after mid-tick damage (before end-of-tick regen). */
+    syncPlayerHp(stats) {
+        if (!stats || !this.els.hpBarFill || !this.els.hpValue) return;
+        clampPlayerHp(stats);
+        const maxHp = Math.max(1, stats.maxHp || 1);
+        const displayHp = Math.max(0, Math.floor(stats.hp));
+        const pct = Math.min(100, Math.max(0, (displayHp / maxHp) * 100));
+        this.els.hpBarFill.style.width = `${pct}%`;
+        this.els.hpValue.textContent = `${displayHp} / ${maxHp}`;
     }
 
     /** @param {import('../config/characterPassives.js').CharacterPassiveDef|null} passive */
@@ -567,6 +539,10 @@ export class UIManager {
         if (!this.els.waveToast || wave <= 0) return;
         if (wave === FINAL_VICTORY_WAVE) {
             this.els.waveToast.textContent = `Wave ${wave} — The Final Boss approaches!`;
+        } else if (wave === MIDPOINT_VICTORY_WAVE) {
+            this.els.waveToast.textContent = `Wave ${wave} — Midpoint Boss approaches!`;
+        } else if (MINI_BOSS_WAVES.includes(wave)) {
+            this.els.waveToast.textContent = `Wave ${wave} — Mini Boss approaches!`;
         } else {
             this.els.waveToast.textContent = `Wave ${wave} — Difficulty rising!`;
         }
@@ -578,10 +554,37 @@ export class UIManager {
         }, 2200);
     }
 
+    /** @param {number} wave Mini-boss waves 25 & 75 */
+    showMiniBossIncoming(wave) {
+        if (!this.els.waveToast) return;
+        this.els.waveToast.textContent =
+            `⚠️ Wave ${wave} MINI BOSS — 20× HP · Escorts incoming!`;
+        this.els.waveToast.classList.remove('toast-victory');
+        this.els.waveToast.classList.add('toast-visible', 'toast-boss-final');
+        clearTimeout(this._waveTimer);
+        this._waveTimer = setTimeout(() => {
+            this.els.waveToast.classList.remove('toast-visible', 'toast-boss-final');
+        }, 3600);
+    }
+
+    /** @param {number} wave */
+    showMidpointVictoryBossIncoming(wave) {
+        if (!this.els.waveToast) return;
+        this.els.waveToast.textContent =
+            `⚠️ Wave ${wave} MIDPOINT BOSS — 50× HP · Army incoming!`;
+        this.els.waveToast.classList.remove('toast-victory');
+        this.els.waveToast.classList.add('toast-visible', 'toast-boss-final');
+        clearTimeout(this._waveTimer);
+        this._waveTimer = setTimeout(() => {
+            this.els.waveToast.classList.remove('toast-visible', 'toast-boss-final');
+        }, 3800);
+    }
+
     /** @param {number} wave */
     showFinalVictoryBossIncoming(wave) {
         if (!this.els.waveToast) return;
-        this.els.waveToast.textContent = `⚠️ Wave ${wave} FINAL BOSS — 20× HP · 2× damage · Army incoming!`;
+        this.els.waveToast.textContent =
+            `⚠️ Wave ${wave} FINAL BOSS — 50× HP · 2× damage · Army incoming!`;
         this.els.waveToast.classList.remove('toast-victory');
         this.els.waveToast.classList.add('toast-visible', 'toast-boss-final');
         clearTimeout(this._waveTimer);

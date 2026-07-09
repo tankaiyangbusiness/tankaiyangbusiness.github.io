@@ -24,11 +24,18 @@ describe('browser bundle', () => {
         expect(bundle).toContain('Summoner');
         expect(bundle).toContain('GearInventory');
         expect(bundle).toContain('generateGearItem');
+        expect(bundle).toContain('character-stats-grid');
+        expect(bundle).toContain('_beginActiveRun');
+        expect(bundle).not.toContain('_trackMaxHp');
     });
 
-    it('index.html references the bundle, not ES modules', () => {
+    it('index.html references the bundle and mobile stylesheet', () => {
         const html = readFileSync(path.join(root, 'index.html'), 'utf-8');
         expect(html).toContain('game.bundle.js');
+        expect(html).toContain('css/mobile.css');
+        expect(html).toContain('css/character-select.css');
+        expect(html).toContain('game-speed-controls');
+        expect(html).toContain('stats-detail-toggle');
         expect(html).not.toContain('type="module"');
     });
 });

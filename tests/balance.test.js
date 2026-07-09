@@ -10,13 +10,16 @@ import {
     getWaveStatBoostStacks,
     applyWaveStatBoost,
     getEnemyAttackTimeMultiplier,
-    scaleEnemyAttackDamageForElapsed
+    scaleEnemyAttackDamageForElapsed,
+    balanceCharacterHpRegen,
+    CHARACTER_REGEN_BALANCE
 } from '../js/config/balance.js';
 
 describe('balance config', () => {
-    it('targets ~20 minute average survival', () => {
+    it('targets ~20 minute run to wave 100', () => {
         expect(SURVIVAL_TARGET_MINUTES).toBe(20);
-        expect(BALANCE.difficultyIntervalSec).toBeGreaterThanOrEqual(18);
+        expect(BALANCE.difficultyIntervalSec).toBe(12);
+        expect(BALANCE.difficultyIntervalSec * 100).toBe(1200);
         expect(BALANCE.warmupSeconds).toBeGreaterThanOrEqual(150);
     });
 
@@ -73,24 +76,31 @@ describe('balance config', () => {
     });
 
     it('tunes enemy stats per balance patch', () => {
-        expect(BALANCE.enemyHpScale).toBeCloseTo(0.63, 2);
-        expect(BALANCE.enemyDamageScale).toBeCloseTo(0.7686525, 4);
+        expect(BALANCE.enemyHpScale).toBeCloseTo(0.52, 3);
+        expect(BALANCE.enemyDamageScale).toBeCloseTo(0.62261, 4);
         expect(BALANCE.enemyExpScale).toBeCloseTo(0.926, 2);
-        expect(BALANCE.spawnsPerMinute.normal).toBeCloseTo(30, 1);
-        expect(BALANCE.waveStatBoostBonus).toBeCloseTo(0.25, 2);
+        expect(BALANCE.spawnsPerMinute.normal).toBeCloseTo(22.5, 1);
+        expect(BALANCE.spawnScaling.normal).toBeCloseTo(2.9, 1);
+        expect(BALANCE.midCampaignSpawnReduction.multiplier).toBeCloseTo(0.51, 2);
         expect(BALANCE.enemyBaseDamageBonus).toBeCloseTo(1.2, 2);
         expect(BALANCE.enemyBaseArmourBonus).toBeCloseTo(1.1, 2);
+        expect(BALANCE.enemyDamageGlobalMultiplier).toBeUndefined();
+        expect(BALANCE.enemyDamageGlobalPatch).toBeUndefined();
     });
 
-    it('stacks +25% combat stats every 12 waves (not HP/speed)', () => {
-        expect(getWaveStatBoostStacks(11)).toBe(0);
-        expect(getWaveStatBoostStacks(12)).toBe(1);
-        expect(getWaveStatBoostStacks(24)).toBe(2);
-        const stats = { physicalDamage: 100, armour: 10, hp: 500, maxHp: 500, moveSpeed: 0.3 };
-        applyWaveStatBoost(stats, 12);
-        expect(stats.physicalDamage).toBe(125);
-        expect(stats.armour).toBe(12);
-        expect(stats.hp).toBe(500);
-        expect(stats.moveSpeed).toBe(0.3);
+    it('does not apply wave milestone combat boosts anymore', () => {
+        expect(getWaveStatBoostStacks(24)).toBe(0);
+        const stats = { physicalDamage: 100, armour: 10, attackSpeed: 1.4, hp: 500, maxHp: 500, moveSpeed: 0.3 };
+        applyWaveStatBoost(stats, 24);
+        expect(stats.physicalDamage).toBe(100);
+        expect(stats.armour).toBe(10);
+        expect(stats.attackSpeed).toBe(1.4);
+    });
+
+    it('reduces starting regen by 25% with Healer +10% on the reduced value', () => {
+        expect(CHARACTER_REGEN_BALANCE.globalMultiplier).toBe(0.75);
+        expect(balanceCharacterHpRegen(130, 'Healer')).toBe(107.25);
+        expect(balanceCharacterHpRegen(12, 'Paladin')).toBe(9);
+        expect(balanceCharacterHpRegen(3, 'Adventurer')).toBe(2.25);
     });
 });

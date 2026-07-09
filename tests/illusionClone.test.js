@@ -21,6 +21,7 @@ beforeAll(() => {
     vi.stubGlobal('document', {
         createElement: () => createMockElement()
     });
+    vi.stubGlobal('window', { innerWidth: 1000, innerHeight: 800 });
 });
 
 import { IllusionCloneManager } from '../js/systems/illusionClone.js';
@@ -34,10 +35,12 @@ function createMockGame() {
     const state = {
         gamePaused: false,
         gameOver: false,
-        stats: { attackSpeed: 2, physicalDamage: 50 },
+        timeScale: 1,
+        stats: { attackSpeed: 2, physicalDamage: 50, attackRange: 150 },
         skillList: { illusion: { level: 3 } },
         skillCooldowns: { illusion: 0 },
-        enemies: []
+        enemies: [],
+        trackTimeout: vi.fn(id => id)
     };
 
     const game = {
@@ -62,8 +65,9 @@ describe('IllusionCloneManager', () => {
 
         expect(mgr.trySummon(3, now)).toBe(true);
         expect(mgr.isActive()).toBe(true);
+        expect(mgr.skillClone).toBeTruthy();
         expect(game.state.skillCooldowns.illusion).toBe(now);
-        expect(mgr.clone.damagePercent).toBe(cfg.damagePercent);
+        expect(mgr.skillClone.damagePercent).toBe(cfg.damagePercent);
 
         expect(mgr.trySummon(3, now + 100)).toBe(false);
     });
@@ -73,7 +77,7 @@ describe('IllusionCloneManager', () => {
         const mgr = new IllusionCloneManager(game);
         const cfg = getIllusionConfig(5);
         mgr.trySummon(5, cfg.cooldown + 1);
-        mgr.clone.lastAttackTime = 0;
+        mgr.skillClone.lastAttackTime = 0;
 
         mgr.tick(600);
         expect(game._attackNearestEnemy).toHaveBeenCalledWith(
@@ -82,7 +86,7 @@ describe('IllusionCloneManager', () => {
             null,
             null,
             expect.objectContaining({
-                damageMultiplier: 0.6,
+                damageMultiplier: cfg.damagePercent / 100,
                 skipPlayerAnim: true,
                 rangeCenterX: 50,
                 rangeCenterY: 50
@@ -90,31 +94,33 @@ describe('IllusionCloneManager', () => {
         );
     });
 
-    it('dismisses clone after duration', () => {
+    it('dismisses skill clone after duration without removing roam companion', () => {
         const { game } = createMockGame();
         const mgr = new IllusionCloneManager(game);
         const cfg = getIllusionConfig(1);
         const summonAt = cfg.cooldown + 1;
+        mgr.ensureRoamingCompanion(0, { damagePercent: 60 });
         mgr.trySummon(1, summonAt);
 
         mgr.tick(summonAt + cfg.duration + 1);
-        expect(mgr.isActive()).toBe(false);
+        expect(mgr.skillClone).toBeNull();
+        expect(mgr.roamClone).toBeTruthy();
+        expect(mgr.isActive()).toBe(true);
     });
 
-    it('syncs clone position beside player', () => {
+    it('syncs skill clone position beside player', () => {
         const { game } = createMockGame();
         const mgr = new IllusionCloneManager(game);
         const cfg = getIllusionConfig(2);
         mgr.trySummon(2, cfg.cooldown + 1);
         mgr.tick(100);
-        expect(mgr.clone.el.style.left).toBe(`${50 + cfg.offsetVw}vw`);
-        expect(mgr.clone.el.style.top).toBe('50vh');
+        expect(mgr.skillClone.el.style.left).toBe(`${50 + cfg.offsetVw}vw`);
+        expect(mgr.skillClone.el.style.top).toBe('50vh');
     });
 
     it('roaming ranger illusion advances toward foes with stored coords', () => {
         vi.stubGlobal('window', { innerWidth: 1000, innerHeight: 800 });
         const { game } = createMockGame();
-        game.state.stats.attackRange = 150;
         game.state.enemies = [{
             stats: { hp: 10 },
             element: { style: { left: '70vw', top: '50vh' } }
@@ -122,12 +128,43 @@ describe('IllusionCloneManager', () => {
 
         const mgr = new IllusionCloneManager(game);
         mgr.ensureRoamingCompanion(0, { damagePercent: 60, speedVw: 2, leashVw: 30 });
-        expect(mgr.clone.roam).toBe(true);
-        expect(mgr.clone.x).toBeCloseTo(53.2);
+        expect(mgr.roamClone.roam).toBe(true);
+        expect(mgr.roamClone.x).toBeCloseTo(53.2);
 
-        const before = mgr.clone.x;
+        const before = mgr.roamClone.x;
         mgr.tick(50);
-        expect(mgr.clone.x).toBeGreaterThan(before);
-        expect(mgr.clone.el.style.left).toBe(`${mgr.clone.x}vw`);
+        expect(mgr.roamClone.x).toBeGreaterThan(before);
+        expect(mgr.roamClone.el.style.left).toBe(`${mgr.roamClone.x}vw`);
+    });
+
+    it('Ranger passive and Illusion skill coexist — skill is not blocked or dismissed', () => {
+        const { game } = createMockGame();
+        const mgr = new IllusionCloneManager(game);
+        const cfg = getIllusionConfig(3);
+        const now = cfg.cooldown + 50;
+
+        mgr.ensureRoamingCompanion(0, { damagePercent: 60 });
+        expect(mgr.trySummon(3, now)).toBe(true);
+
+        expect(mgr.roamClone).toBeTruthy();
+        expect(mgr.skillClone).toBeTruthy();
+        expect(mgr.roamClone.el).not.toBe(mgr.skillClone.el);
+
+        mgr.ensureRoamingCompanion(now + 1, { damagePercent: 60 });
+        expect(mgr.skillClone).toBeTruthy();
+        expect(mgr.roamClone).toBeTruthy();
+    });
+
+    it('both clones attack independently', () => {
+        const { game } = createMockGame();
+        const mgr = new IllusionCloneManager(game);
+        const cfg = getIllusionConfig(2);
+        mgr.ensureRoamingCompanion(0, { damagePercent: 60 });
+        mgr.trySummon(2, cfg.cooldown + 1);
+        mgr.roamClone.lastAttackTime = 0;
+        mgr.skillClone.lastAttackTime = 0;
+
+        mgr.tick(600);
+        expect(game._attackNearestEnemy).toHaveBeenCalledTimes(2);
     });
 });

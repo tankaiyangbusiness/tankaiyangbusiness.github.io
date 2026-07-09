@@ -1,15 +1,17 @@
 import { buildGearCompareTooltipHtml } from '../systems/gearGenerator.js';
+import { positionFloatingTooltip } from '../utils/floatingTooltip.js';
 
 /** Floating gear item tooltip with equipped comparison. */
 export class GearTooltip {
     constructor() {
         this.el = document.createElement('div');
         this.el.id = 'gear-tooltip';
-        this.el.className = 'gear-tooltip';
+        this.el.className = 'gear-tooltip floating-tooltip';
         this.el.setAttribute('role', 'tooltip');
         this.el.hidden = true;
         document.body.appendChild(this.el);
-        this._anchor = null;
+        this._clientX = 0;
+        this._clientY = 0;
         this._onMove = this._onMove.bind(this);
     }
 
@@ -17,13 +19,17 @@ export class GearTooltip {
      * @param {object} item
      * @param {HTMLElement} anchor
      * @param {object|null} [equippedItem]
+     * @param {number} [clientX]
+     * @param {number} [clientY]
      */
-    show(item, anchor, equippedItem = null) {
+    show(item, anchor, equippedItem = null, clientX, clientY) {
         this._anchor = anchor;
         const hoveredIsEquipped = Boolean(equippedItem && item?.id === equippedItem.id);
         this.el.innerHTML = buildGearCompareTooltipHtml(item, equippedItem, { hoveredIsEquipped });
-        this.el.hidden = false;
-        this._position();
+        const rect = anchor.getBoundingClientRect();
+        this._clientX = clientX ?? rect.left + rect.width / 2;
+        this._clientY = clientY ?? rect.top + rect.height / 2;
+        positionFloatingTooltip(this.el, this._clientX, this._clientY);
         document.addEventListener('mousemove', this._onMove);
     }
 
@@ -34,30 +40,12 @@ export class GearTooltip {
         document.removeEventListener('mousemove', this._onMove);
     }
 
-    _onMove() {
-        if (this._anchor) this._position();
-    }
-
-    _position() {
-        if (!this._anchor) return;
-        const rect = this._anchor.getBoundingClientRect();
-        const tipRect = this.el.getBoundingClientRect();
-        const margin = 10;
-
-        let left = rect.right + margin;
-        let top = rect.top;
-
-        if (left + tipRect.width > window.innerWidth - 8) {
-            left = rect.left - tipRect.width - margin;
+    _onMove(event) {
+        this._clientX = event.clientX;
+        this._clientY = event.clientY;
+        if (!this.el.hidden) {
+            positionFloatingTooltip(this.el, this._clientX, this._clientY);
         }
-        if (top + tipRect.height > window.innerHeight - 8) {
-            top = window.innerHeight - tipRect.height - 8;
-        }
-        if (top < 8) top = 8;
-        if (left < 8) left = 8;
-
-        this.el.style.left = `${left}px`;
-        this.el.style.top = `${top}px`;
     }
 
     /**
@@ -67,9 +55,15 @@ export class GearTooltip {
      */
     bind(el, item, getEquipped) {
         if (!item) return;
-        el.addEventListener('mouseenter', () => {
+        el.addEventListener('mouseenter', (event) => {
             const equipped = getEquipped?.() ?? null;
-            this.show(item, el, equipped);
+            this.show(item, el, equipped, event.clientX, event.clientY);
+        });
+        el.addEventListener('mousemove', (event) => {
+            if (this.el.hidden) return;
+            this._clientX = event.clientX;
+            this._clientY = event.clientY;
+            positionFloatingTooltip(this.el, this._clientX, this._clientY);
         });
         el.addEventListener('mouseleave', () => this.hide());
         el.addEventListener('mousedown', () => this.hide());

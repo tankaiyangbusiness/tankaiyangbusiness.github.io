@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
     <title>Survivor Arena — Idle RPG</title>
     <link rel="stylesheet" href="css/typography.css">
     <link rel="stylesheet" href="style.css">
@@ -15,7 +15,11 @@
     <link rel="stylesheet" href="css/animations.css">
     <link rel="stylesheet" href="css/particles-25d.css">
     <link rel="stylesheet" href="css/character-passive.css">
+    <link rel="stylesheet" href="css/character-select.css">
+    <link rel="stylesheet" href="css/floating-tooltip.css">
+    <link rel="stylesheet" href="css/final-boss-hud.css">
     <link rel="stylesheet" href="css/scrollbar.css">
+    <link rel="stylesheet" href="css/mobile.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
@@ -46,7 +50,8 @@
             <h2 class="section-title">Select Your Character</h2>
             <div id="character-list" class="game-scrollbar"></div>
         </div>
-        <p class="controls-hint">Press <kbd>1</kbd>–<kbd>9</kbd>, <kbd>0</kbd>, <kbd>-</kbd> to select · In-game: <kbd>U</kbd> upgrades · <kbd>G</kbd> gear · <kbd>Esc</kbd> pause</p>
+        <p class="controls-hint controls-hint--desktop">Press <kbd>1</kbd>–<kbd>9</kbd>, <kbd>0</kbd>, <kbd>-</kbd> to select · In-game: <kbd>U</kbd> upgrades · <kbd>G</kbd> gear · <kbd>Esc</kbd> pause</p>
+        <p class="controls-hint controls-hint--mobile">Tap a character to start · In-game: use the menu button to pause, adjust audio, or return to character select</p>
     </div>
 
     <!-- Game Arena -->
@@ -70,8 +75,12 @@
                     <div class="stat-level-row">
                         <div id="level" class="stat-level">Lv. 1</div>
                     </div>
-                    <div class="stat-row">
-                        <label>HP</label>
+                    <button id="stats-detail-toggle" type="button" class="stats-detail-toggle" aria-expanded="true" aria-controls="player-stats-detail" title="Toggle combat stats">
+                        <span class="stats-detail-toggle-label">Stats</span>
+                        <span class="stats-detail-toggle-icon" aria-hidden="true">▾</span>
+                    </button>
+                    <div class="stat-row stat-row-hp">
+                        <label class="stat-hp-label">HP</label>
                         <div id="hp-bar" class="bar-container">
                             <div id="hp-bar-fill" class="bar-fill hp-fill"></div>
                             <span id="hp-value" class="bar-text">600 / 600</span>
@@ -84,7 +93,7 @@
                             <span id="shield-value" class="bar-text">0 / 0</span>
                         </div>
                     </div>
-                    <div class="stats-grid">
+                    <div id="player-stats-detail" class="stats-grid">
                         <div class="stat-item"><span class="stat-label">DMG</span><span id="damage" class="stat-value">30</span></div>
                         <div class="stat-item"><span class="stat-label">AoE</span><span id="aoe" class="stat-value">150</span></div>
                         <div class="stat-item"><span class="stat-label">ATK SPD</span><span id="attack-speed" class="stat-value">2</span></div>
@@ -101,21 +110,38 @@
                 </button>
             </div>
 
-            <div class="hud-meta-center">
-                <div class="meta-panel">
-                    <div class="meta-item"><span class="meta-label">Kills</span><span id="kill-count" class="meta-value">0</span></div>
-                    <div class="meta-item"><span class="meta-label">Streak</span><span id="streak-count" class="meta-value">—</span></div>
-                    <div class="meta-item"><span class="meta-label">Wave</span><span id="difficulty-level" class="meta-value">0</span></div>
+            <div class="hud-meta-center hud-meta-stack">
+                <div class="hud-meta-row">
+                    <div class="meta-panel">
+                        <div class="meta-item"><span class="meta-label">Kills</span><span id="kill-count" class="meta-value">0</span></div>
+                        <div class="meta-item"><span class="meta-label">Streak</span><span id="streak-count" class="meta-value">—</span></div>
+                        <div class="meta-item"><span class="meta-label">Wave</span><span id="difficulty-level" class="meta-value">0</span></div>
+                    </div>
+                    <aside id="enemy-guide-panel" class="enemy-guide-panel" aria-label="Enemy types">
+                        <button id="enemy-guide-toggle" type="button" class="enemy-guide-toggle" aria-expanded="false" title="Enemy guide">!</button>
+                        <div id="enemy-guide-body" class="enemy-guide-body game-scrollbar"></div>
+                    </aside>
                 </div>
-                <aside id="enemy-guide-panel" class="enemy-guide-panel" aria-label="Enemy types">
-                    <button id="enemy-guide-toggle" type="button" class="enemy-guide-toggle" aria-expanded="false" title="Enemy guide">!</button>
-                    <div id="enemy-guide-body" class="enemy-guide-body game-scrollbar"></div>
+                <aside id="final-boss-hud" class="final-boss-hud" hidden>
+                    <div id="boss-hud-label" class="final-boss-hud-label">Final Boss</div>
+                    <div class="final-boss-hud-bar bar-container">
+                        <div id="final-boss-hp-fill" class="bar-fill final-boss-hp-fill"></div>
+                        <span id="final-boss-hp-value" class="bar-text">0 / 0</span>
+                    </div>
                 </aside>
             </div>
 
             <div class="hud-timer-wrap">
                 <div id="timer" class="timer-display">0:00</div>
+                <div id="game-speed-controls" class="game-speed-controls" role="group" aria-label="Game speed">
+                    <button type="button" class="game-speed-btn game-speed-btn-active" data-speed="1" aria-pressed="true">1×</button>
+                    <button type="button" class="game-speed-btn" data-speed="2" aria-pressed="false">2×</button>
+                    <button type="button" class="game-speed-btn" data-speed="4" aria-pressed="false">4×</button>
+                </div>
             </div>
+            <button id="mobile-menu-btn" type="button" class="mobile-menu-btn" aria-label="Open menu" title="Menu (pause)" hidden>
+                <span class="mobile-menu-btn-icon" aria-hidden="true">☰</span>
+            </button>
         </header>
 
         <div class="hud-skill-dock">
@@ -207,7 +233,8 @@
                         <span id="audio-sfx-value-pause" class="audio-slider-value">100%</span>
                     </label>
                 </div>
-                <p class="controls-hint">Press <kbd>Esc</kbd> to resume</p>
+                <p class="controls-hint controls-hint--desktop">Press <kbd>Esc</kbd> to resume</p>
+                <p class="controls-hint controls-hint--mobile">Tap Resume or the menu button to continue</p>
             </div>
         </div>
 

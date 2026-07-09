@@ -26,6 +26,33 @@ export const EXP_CONFIG = {
     streakBonusPerKill: 0.018
 };
 
+/**
+ * Wave-tier kill EXP modifiers — multiplicative, no global runtime multiplier.
+ * Baseline −5%; after wave 50 another −5%; after wave 100 another −10%.
+ */
+export const EXP_KILL_WAVE_MODIFIERS = {
+    baseline: 0.95,
+    afterWave50: { thresholdWave: 50, multiplier: 0.95 },
+    afterWave100: { thresholdWave: 100, multiplier: 0.90 }
+};
+
+/**
+ * Combined EXP payout multiplier from wave progression.
+ * @param {number} waveIndex 0-based difficulty index (wave 1 → index 0)
+ * @returns {number}
+ */
+export function getExpKillWaveMultiplier(waveIndex = 0) {
+    const wave = Math.max(1, Math.floor(waveIndex) + 1);
+    let mult = EXP_KILL_WAVE_MODIFIERS.baseline;
+    if (wave > EXP_KILL_WAVE_MODIFIERS.afterWave50.thresholdWave) {
+        mult *= EXP_KILL_WAVE_MODIFIERS.afterWave50.multiplier;
+    }
+    if (wave > EXP_KILL_WAVE_MODIFIERS.afterWave100.thresholdWave) {
+        mult *= EXP_KILL_WAVE_MODIFIERS.afterWave100.multiplier;
+    }
+    return mult;
+}
+
 /** @deprecated Use enemyExpGrantRatio */
 export const enemyExpMultiplier = EXP_CONFIG.enemyExpGrantRatio;
 
@@ -66,6 +93,8 @@ export function calculateExpFromKill(enemyExp, expGain, streakBonus = 0, context
     if (isSwarmLike) {
         gained = Math.max(1, Math.floor(gained * EXP_CONFIG.swarmKillMultiplier));
     }
+
+    gained = Math.max(1, Math.floor(gained * getExpKillWaveMultiplier(waveIndex)));
 
     if (waveIndex < BALANCE.earlyWaveCap) {
         if (isSwarmLike) {

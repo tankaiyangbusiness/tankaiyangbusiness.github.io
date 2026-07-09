@@ -9,8 +9,10 @@ import { BALANCE } from '../js/config/balance.js';
 describe('waveProgression', () => {
     it('starts player-facing wave at 1', () => {
         expect(getWaveNumber(0)).toBe(1);
-        expect(getWaveNumber(19)).toBe(1);
+        expect(getWaveNumber(11)).toBe(1);
         expect(getWaveNumber(BALANCE.difficultyIntervalSec)).toBe(2);
+        expect(getWaveNumber(119)).toBe(10);
+        expect(getWaveNumber(1188)).toBe(100);
     });
 
     it('maps wave number to 0-based difficulty index', () => {

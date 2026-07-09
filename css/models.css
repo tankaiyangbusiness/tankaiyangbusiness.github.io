@@ -457,8 +457,3 @@
     filter: drop-shadow(0 0 10px rgba(148, 163, 184, 0.35));
     animation: wraith-flicker 1.4s ease-in-out infinite;
 }
-
-.character-card {
-    display: flex;
-    align-items: center;
-}

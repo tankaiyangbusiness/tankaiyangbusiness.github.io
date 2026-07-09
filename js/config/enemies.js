@@ -3,15 +3,15 @@ import {
     applyEnemyMovePressure,
     applyEarlyWaveHpReduction,
     applyEarlyWaveExpBonus,
-    applyWaveStatBoost,
-    applyEnemyStartingCombatBoost
+    applyEnemyStartingCombatBoost,
+    BALANCE
 } from './balance.js';
 import { finalizeEnemyExpStat } from './expProgression.js';
 
 /** @type {import('../types.js').EnemyStats} */
 export const BASE_ENEMY_STATS = {
-    hp: 16,
-    maxHp: 16,
+    hp: 14,
+    maxHp: 14,
     physicalDamage: 7,
     attackSpeed: 1.4,
     attackRange: 50,
@@ -195,9 +195,6 @@ export function buildEnemyStats(enemyType, rarity, difficulty) {
     // From start: +20% damage/AS, +10% armour (not HP / moveSpeed)
     applyEnemyStartingCombatBoost(stats);
 
-    // Waves 12, 24, 36…: +15% damage / armour / attack speed
-    applyWaveStatBoost(stats, difficulty + 1);
-
     return { stats, typeConfig, rarityConfig };
 }
 
@@ -233,7 +230,7 @@ export function scaleEnemyExp(base, difficulty) {
  */
 export const SWARM_UNLOCK_DIFFICULTY = 6;
 
-/** Pick a random enemy type based on difficulty */
+/** Pick a random enemy type based on difficulty. */
 export function pickEnemyType(difficulty) {
     const pool = ['grunt', 'grunt', 'grunt', 'grunt'];
     // Swarms unlock after the skill-less early window — light weight first, heavier later
@@ -244,7 +241,9 @@ export function pickEnemyType(difficulty) {
     } else if (difficulty >= 16) {
         pool.push('swarm', 'swarm', 'swarm');
     }
-    if (difficulty >= 5) pool.push('tank', 'archer');
+    if (difficulty >= 5) {
+        pool.push('tank', 'archer');
+    }
     if (difficulty >= 10) pool.push('dasher', 'splitter');
     if (difficulty >= 12) pool.push('wraith', 'wraith');
     if (difficulty >= 15) pool.push('penetrator');

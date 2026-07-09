@@ -1,4 +1,5 @@
 import { RARITY_CONFIG } from '../config/gearRarity.js';
+import { panelsStartCollapsed } from '../utils/viewport.js';
 import {
     GEAR_DOLL_LAYOUT,
     getSlotIconHtml,
@@ -34,7 +35,7 @@ export class GearPanel {
         this.onUnequip = onUnequip;
         this.onDelete = onDelete;
         this.onBulkDelete = onBulkDelete;
-        this.expanded = true;
+        this.expanded = !panelsStartCollapsed();
         this.tooltip = new GearTooltip();
         this._pendingBulkRarity = null;
 
@@ -223,7 +224,7 @@ export class GearPanel {
     }
 
     reset() {
-        this.expanded = true;
+        this.expanded = !panelsStartCollapsed();
         this.tooltip.hide();
         this._hideBulkConfirm();
         this.lootFilter?.reset();

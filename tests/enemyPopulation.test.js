@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { GameState } from '../js/game/gameState.js';
 import { EnemyPopulationManager } from '../js/systems/enemyPopulation.js';
-import { BALANCE } from '../js/config/balance.js';
+import { BALANCE, getWaveSpawnDensityMultiplier } from '../js/config/balance.js';
 
 describe('EnemyPopulationManager warmup spawn curve', () => {
     it('starts above the previous 0.30 floor so early waves have more enemies', () => {
@@ -36,5 +36,18 @@ describe('EnemyPopulationManager warmup spawn curve', () => {
             expect(m).toBeGreaterThanOrEqual(prev - 1e-9);
             prev = m;
         }
+    });
+
+    it('reduces ambient spawns between waves 6 and 49', () => {
+        expect(getWaveSpawnDensityMultiplier(5)).toBe(1);
+        expect(getWaveSpawnDensityMultiplier(6)).toBe(BALANCE.midCampaignSpawnReduction.multiplier);
+        expect(getWaveSpawnDensityMultiplier(30)).toBe(BALANCE.midCampaignSpawnReduction.multiplier);
+        expect(getWaveSpawnDensityMultiplier(49)).toBe(BALANCE.midCampaignSpawnReduction.multiplier);
+        expect(getWaveSpawnDensityMultiplier(50)).toBe(1);
+    });
+
+    it('uses lower per-minute spawn rates (−25% vs legacy baseline)', () => {
+        expect(BALANCE.spawnsPerMinute.normal).toBeCloseTo(22.5, 1);
+        expect(BALANCE.spawnScaling.normal).toBeCloseTo(2.9, 1);
     });
 });

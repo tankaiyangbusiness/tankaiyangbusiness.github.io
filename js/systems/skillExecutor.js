@@ -22,12 +22,10 @@ import {
     computePoisonDaggerForkDamage
 } from '../config/skills.js';
 import { distanceVw } from '../utils/math.js';
+import { getProjectedSimMs } from './gameClock.js';
 import { flashPlayerSprite } from '../ui/playerVisuals.js';
-import {
-    projectilePointHitsEnemy,
-    projectileSegmentHitsEnemy,
-    hasExhaustedPierce
-} from '../utils/projectileCollision.js';
+import { RUNTIME_BUDGET } from '../config/runtimeBudget.js';
+import { TransientDomRegistry } from '../utils/transientDomRegistry.js';
 
 export class SkillExecutor {
     /** @param {import('../game/game.js').Game} game */
@@ -36,12 +34,37 @@ export class SkillExecutor {
         this._rfLastTick = 0;
         this._rfLastSfx = 0;
         this._activeSparks = [];
+        this._transientDom = new TransientDomRegistry(RUNTIME_BUDGET.maxTransientDomLifetimeMs);
+    }
+
+    /**
+     * Tracks a skill projectile DOM node with a hard lifetime cap and safe disposal.
+     * @param {HTMLElement} el
+     * @param {import('../game/gameState.js').GameState} state
+     */
+    _trackSkillProjectile(el, state) {
+        let animId = null;
+        const dispose = () => {
+            if (animId != null) {
+                state.cancelAnimation(animId);
+                animId = null;
+            }
+            this._transientDom.untrack(el);
+            el.remove();
+        };
+        this._transientDom.track(el, dispose);
+        return {
+            setAnimId: (id) => { animId = id; },
+            dispose
+        };
     }
 
     /** @param {number} now */
     tick(now) {
         const s = this.game.state;
         if (s.gamePaused || s.gameOver) return;
+
+        this._transientDom.purgeExpired();
 
         const rfLevel = s.skillList.righteousFire?.level || 0;
         if (rfLevel > 0) this._tickRighteousFire(now, rfLevel);
@@ -116,13 +139,13 @@ export class SkillExecutor {
         const tx = parseFloat(nearest.element.style.left);
         const ty = parseFloat(nearest.element.style.top);
         const angle = Math.atan2(ty - py, tx - px);
-        let bx = px, by = py;
-        let animId = null;
+        let bx = px; let by = py;
+        const tracker = this._trackSkillProjectile(el, s);
+        let lastAnimId = null;
 
         const animate = () => {
             if (s.gamePaused || s.gameOver) {
-                if (animId) s.cancelAnimation(animId);
-                el.remove();
+                tracker.dispose();
                 return;
             }
 
@@ -145,15 +168,15 @@ export class SkillExecutor {
             }
 
             if (hit || distanceVw(bx, by, tx, ty, window.innerWidth, window.innerHeight) < 15) {
-                if (animId) s.cancelAnimation(animId);
-                el.remove();
+                tracker.dispose();
                 this._fireballExplode(bx, by, level, hit);
                 return;
             }
 
-            const prevAnim = animId;
-            animId = requestAnimationFrame(animate);
-            s.trackAnimation(animId, prevAnim);
+            const animId = requestAnimationFrame(animate);
+            tracker.setAnimId(animId);
+            s.trackAnimation(animId, lastAnimId);
+            lastAnimId = animId;
         };
 
         animate();
@@ -288,12 +311,12 @@ export class SkillExecutor {
         const ty = parseFloat(nearest.element.style.top);
         const angle = Math.atan2(ty - py, tx - px);
         let bx = px, by = py;
-        let animId = null;
+        const tracker = this._trackSkillProjectile(el, s);
+        let lastAnimId = null;
 
         const animate = () => {
             if (s.gamePaused || s.gameOver) {
-                if (animId) s.cancelAnimation(animId);
-                el.remove();
+                tracker.dispose();
                 return;
             }
 
@@ -317,15 +340,15 @@ export class SkillExecutor {
             }
 
             if (hit || distanceVw(bx, by, tx, ty, window.innerWidth, window.innerHeight) < 12) {
-                if (animId) s.cancelAnimation(animId);
-                el.remove();
+                tracker.dispose();
                 this._poisonShatter(bx, by, level, hit);
                 return;
             }
 
-            const prevAnim = animId;
-            animId = requestAnimationFrame(animate);
-            s.trackAnimation(animId, prevAnim);
+            const animId = requestAnimationFrame(animate);
+            tracker.setAnimId(animId);
+            s.trackAnimation(animId, lastAnimId);
+            lastAnimId = animId;
         };
 
         animate();
@@ -393,15 +416,15 @@ export class SkillExecutor {
         let prevBy = originY;
         let traveledPx = 0;
         const hitIds = new Set();
-        let animId = null;
+        const tracker = this._trackSkillProjectile(el, s);
+        let lastAnimId = null;
         const damage = computeSkillDamage(s.stats.physicalDamage, 'frostbolt', level);
         const pierceRadius = 2.2 + level * 0.2;
         const maxPierce = cfg.maxPierce ?? Infinity;
 
         const animate = () => {
             if (s.gamePaused || s.gameOver) {
-                if (animId) s.cancelAnimation(animId);
-                el.remove();
+                tracker.dispose();
                 return;
             }
 
@@ -434,14 +457,14 @@ export class SkillExecutor {
 
             const offscreen = bx < -8 || bx > 108 || by < -8 || by > 108;
             if (exhausted || traveledPx >= maxTravelPx || offscreen) {
-                if (animId) s.cancelAnimation(animId);
-                el.remove();
+                tracker.dispose();
                 return;
             }
 
-            const prevAnim = animId;
-            animId = requestAnimationFrame(animate);
-            s.trackAnimation(animId, prevAnim);
+            const animId = requestAnimationFrame(animate);
+            tracker.setAnimId(animId);
+            s.trackAnimation(animId, lastAnimId);
+            lastAnimId = animId;
         };
 
         animate();
@@ -505,13 +528,13 @@ export class SkillExecutor {
         let prevBx = px;
         let prevBy = py;
         let traveled = 0;
-        let animId = null;
+        const tracker = this._trackSkillProjectile(el, s);
+        let lastAnimId = null;
         let forked = false;
 
         const animate = () => {
             if (s.gamePaused || s.gameOver) {
-                if (animId) s.cancelAnimation(animId);
-                el.remove();
+                tracker.dispose();
                 return;
             }
 
@@ -560,14 +583,14 @@ export class SkillExecutor {
 
             const offscreen = bx < -8 || bx > 108 || by < -8 || by > 108;
             if (traveled >= maxTravelVw || offscreen) {
-                if (animId) s.cancelAnimation(animId);
-                el.remove();
+                tracker.dispose();
                 return;
             }
 
-            const prevAnim = animId;
-            animId = requestAnimationFrame(animate);
-            s.trackAnimation(animId, prevAnim);
+            const animId = requestAnimationFrame(animate);
+            tracker.setAnimId(animId);
+            s.trackAnimation(animId, lastAnimId);
+            lastAnimId = animId;
         };
 
         animate();
@@ -648,14 +671,14 @@ export class SkillExecutor {
         let prevBy = py;
         let traveledPx = 0;
         const hitIds = new Set();
-        let animId = null;
+        const tracker = this._trackSkillProjectile(el, s);
+        let lastAnimId = null;
         const damage = computeSkillDamage(s.stats.physicalDamage, 'throwSpear', level);
         const maxPierce = cfg.maxPierce ?? 2;
 
         const animate = () => {
             if (s.gamePaused || s.gameOver) {
-                if (animId) s.cancelAnimation(animId);
-                el.remove();
+                tracker.dispose();
                 return;
             }
 
@@ -692,14 +715,14 @@ export class SkillExecutor {
 
             const offscreen = bx < -8 || bx > 108 || by < -8 || by > 108;
             if (exhausted || traveledPx >= maxTravelPx || offscreen) {
-                if (animId) s.cancelAnimation(animId);
-                el.remove();
+                tracker.dispose();
                 return;
             }
 
-            const prevAnim = animId;
-            animId = requestAnimationFrame(animate);
-            s.trackAnimation(animId, prevAnim);
+            const animId = requestAnimationFrame(animate);
+            tracker.setAnimId(animId);
+            s.trackAnimation(animId, lastAnimId);
+            lastAnimId = animId;
         };
 
         animate();
@@ -744,6 +767,7 @@ export class SkillExecutor {
 
     castSpark(px, py, level) {
         const s = this.game.state;
+        const simNow = getProjectedSimMs(s);
         const cfg = getSparkConfig(level);
         const damage = computeSkillDamage(s.stats.physicalDamage, 'spark', level);
         const iw = window.innerWidth;
@@ -761,9 +785,11 @@ export class SkillExecutor {
         s.trackTimeout(setTimeout(() => origin.remove(), 420));
 
         const count = cfg.sparkCount;
+        const maxSparks = RUNTIME_BUDGET.maxActiveSparks ?? 24;
         // Even spider spokes + random jitter so directions fill around the player
         const baseAngle = Math.random() * Math.PI * 2;
         for (let i = 0; i < count; i++) {
+            if (this._activeSparks.length >= maxSparks) break;
             const el = document.createElement('div');
             el.className = 'skill-spark skill-spark-arc particle-25d';
             el.innerHTML = `
@@ -790,7 +816,7 @@ export class SkillExecutor {
                 by: py,
                 vx: Math.cos(moveAngle) * cfg.speed,
                 vy: Math.sin(moveAngle) * cfg.speed,
-                expires: Date.now() + cfg.duration,
+                expires: simNow + cfg.duration,
                 hitIds: new Set(),
                 damage,
                 wanderChance: cfg.wanderChance ?? 0.38,
@@ -844,9 +870,15 @@ export class SkillExecutor {
     }
 
     cleanup() {
-        this._activeSparks.forEach(spark => spark.el.remove());
+        const s = this.game?.state;
+        this._transientDom.clearAll();
+        this._activeSparks.forEach(spark => {
+            if (spark.animId && s) s.cancelAnimation(spark.animId);
+            spark.el?.remove();
+        });
         this._activeSparks = [];
         this._rfLastTick = 0;
+        this._rfLastSfx = 0;
     }
 
     _findNearestEnemy(fromX, fromY, range) {

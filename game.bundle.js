@@ -1,5 +1,30 @@
 (() => {
+  // js/config/skillScaling.js
+  var SKILL_LEVEL_1_DAMAGE_FACTOR = 0.8;
+  var SKILL_DAMAGE_RAMP_FACTOR = 2.5;
+  function skillLevelDamageMult(level, constant, perLevelStep) {
+    if (level <= 0) return 0;
+    const legacyLv1 = constant + perLevelStep;
+    const lv1 = legacyLv1 * SKILL_LEVEL_1_DAMAGE_FACTOR;
+    if (level === 1) return lv1;
+    const rampStep = perLevelStep * SKILL_DAMAGE_RAMP_FACTOR;
+    return lv1 + (level - 1) * rampStep;
+  }
+  function skillLevelDamageFromBase(level, baseAtLv1, perLevelFrom2) {
+    if (level <= 0) return 0;
+    const lv1 = baseAtLv1 * SKILL_LEVEL_1_DAMAGE_FACTOR;
+    if (level === 1) return lv1;
+    const rampStep = perLevelFrom2 * SKILL_DAMAGE_RAMP_FACTOR;
+    return lv1 + (level - 1) * rampStep;
+  }
+  function skillLevelDamagePercent(level, baseAtLv1, perLevelFrom2) {
+    return Math.round(skillLevelDamageFromBase(level, baseAtLv1, perLevelFrom2));
+  }
+
   // js/config/skills.js
+  var SPARK_COOLDOWN_BASE_MS = 3600;
+  var SPARK_COOLDOWN_FLOOR_MS = 2e3;
+  var SPARK_COOLDOWN_PER_LEVEL_MS = 240;
   var SKILL_IDS = (
     /** @type {const} */
     [
@@ -248,10 +273,10 @@
     return {
       cooldown: Math.max(1200, 2500 - level * 200),
       castRange: 160 + level * 35,
-      directDamageMult: 0.75 + level * 0.1,
+      directDamageMult: skillLevelDamageMult(level, 0.75, 0.1),
       splashRadius: 85 + level * 15,
-      splashDamageMult: 0.32 + level * 0.06,
-      burnTotalMult: 0.12 + level * 0.05,
+      splashDamageMult: skillLevelDamageMult(level, 0.32, 0.06),
+      burnTotalMult: skillLevelDamageMult(level, 0.12, 0.05),
       burnDuration: 3500,
       projectileSpeed: 0.95 + level * 0.06,
       /** No pierce — first hit explodes */
@@ -265,7 +290,7 @@
     return {
       cooldown: Math.max(2e3, 4e3 - level * 300),
       radius: 70 + level * 22,
-      damageMult: 0.48 + level * 0.11,
+      damageMult: skillLevelDamageMult(level, 0.48, 0.11),
       slowPercent: 18 + level * 6,
       slowDuration: 2200 + level * 200,
       freezeDuration: level >= 3 ? (level - 2) * 550 : 0
@@ -279,7 +304,7 @@
       cooldown: Math.max(900, 1800 - level * 150),
       castRange: 200 + level * 30,
       chainCount: level,
-      damageMult: 0.5 + level * 0.09,
+      damageMult: skillLevelDamageMult(level, 0.5, 0.09),
       chainRange: 190 + level * 28
     };
   }
@@ -290,11 +315,11 @@
     return {
       cooldown: Math.max(2200, 3800 - level * 280),
       castRange: 180 + level * 32,
-      directDamageMult: 0.35 + level * 0.08,
+      directDamageMult: skillLevelDamageMult(level, 0.35, 0.08),
       poolRadius: 55 + level * 14,
       poolDuration: 4500 + level * 600,
       tickInterval: Math.max(280, 450 - level * 30),
-      tickDamageMult: 0.07 + level * 0.035,
+      tickDamageMult: skillLevelDamageMult(level, 0.07, 0.035),
       projectileSpeed: 0.75 + level * 0.05
     };
   }
@@ -314,7 +339,7 @@
     return {
       cooldown: Math.max(2800, 4800 - level * 320),
       castRange: 200 + level * 35,
-      damageMult: 0.55 + level * 0.1,
+      damageMult: skillLevelDamageMult(level, 0.55, 0.1),
       projectileSpeed: 0.55 + level * 0.05,
       maxTravel: 55 + level * 8,
       /** Unlimited pierce — travel distance ends the bolt */
@@ -329,8 +354,8 @@
     const baseRadius = 55 + level * 18;
     return {
       radius: Math.round(baseRadius * 1.5),
-      /** Lv.1 = 12%, then +2.5% per level */
-      tickDamageMult: 0.095 + level * 0.025,
+      /** Lv.1 ≈ 9.6% tick, steep ramp per level (see skillScaling.js) */
+      tickDamageMult: skillLevelDamageMult(level, 0.095, 0.025),
       tickInterval: Math.max(400, 650 - level * 40)
     };
   }
@@ -339,10 +364,10 @@
       return { cooldown: Infinity, sparkCount: 0, damageMult: 0, duration: 0, speed: 0, hitRadiusVw: 0, maxPierce: 0 };
     }
     return {
-      cooldown: Math.max(1600, 3e3 - level * 240),
+      cooldown: Math.max(SPARK_COOLDOWN_FLOOR_MS, SPARK_COOLDOWN_BASE_MS - level * SPARK_COOLDOWN_PER_LEVEL_MS),
       /** PoE-style swarm from center */
       sparkCount: 4 + level,
-      damageMult: 0.28 + level * 0.06,
+      damageMult: skillLevelDamageMult(level, 0.28, 0.06),
       duration: 2800 + level * 400,
       /** Slowish spider crawl */
       speed: 0.42 + level * 0.045,
@@ -362,8 +387,8 @@
       /** Faster resummon — ~9.8s at Lv.1 down to 5s floor at Lv.5 */
       cooldown: Math.max(5e3, 11e3 - level * 1200),
       duration: 4500 + level * 900,
-      /** 30% at Lv.1 → 60% at Lv.5 */
-      damagePercent: 30 + (level - 1) * 7.5,
+      /** 24% at Lv.1 → 99% at Lv.5 (see skillScaling.js) */
+      damagePercent: skillLevelDamagePercent(level, 30, 7.5),
       offsetVw: 4.5
     };
   }
@@ -383,10 +408,10 @@
     return {
       cooldown: Math.max(1400, 2800 - level * 220),
       castRange: 190 + level * 30,
-      damageMult: 0.5 + level * 0.09,
+      damageMult: skillLevelDamageMult(level, 0.5, 0.09),
       /** Primary dagger forks into this many secondary blades on first hit */
       forkCount: 1 + level,
-      forkDamageMult: 0.32 + level * 0.06,
+      forkDamageMult: skillLevelDamageMult(level, 0.32, 0.06),
       forkSpreadRad: 0.55,
       projectileSpeed: 0.85 + level * 0.05,
       maxTravel: 48 + level * 6,
@@ -401,8 +426,8 @@
     return {
       cooldown: Math.max(1800, 3600 - level * 280),
       radius: 75 + level * 20,
-      /** Lv.1 = 96%, then +12% per level */
-      damageMult: 0.84 + level * 0.12
+      /** Lv.1 ≈ 76.8% damage, steep ramp per level (see skillScaling.js) */
+      damageMult: skillLevelDamageMult(level, 0.84, 0.12)
     };
   }
   function getThrowSpearConfig(level) {
@@ -412,7 +437,7 @@
     return {
       cooldown: Math.max(1600, 3200 - level * 250),
       castRange: 220 + level * 35,
-      damageMult: 0.62 + level * 0.1,
+      damageMult: skillLevelDamageMult(level, 0.62, 0.1),
       projectileSpeed: 0.72 + level * 0.05,
       maxTravel: 58 + level * 8,
       hitRadiusVw: 2.6 + level * 0.2,
@@ -538,7 +563,8 @@
   // js/config/balance.js
   var BALANCE = {
     /** Seconds before difficulty tier increases — slower ramp for longer runs */
-    difficultyIntervalSec: 20,
+    /** 12s per wave → wave 100 at 20 minutes (1200s). */
+    difficultyIntervalSec: 12,
     /** Extended warmup — gentler first ~3 minutes */
     /**
      * Warmup spawn curve — higher early density, identical asymptote (≥ warmupSeconds → 1.0).
@@ -568,17 +594,11 @@
     earlyWaveHpMultiplier: 0.7,
     /** Early-wave EXP bonus (+50% through wave 11) */
     earlyWaveExpMultiplier: 1.5,
-    /**
-     * Every N completed 1-based waves, non-HP / non-moveSpeed combat stats ×(1+bonus).
-     * Applied as floor(wave / interval) stacks (waves 12, 24, 36…).
-     */
-    waveStatBoostInterval: 12,
-    waveStatBoostBonus: 0.25,
     spawnsPerMinute: {
-      normal: 30,
-      rare: 11.5,
-      elite: 2.4,
-      boss: 0.7
+      normal: 22.5,
+      rare: 8.625,
+      elite: 1.8,
+      boss: 0.525
     },
     spawnScaling: {
       normal: 2.9,
@@ -587,9 +607,10 @@
       boss: 0.04
     },
     maxDifficultyForSpawn: 300,
-    enemyHpScale: 0.63,
-    /** Prior patch damage scale — starting +20% combat boost is applied separately; +5% global HP patch */
-    enemyDamageScale: 0.7686525,
+    /** Enemy HP scale — tuned with BASE_ENEMY_STATS.hp. */
+    enemyHpScale: 0.52,
+    /** Direct damage scale (includes prior global −19% folded in). */
+    enemyDamageScale: 0.62261,
     /** +10% exp vs prior patch (0.842 × 1.1) */
     enemyExpScale: 0.926,
     /**
@@ -602,6 +623,15 @@
     playerPressure: {
       moveSpeedPerTier: 8e-3,
       moveSpeedCap: 1.28
+    },
+    /**
+     * Fewer ambient spawns during the mid-campaign (waves 6–49) to reduce clutter
+     * before the Wave 50 milestone.
+     */
+    midCampaignSpawnReduction: {
+      afterWave: 5,
+      beforeWave: 50,
+      multiplier: 0.51
     }
   };
   function getSpawnIntervalMs(category, difficulty) {
@@ -610,6 +640,14 @@
     const scale = BALANCE.spawnScaling[category];
     const rate = base + scale * cap;
     return 1e3 * 60 / rate;
+  }
+  function getWaveSpawnDensityMultiplier(currentWave) {
+    const cfg = BALANCE.midCampaignSpawnReduction;
+    if (!cfg) return 1;
+    if (currentWave > cfg.afterWave && currentWave < cfg.beforeWave) {
+      return cfg.multiplier;
+    }
+    return 1;
   }
   function applyBalanceScale(stat, type) {
     if (type === "hp") return Math.floor(stat * BALANCE.enemyHpScale);
@@ -645,26 +683,6 @@
   function applyEarlyWaveExpBonus(exp, difficultyWave) {
     if (difficultyWave >= BALANCE.earlyWaveCap) return exp;
     return Math.max(1, Math.floor(exp * BALANCE.earlyWaveExpMultiplier));
-  }
-  function getWaveStatBoostStacks(wave) {
-    const w = Math.max(0, Math.floor(Number(wave) || 0));
-    const interval = BALANCE.waveStatBoostInterval || 12;
-    return Math.floor(w / interval);
-  }
-  function applyWaveStatBoost(stats, wave) {
-    const stacks = getWaveStatBoostStacks(wave);
-    if (stacks <= 0 || !stats) return stats;
-    const mult = 1 + stacks * (BALANCE.waveStatBoostBonus || 0.25);
-    if (typeof stats.physicalDamage === "number") {
-      stats.physicalDamage = Math.max(1, Math.floor(stats.physicalDamage * mult + 1e-9));
-    }
-    if (typeof stats.armour === "number") {
-      stats.armour = Math.max(0, Math.floor(stats.armour * mult + 1e-9));
-    }
-    if (typeof stats.attackSpeed === "number") {
-      stats.attackSpeed = Math.max(0.1, Number((stats.attackSpeed * mult).toFixed(3)));
-    }
-    return stats;
   }
   function applyEnemyStartingCombatBoost(stats) {
     if (!stats) return stats;
@@ -706,6 +724,22 @@
     streakBonusCap: 0.22,
     streakBonusPerKill: 0.018
   };
+  var EXP_KILL_WAVE_MODIFIERS = {
+    baseline: 0.95,
+    afterWave50: { thresholdWave: 50, multiplier: 0.95 },
+    afterWave100: { thresholdWave: 100, multiplier: 0.9 }
+  };
+  function getExpKillWaveMultiplier(waveIndex = 0) {
+    const wave = Math.max(1, Math.floor(waveIndex) + 1);
+    let mult = EXP_KILL_WAVE_MODIFIERS.baseline;
+    if (wave > EXP_KILL_WAVE_MODIFIERS.afterWave50.thresholdWave) {
+      mult *= EXP_KILL_WAVE_MODIFIERS.afterWave50.multiplier;
+    }
+    if (wave > EXP_KILL_WAVE_MODIFIERS.afterWave100.thresholdWave) {
+      mult *= EXP_KILL_WAVE_MODIFIERS.afterWave100.multiplier;
+    }
+    return mult;
+  }
   var enemyExpMultiplier = EXP_CONFIG.enemyExpGrantRatio;
   function calculateExpThreshold(level, baseThreshold) {
     const b = baseThreshold ?? EXP_CONFIG.baseThreshold;
@@ -724,6 +758,7 @@
     if (isSwarmLike) {
       gained = Math.max(1, Math.floor(gained * EXP_CONFIG.swarmKillMultiplier));
     }
+    gained = Math.max(1, Math.floor(gained * getExpKillWaveMultiplier(waveIndex)));
     if (waveIndex < BALANCE.earlyWaveCap) {
       if (isSwarmLike) {
         gained = Math.min(gained, EXP_CONFIG.earlyWaveKillExp.swarm);
@@ -751,18 +786,18 @@
       name: "Adventurer",
       role: "Balanced",
       modelClass: "adventurer",
-      description: "Well-rounded \u2014 ideal for learning skills and survival.",
+      description: "Well-rounded starter \u2014 passive grants +50% EXP from kills.",
       stats: {
-        hp: 580,
-        maxHp: 580,
-        physicalDamage: 32,
+        hp: 957,
+        maxHp: 957,
+        physicalDamage: 35,
         attackSpeed: 2,
         attackRange: 150,
         critChance: 6,
         critMultiplier: 150,
-        armour: 28,
+        armour: 30,
         evade: 14,
-        hpRegen: 3,
+        hpRegen: 2,
         level: 1,
         exp: 0,
         expGain: 1.2,
@@ -775,18 +810,18 @@
       name: "Warrior",
       role: "Tank",
       modelClass: "warrior",
-      description: "Heavy armor and HP. Holds the line against swarms.",
+      description: "Heavy armour and HP. Passive: 50% chance basic hits explode for 55% AoE damage.",
       stats: {
-        hp: 950,
-        maxHp: 950,
-        physicalDamage: 28,
+        hp: 1567,
+        maxHp: 1567,
+        physicalDamage: 30,
         attackSpeed: 1.25,
         attackRange: 85,
         critChance: 4,
         critMultiplier: 185,
-        armour: 48,
+        armour: 52,
         evade: 2,
-        hpRegen: 8,
+        hpRegen: 6,
         level: 1,
         exp: 0,
         expGain: 1,
@@ -799,18 +834,18 @@
       name: "Ranger",
       role: "Ranged",
       modelClass: "ranger",
-      description: "Extreme range and attack speed. Stay at the edge of danger.",
+      description: "Extreme range and attack speed. Illusion companion deals 60% of your damage.",
       stats: {
-        hp: 320,
-        maxHp: 320,
-        physicalDamage: 38,
+        hp: 528,
+        maxHp: 528,
+        physicalDamage: 41,
         attackSpeed: 2.6,
         attackRange: 310,
         critChance: 16,
         critMultiplier: 130,
         armour: 8,
         evade: 28,
-        hpRegen: 1,
+        hpRegen: 0,
         level: 1,
         exp: 0,
         expGain: 1,
@@ -823,18 +858,18 @@
       name: "Assassin",
       role: "Crit",
       modelClass: "assassin",
-      description: "Lethal crits and evasion. Kill fast or die fast.",
+      description: "Lethal crits and evasion. Crits have 30% chance to splash 40% damage nearby.",
       stats: {
-        hp: 280,
-        maxHp: 280,
-        physicalDamage: 44,
+        hp: 462,
+        maxHp: 462,
+        physicalDamage: 48,
         attackSpeed: 2.2,
         attackRange: 105,
         critChance: 28,
         critMultiplier: 260,
         armour: 4,
         evade: 52,
-        hpRegen: 1,
+        hpRegen: 0,
         level: 1,
         exp: 0,
         expGain: 1,
@@ -847,18 +882,18 @@
       name: "Healer",
       role: "Support",
       modelClass: "healer",
-      description: "Massive regen outlasts attrition. Lower damage output.",
+      description: "Massive HP regen. Passive pulses 35% of regen as holy AoE every 2.5s.",
       stats: {
-        hp: 750,
-        maxHp: 750,
-        physicalDamage: 22,
+        hp: 1237,
+        maxHp: 1237,
+        physicalDamage: 24,
         attackSpeed: 1.7,
         attackRange: 195,
         critChance: 4,
         critMultiplier: 140,
-        armour: 22,
+        armour: 24,
         evade: 8,
-        hpRegen: 130,
+        hpRegen: 117,
         level: 1,
         exp: 0,
         expGain: 1,
@@ -871,18 +906,18 @@
       name: "Necromancer",
       role: "DoT",
       modelClass: "necromancer",
-      description: "Master of chaos and decay. Synergizes with Chaos Bottle & Poison Dagger.",
+      description: "Chaos specialist. Raises a zombie every 12s that deals 100% of your damage.",
       stats: {
-        hp: 340,
-        maxHp: 340,
-        physicalDamage: 26,
+        hp: 561,
+        maxHp: 561,
+        physicalDamage: 28,
         attackSpeed: 1.9,
         attackRange: 175,
         critChance: 8,
         critMultiplier: 160,
-        armour: 10,
+        armour: 11,
         evade: 12,
-        hpRegen: 2,
+        hpRegen: 1,
         level: 1,
         exp: 0,
         expGain: 1.15,
@@ -895,18 +930,18 @@
       name: "Paladin",
       role: "Holy Tank",
       modelClass: "paladin",
-      description: "Sacred armor and steady damage. Balanced frontline.",
+      description: "Sacred frontline. Shield absorbs damage equal to 10% max HP, repairs every 15s.",
       stats: {
-        hp: 880,
-        maxHp: 880,
-        physicalDamage: 30,
+        hp: 1452,
+        maxHp: 1452,
+        physicalDamage: 33,
         attackSpeed: 1.45,
         attackRange: 95,
         critChance: 6,
         critMultiplier: 175,
-        armour: 42,
+        armour: 46,
         evade: 6,
-        hpRegen: 12,
+        hpRegen: 9,
         level: 1,
         exp: 0,
         expGain: 1,
@@ -919,18 +954,18 @@
       name: "Berserker",
       role: "Glass Cannon",
       modelClass: "berserker",
-      description: "Raw power and speed. Almost no defense.",
+      description: "Raw power and speed. Passive grants +50% attack speed for 5s every 10s.",
       stats: {
-        hp: 420,
-        maxHp: 420,
-        physicalDamage: 52,
+        hp: 693,
+        maxHp: 693,
+        physicalDamage: 57,
         attackSpeed: 2.4,
         attackRange: 90,
         critChance: 12,
         critMultiplier: 220,
         armour: 0,
         evade: 8,
-        hpRegen: 1,
+        hpRegen: 0,
         level: 1,
         exp: 0,
         expGain: 1,
@@ -943,18 +978,18 @@
       name: "Elementalist",
       role: "Mage",
       modelClass: "elementalist",
-      description: "Arcane focus. Skills deal effectively higher damage.",
+      description: "Arcane focus. Fire, cold, and lightning skills deal +50% more damage.",
       stats: {
-        hp: 300,
-        maxHp: 300,
-        physicalDamage: 20,
+        hp: 495,
+        maxHp: 495,
+        physicalDamage: 22,
         attackSpeed: 1.65,
         attackRange: 240,
         critChance: 10,
         critMultiplier: 155,
         armour: 6,
         evade: 18,
-        hpRegen: 2,
+        hpRegen: 1,
         level: 1,
         exp: 0,
         expGain: 1.1,
@@ -967,18 +1002,18 @@
       name: "Summoner",
       role: "Summoner",
       modelClass: "summoner",
-      description: "Commands spirits from afar. Strong skill synergy and range.",
+      description: "Commands two bears \u2014 each deals 30% of your weapon damage.",
       stats: {
-        hp: 360,
-        maxHp: 360,
-        physicalDamage: 24,
+        hp: 594,
+        maxHp: 594,
+        physicalDamage: 26,
         attackSpeed: 1.85,
         attackRange: 205,
         critChance: 8,
         critMultiplier: 165,
-        armour: 14,
+        armour: 15,
         evade: 14,
-        hpRegen: 2,
+        hpRegen: 1,
         level: 1,
         exp: 0,
         expGain: 1.05,
@@ -991,18 +1026,18 @@
       name: "Capybara",
       role: "Zen Tank",
       modelClass: "capybara",
-      description: "Unbothered. Massive HP and regen, low damage, supreme DEF.",
+      description: "Unbothered tank. Every 4s deals 60% weapon damage, chills foes, and heals 3% max HP.",
       stats: {
-        hp: 920,
-        maxHp: 920,
-        physicalDamage: 18,
+        hp: 1518,
+        maxHp: 1518,
+        physicalDamage: 19,
         attackSpeed: 1.3,
         attackRange: 115,
         critChance: 3,
         critMultiplier: 130,
-        armour: 40,
+        armour: 44,
         evade: 5,
-        hpRegen: 28,
+        hpRegen: 23,
         level: 1,
         exp: 0,
         expGain: 0.95,
@@ -1015,18 +1050,18 @@
       name: "Slayer",
       role: "Physical",
       modelClass: "slayer",
-      description: "Weapon specialist. Physical hits and skills strike much harder.",
+      description: "Weapon specialist. Physical hits and skills deal +50% more damage.",
       stats: {
-        hp: 520,
-        maxHp: 520,
-        physicalDamage: 40,
+        hp: 858,
+        maxHp: 858,
+        physicalDamage: 44,
         attackSpeed: 1.85,
         attackRange: 120,
         critChance: 10,
         critMultiplier: 175,
-        armour: 22,
+        armour: 24,
         evade: 12,
-        hpRegen: 3,
+        hpRegen: 2,
         level: 1,
         exp: 0,
         expGain: 1,
@@ -1053,8 +1088,8 @@
 
   // js/config/enemies.js
   var BASE_ENEMY_STATS = {
-    hp: 16,
-    maxHp: 16,
+    hp: 14,
+    maxHp: 14,
     physicalDamage: 7,
     attackSpeed: 1.4,
     attackRange: 50,
@@ -1224,7 +1259,6 @@
       stats.attackRange = typeConfig.rangedRange || 180;
     }
     applyEnemyStartingCombatBoost(stats);
-    applyWaveStatBoost(stats, difficulty + 1);
     return { stats, typeConfig, rarityConfig };
   }
   function scaleEnemyHp(base, difficulty) {
@@ -1253,7 +1287,9 @@
     } else if (difficulty >= 16) {
       pool.push("swarm", "swarm", "swarm");
     }
-    if (difficulty >= 5) pool.push("tank", "archer");
+    if (difficulty >= 5) {
+      pool.push("tank", "archer");
+    }
     if (difficulty >= 10) pool.push("dasher", "splitter");
     if (difficulty >= 12) pool.push("wraith", "wraith");
     if (difficulty >= 15) pool.push("penetrator");
@@ -1283,6 +1319,29 @@
     return JSON.parse(JSON.stringify(value));
   }
 
+  // js/config/abilityCombatScaling.js
+  var ABILITY_COMBAT_SCALING = {
+    reflect: { percentPerLevel: 10, maxPercent: 50, maxLevel: 5 },
+    lifesteal: { percentPerLevel: 5, maxPercent: 25, maxLevel: 5 },
+    damageReduction: { percentPerLevel: 10, maxPercent: 50, maxLevel: 5 },
+    attackSpeedBuff: { percentPerLevel: 20, maxPercent: 100, maxLevel: 5 }
+  };
+  function getAbilityPercent(kind, level) {
+    const cfg = ABILITY_COMBAT_SCALING[kind];
+    if (!cfg || level <= 0) return 0;
+    const cappedLevel = Math.min(level, cfg.maxLevel);
+    return Math.min(cfg.maxPercent, cappedLevel * cfg.percentPerLevel);
+  }
+  function buildAbilityProgression(kind) {
+    const cfg = ABILITY_COMBAT_SCALING[kind];
+    if (!cfg) return [];
+    const steps = [];
+    for (let i = 1; i <= cfg.maxLevel; i++) {
+      steps.push(String(getAbilityPercent(kind, i)));
+    }
+    return steps;
+  }
+
   // js/config/progression.js
   function createDefaultStatsList() {
     return {
@@ -1299,8 +1358,8 @@
   function createDefaultAbilityList() {
     return {
       Reflect: {
-        text: "Return ??%(25%) of damage taken to the attacker",
-        progression: ["5", "10", "15", "20", "25"],
+        text: "Return ??%(50%) of enemy hit damage to the attacker. Ignores enemy armour.",
+        progression: buildAbilityProgression("reflect"),
         level: 0,
         maxLevel: 5
       },
@@ -1311,20 +1370,20 @@
         maxLevel: 5
       },
       "Attack Speed Buff": {
-        text: "Grant ??%(80%) attack speed for 5s, cooldown 10s",
-        progression: ["16", "32", "48", "64", "80"],
+        text: "Grant ??%(100%) attack speed for 5s, cooldown 10s",
+        progression: buildAbilityProgression("attackSpeedBuff"),
         level: 0,
         maxLevel: 5
       },
       "Damage Reduction": {
-        text: "Grant ??%(60%) damage reduction",
-        progression: ["12", "24", "36", "48", "60"],
+        text: "Grant ??%(50%) damage reduction",
+        progression: buildAbilityProgression("damageReduction"),
         level: 0,
         maxLevel: 5
       },
       Lifesteal: {
-        text: "Grant ??%(75%) lifesteal",
-        progression: ["15", "30", "45", "60", "75"],
+        text: "Grant ??%(25%) lifesteal",
+        progression: buildAbilityProgression("lifesteal"),
         level: 0,
         maxLevel: 5
       },
@@ -1384,6 +1443,9 @@
       this.elapsedSeconds = 0;
       this.timerStart = 0;
       this.pauseTime = 0;
+      this.timeScale = 1;
+      this.simulatedMs = 0;
+      this.lastRealTickMs = 0;
       this.currentDifficultyLevel = 0;
       this.currentWave = 1;
       this.maxWaveReached = 1;
@@ -1395,7 +1457,11 @@
       this.elitesKilled = 0;
       this.bossesKilled = 0;
       this.maxHpReached = 0;
+      this.runStatPeaks = null;
       this.finalVictoryAchieved = false;
+      this.finalBossDefeatedThisRun = false;
+      this.campaignVictoryRecorded = false;
+      this.milestoneBossReinforceTime = 0;
       this.selectedCharacterName = "";
       this.selectedModelClass = "";
       this.healthRegenTime = 0;
@@ -1417,6 +1483,8 @@
     initForCharacter(characterStats) {
       this.reset();
       this.characterSelection = false;
+      this.gamePaused = false;
+      this.gameOver = false;
       this.originalStats = deepClone(characterStats);
       this.stats = deepClone(characterStats);
       this.originalEnemyStats = deepClone(this.enemyStats);
@@ -1424,13 +1492,21 @@
       this.originalAbilityList = deepClone(this.abilityList);
       this.originalSkillList = deepClone(this.skillList);
       this.timerStart = Date.now();
-      this.pauseTime = Date.now();
-      this.healthRegenTime = Date.now();
-      this.normalSpawnTime = Date.now();
-      this.rareEnemySpawnTime = Date.now();
-      this.eliteSpawnTime = Date.now();
-      this.bossSpawnTime = Date.now();
-      this.attackSpeedBuffTime = Date.now();
+      this.pauseTime = 0;
+      this.elapsedSeconds = 0;
+      this.healthRegenTime = 0;
+      this.normalSpawnTime = 0;
+      this.rareEnemySpawnTime = 0;
+      this.eliteSpawnTime = 0;
+      this.bossSpawnTime = 0;
+      this.milestoneBossReinforceTime = 0;
+      this.attackSpeedBuffTime = 0;
+      this.lastAttackTime = 0;
+      this.timeScale = 1;
+      this.simulatedMs = 0;
+      this.lastRealTickMs = 0;
+      this.runStatPeaks = null;
+      this.maxHpReached = 0;
     }
     trackTimeout(id) {
       this.pendingTimeouts.add(id);
@@ -1507,6 +1583,17 @@
     const dy = Math.abs(y1 - y2) * innerHeight / 100;
     return Math.hypot(dx, dy);
   }
+  function clamp(value, min, max) {
+    return Math.max(min, Math.min(max, value));
+  }
+  function distancePointToSegmentPx(px, py, x1, y1, x2, y2) {
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const lenSq = dx * dx + dy * dy;
+    if (lenSq === 0) return Math.hypot(px - x1, py - y1);
+    const t = clamp(((px - x1) * dx + (py - y1) * dy) / lenSq, 0, 1);
+    return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
+  }
   function rollChance(chancePercent) {
     return Math.random() < chancePercent / 100;
   }
@@ -1515,6 +1602,367 @@
     const secs = seconds % 60;
     return `${minutes}:${secs.toString().padStart(2, "0")}`;
   }
+
+  // js/config/characterPassives.js
+  function pctFromRatio(ratio) {
+    return Math.round((ratio || 0) * 100);
+  }
+  function secLabel(ms) {
+    const s = (ms || 0) / 1e3;
+    return Number.isInteger(s) ? String(s) : s.toFixed(1);
+  }
+  function resolvePassiveDescription(passive) {
+    if (!passive) return "";
+    const p = passive.params || {};
+    switch (passive.id) {
+      case "adventurer":
+        return `Earn +${pctFromRatio(p.expBonus)}% bonus EXP from enemy kills.`;
+      case "warrior":
+        return `Basic attacks have ${p.chance}% chance to explode, dealing ${pctFromRatio(p.splashMult)}% of hit damage in a ${p.radiusPx}px area.`;
+      case "ranger":
+        return `A roaming illusion follows you and strikes for ${p.damagePercent}% of your weapon damage.`;
+      case "assassin":
+        return `Critical hits have ${p.chance}% chance to splash ${pctFromRatio(p.splashMult)}% of crit damage to nearby foes (${p.radiusPx}px).`;
+      case "healer":
+        return `Every ${secLabel(p.intervalMs)}s, pulse holy damage equal to ${pctFromRatio(p.regenDamageMult)}% of your HP Regen (${p.radiusPx}px AoE).`;
+      case "necromancer":
+        return `Every ${secLabel(p.cooldownMs)}s, raise a zombie for ${secLabel(p.durationMs)}s that deals ${p.damagePercent}% of your weapon damage.`;
+      case "paladin":
+        return `Gain a shield equal to ${p.shieldPercent}% max HP that absorbs damage first; fully repairs every ${secLabel(p.repairIntervalMs)}s.`;
+      case "berserker":
+        return `Every ${secLabel(p.cooldownMs)}s, gain +${p.bonusPercent}% attack speed for ${secLabel(p.durationMs)}s.`;
+      case "elementalist":
+        return `Fire, cold, and lightning skills deal +${pctFromRatio(p.elementBonus)}% more damage.`;
+      case "summoner":
+        return `${p.count} spirit bears orbit you \u2014 each deals ${p.damagePercent}% of your weapon damage.`;
+      case "capybara":
+        return `Every ${secLabel(p.intervalMs)}s: deal ${pctFromRatio(p.damageMult)}% weapon damage, chill ${p.chillPercent}% for ${secLabel(p.chillDurationMs)}s, and heal ${p.healPercent}% max HP.`;
+      case "slayer":
+        return `Physical basic attacks and skills deal +${pctFromRatio(p.physicalBonus)}% more damage.`;
+      default:
+        return passive.description || "";
+    }
+  }
+  var CHARACTER_PASSIVE_DEFS = {
+    Adventurer: {
+      id: "adventurer",
+      name: "Explorer's Quill",
+      icon: "\u{1F4DC}",
+      params: { expBonus: 0.5 }
+    },
+    Warrior: {
+      id: "warrior",
+      name: "War Cry Strike",
+      icon: "\u{1F4A5}",
+      params: { chance: 50, radiusPx: 90, splashMult: 0.55 }
+    },
+    Ranger: {
+      id: "ranger",
+      name: "Evershadow Companion",
+      icon: "\u{1F3F9}",
+      params: { damagePercent: 60, roamRadiusFraction: 0.85 }
+    },
+    Assassin: {
+      id: "assassin",
+      name: "Crit Echo",
+      icon: "\u{1F5E1}\uFE0F",
+      params: { chance: 30, radiusPx: 70, splashMult: 0.4 }
+    },
+    Healer: {
+      id: "healer",
+      name: "Sacred Pulse",
+      icon: "\u{1F49A}",
+      params: { intervalMs: 2500, radiusPx: 140, regenDamageMult: 0.35 }
+    },
+    Necromancer: {
+      id: "necromancer",
+      name: "Raise Zombie",
+      icon: "\u{1F9DF}",
+      params: {
+        cooldownMs: 12e3,
+        durationMs: 14e3,
+        damagePercent: 100,
+        moveSpeed: 0.55,
+        attackIntervalMs: 900,
+        offsetVw: 3.5
+      }
+    },
+    Paladin: {
+      id: "paladin",
+      name: "Aegis of Faith",
+      icon: "\u{1F6E1}\uFE0F",
+      params: { shieldPercent: 10, repairIntervalMs: 15e3 }
+    },
+    Berserker: {
+      id: "berserker",
+      name: "Blood Frenzy",
+      icon: "\u{1FA78}",
+      params: {
+        bonusPercent: 50,
+        durationMs: 5e3,
+        cooldownMs: 1e4
+      }
+    },
+    Elementalist: {
+      id: "elementalist",
+      name: "Elemental Attunement",
+      icon: "\u2728",
+      params: { elementBonus: 0.5 }
+    },
+    Summoner: {
+      id: "summoner",
+      name: "Twin Bears",
+      icon: "\u{1F43B}",
+      params: {
+        count: 2,
+        damagePercent: 30,
+        moveSpeed: 0.48,
+        attackIntervalMs: 1100,
+        orbitVw: 4.2
+      }
+    },
+    Capybara: {
+      id: "capybara",
+      name: "Snack & Soak",
+      icon: "\u{1F34A}",
+      params: {
+        intervalMs: 4e3,
+        radiusPx: 120,
+        damageMult: 0.6,
+        healPercent: 3,
+        chillPercent: 25,
+        chillDurationMs: 1800
+      }
+    },
+    Slayer: {
+      id: "slayer",
+      name: "Weapon Mastery",
+      icon: "\u2694\uFE0F",
+      params: { physicalBonus: 0.5 }
+    }
+  };
+  var CHARACTER_PASSIVES = Object.fromEntries(
+    Object.entries(CHARACTER_PASSIVE_DEFS).map(([name, def]) => {
+      const passive = { ...def, description: "" };
+      passive.description = resolvePassiveDescription(
+        /** @type {CharacterPassiveDef} */
+        passive
+      );
+      return [name, passive];
+    })
+  );
+  var ELEMENTALIST_ELEMENTS = /* @__PURE__ */ new Set(["fire", "cold", "lightning"]);
+  function getCharacterPassive(characterName) {
+    return CHARACTER_PASSIVES[characterName] || null;
+  }
+  function formatPassiveTooltipHtml(passive) {
+    if (!passive) return "";
+    const description = resolvePassiveDescription(passive);
+    return `
+        <strong class="passive-tip-name">${passive.name}</strong>
+        <span class="passive-tip-tag">Character Passive</span>
+        <p class="passive-tip-desc">${description}</p>
+    `;
+  }
+
+  // js/utils/viewport.js
+  var MOBILE_BREAKPOINT_PX = 768;
+  function isMobileViewport(width) {
+    const w = typeof width === "number" ? width : typeof window !== "undefined" ? window.innerWidth : MOBILE_BREAKPOINT_PX + 1;
+    return w <= MOBILE_BREAKPOINT_PX;
+  }
+  function panelsStartCollapsed(width) {
+    return isMobileViewport(width);
+  }
+
+  // js/ui/characterSelectTooltipContent.js
+  function escapeTooltipHtml(text) {
+    return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+  function buildCharacterDescTooltipHtml(description) {
+    const text = (description || "").trim();
+    if (!text) return "";
+    return `<div class="floating-tooltip-inner floating-tooltip-inner--desc"><p class="floating-tooltip-desc">${escapeTooltipHtml(text)}</p></div>`;
+  }
+  function buildCharacterPassiveTooltipHtml(passive) {
+    if (!passive) return "";
+    return `<div class="floating-tooltip-inner floating-tooltip-inner--passive">${formatPassiveTooltipHtml(passive)}</div>`;
+  }
+  function isPassiveHoverTarget(target) {
+    if (!target || typeof /** @type {Element} */
+    target.closest !== "function") return false;
+    return Boolean(
+      /** @type {Element} */
+      target.closest(".character-passive-reveal")
+    );
+  }
+  function resolveCharacterCardTooltipMode({ overPassive, hasDesc, hasPassive }) {
+    if (overPassive && hasPassive) return "passive";
+    if (hasDesc) return "desc";
+    return "none";
+  }
+
+  // js/utils/floatingTooltip.js
+  function positionFloatingTooltip(el, clientX, clientY, opts = {}) {
+    const margin = opts.margin ?? 14;
+    const pad = opts.pad ?? 8;
+    el.hidden = false;
+    el.style.visibility = "hidden";
+    el.style.left = "0px";
+    el.style.top = "0px";
+    const tipRect = el.getBoundingClientRect();
+    const vw = window.innerWidth || 1024;
+    const vh = window.innerHeight || 768;
+    let left = clientX + margin;
+    let top = clientY + margin;
+    if (left + tipRect.width > vw - pad) {
+      left = clientX - tipRect.width - margin;
+    }
+    if (left < pad) left = pad;
+    if (top + tipRect.height > vh - pad) {
+      top = clientY - tipRect.height - margin;
+    }
+    if (top < pad) top = pad;
+    el.style.left = `${Math.round(left)}px`;
+    el.style.top = `${Math.round(top)}px`;
+    el.style.visibility = "visible";
+  }
+
+  // js/ui/floatingTooltipHost.js
+  var FloatingTooltipHost = class {
+    /**
+     * @param {string} [className]
+     * @param {HTMLElement} [parent]
+     */
+    constructor(className = "floating-tooltip", parent = document.body) {
+      this.el = document.createElement("div");
+      this.el.className = className;
+      this.el.setAttribute("role", "tooltip");
+      this.el.hidden = true;
+      parent.appendChild(this.el);
+      this._onMove = this._onMove.bind(this);
+      this._trackingMove = false;
+    }
+    /**
+     * @param {string} html
+     * @param {number} clientX
+     * @param {number} clientY
+     */
+    show(html, clientX, clientY) {
+      this.el.innerHTML = html;
+      this.el.hidden = false;
+      this.reposition(clientX, clientY);
+      this._bindDocumentMove();
+    }
+    /**
+     * @param {number} clientX
+     * @param {number} clientY
+     */
+    reposition(clientX, clientY) {
+      if (this.el.hidden) return;
+      positionFloatingTooltip(this.el, clientX, clientY);
+    }
+    hide() {
+      this.el.hidden = true;
+      this.el.innerHTML = "";
+      this._unbindDocumentMove();
+    }
+    destroy() {
+      this.hide();
+      this.el.remove();
+    }
+    /** @private */
+    _bindDocumentMove() {
+      if (this._trackingMove) return;
+      document.addEventListener("mousemove", this._onMove);
+      this._trackingMove = true;
+    }
+    /** @private */
+    _unbindDocumentMove() {
+      if (!this._trackingMove) return;
+      document.removeEventListener("mousemove", this._onMove);
+      this._trackingMove = false;
+    }
+    /** @private */
+    _onMove(event) {
+      if (this.el.hidden) return;
+      positionFloatingTooltip(this.el, event.clientX, event.clientY);
+    }
+  };
+
+  // js/ui/characterSelectTooltips.js
+  var CharacterSelectTooltips = class {
+    constructor() {
+      this.descTip = new FloatingTooltipHost("floating-tooltip floating-tooltip--desc");
+      this.passiveTip = new FloatingTooltipHost("floating-tooltip floating-tooltip--passive");
+      this._abort = null;
+    }
+    /** @param {HTMLElement|null} listEl */
+    bind(listEl) {
+      this.unbind();
+      if (!listEl || isMobileViewport()) return;
+      this._abort = new AbortController();
+      const { signal } = this._abort;
+      listEl.querySelectorAll(".character-card").forEach((card) => {
+        const descHtml = buildCharacterDescTooltipHtml(
+          card.querySelector(".character-desc")?.textContent || ""
+        );
+        const passiveHtml = buildCharacterPassiveTooltipHtml(
+          getCharacterPassive(card.dataset.character || "")
+        );
+        const hasDesc = Boolean(descHtml);
+        const hasPassive = Boolean(passiveHtml);
+        if (!hasDesc && !hasPassive) return;
+        const syncTooltip = (event) => {
+          const mode = resolveCharacterCardTooltipMode({
+            overPassive: isPassiveHoverTarget(event.target),
+            hasDesc,
+            hasPassive
+          });
+          this._showMode(mode, descHtml, passiveHtml, event.clientX, event.clientY);
+        };
+        card.addEventListener("mouseenter", syncTooltip, { signal });
+        card.addEventListener("mousemove", syncTooltip, { signal });
+        card.addEventListener("mouseleave", () => this._hideAll(), { signal });
+      });
+    }
+    /**
+     * @param {'desc'|'passive'|'none'} mode
+     * @param {string} descHtml
+     * @param {string} passiveHtml
+     * @param {number} clientX
+     * @param {number} clientY
+     * @private
+     */
+    _showMode(mode, descHtml, passiveHtml, clientX, clientY) {
+      if (mode === "passive") {
+        this.descTip.hide();
+        this.passiveTip.show(passiveHtml, clientX, clientY);
+        return;
+      }
+      if (mode === "desc") {
+        this.passiveTip.hide();
+        this.descTip.show(descHtml, clientX, clientY);
+        return;
+      }
+      this._hideAll();
+    }
+    /** @private */
+    _hideAll() {
+      this.descTip.hide();
+      this.passiveTip.hide();
+    }
+    unbind() {
+      this._abort?.abort();
+      this._abort = null;
+      this._hideAll();
+    }
+    destroy() {
+      this.unbind();
+      this.descTip.destroy();
+      this.passiveTip.destroy();
+    }
+  };
 
   // js/ui/svgSprites.js
   var SVG_WRAP = (content, viewBox = "0 0 64 64") => `<svg class="entity-svg" viewBox="${viewBox}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${content}</svg>`;
@@ -1843,6 +2291,28 @@
   function ach(id, title, description, icon, check) {
     return { id, title, description, icon, check };
   }
+  var COMBO_ACHIEVEMENT_LIMITS = {
+    /** Swarm types unlock ~wave 7; allow time for density to ramp. */
+    blitzKills: 200,
+    blitzMaxSeconds: 300,
+    slayerTimeKills: 1e3,
+    slayerTimeMaxSeconds: 720,
+    earlyPressureKills: 100,
+    earlyPressureMaxWave: 10,
+    speedMinWave: 24,
+    speedMaxSeconds: 600
+  };
+  var STAT_ACHIEVEMENT_THRESHOLDS = {
+    maxHp: 1e4,
+    critChance: 100,
+    critMultiplier: 500,
+    hpRegen: 1e3,
+    physicalDamage: 3e3
+  };
+  var META_ACHIEVEMENT_THRESHOLDS = {
+    charactersBeatGameTrio: 3,
+    charactersBeatGameFullRoster: CHARACTERS.length
+  };
   var ACHIEVEMENTS = [
     // —— Combat kills ——
     ach("first_blood", "First Blood", "Defeat your first enemy.", "\u{1FA78}", (ctx) => ctx.killCount >= 1),
@@ -1863,6 +2333,7 @@
     ach("level_35", "Warlord", "Reach level 35 in one run.", "\u{1F451}", (ctx) => ctx.level >= 35),
     ach("level_50", "Elite Hunter", "Reach level 50 in one run.", "\u{1F48E}", (ctx) => ctx.level >= 50),
     ach("level_75", "Apex Predator", "Reach level 75 in one run.", "\u{1F406}", (ctx) => ctx.level >= 75),
+    ach("level_100", "Centennial", "Reach level 100 in one run.", "\u{1F31F}", (ctx) => ctx.level >= 100),
     // —— Survival time ——
     ach("survive_1m", "One Minute", "Survive 1 minute.", "\u23F1\uFE0F", (ctx) => ctx.elapsedSeconds >= 60),
     ach("survive_3m", "Holding On", "Survive 3 minutes.", "\u23F3", (ctx) => ctx.elapsedSeconds >= 180),
@@ -1890,7 +2361,7 @@
     ach("treasure_1", "Lucky Find", "Open 1 treasure chest in one run.", "\u{1F381}", (ctx) => ctx.treasuresOpened >= 1),
     ach("treasure_3", "Chest Curious", "Open 3 treasure chests in one run.", "\u{1F4E6}", (ctx) => ctx.treasuresOpened >= 3),
     ach("treasure_5", "Treasure Hunter", "Open 5 treasure chests in one run.", "\u{1F5FA}\uFE0F", (ctx) => ctx.treasuresOpened >= 5),
-    ach("treasure_10", "Pirate Greed", "Open 10 treasure chests in one run.", "\u{1F3F4}\u200D\u2620\uFE0F", (ctx) => ctx.treasuresOpened >= 10),
+    ach("treasure_lucky", "Shiny Surprise", "Open 7 treasure chests in one run.", "\u2728", (ctx) => ctx.treasuresOpened >= 7),
     // —— Gear ——
     ach("loot_1", "First Drop", "Pick up 1 item in one run.", "\u{1F392}", (ctx) => ctx.itemsLooted >= 1),
     ach("loot_5", "Scavenger", "Pick up 5 items in one run.", "\u{1F9F2}", (ctx) => ctx.itemsLooted >= 5),
@@ -1902,29 +2373,33 @@
     ach("gear_5", "Geared Up", "Equip items in 5 slots.", "\u{1F9E4}", (ctx) => ctx.equippedGearCount >= 5),
     ach("gear_full", "Fully Loaded", "Equip items in all 7 slots.", "\u{1F9BE}", (ctx) => ctx.equippedGearCount >= 7),
     ach("hp_5000", "Iron Heart", "Reach 5,000 maximum HP in one run.", "\u2764\uFE0F\u200D\u{1F525}", (ctx) => (ctx.maxHpReached ?? ctx.maxHp ?? 0) >= 5e3),
+    ach("hp_10000", "Absolute Unit", "Reach 10,000 maximum HP in one run.", "\u{1FAC0}", (ctx) => (ctx.maxHpReached ?? ctx.maxHp ?? 0) >= STAT_ACHIEVEMENT_THRESHOLDS.maxHp),
+    ach("crit_100", "Crit Happens", "Reach 100% crit chance in one run.", "\u{1F3B2}", (ctx) => (ctx.critChanceReached ?? 0) >= STAT_ACHIEVEMENT_THRESHOLDS.critChance),
+    ach("crit_dmg_500", "Overkill Energy", "Reach 500% crit damage in one run.", "\u{1F4A5}", (ctx) => (ctx.critMultiplierReached ?? 0) >= STAT_ACHIEVEMENT_THRESHOLDS.critMultiplier),
+    ach("regen_1000", "Soup Kitchen Hero", "Reach 1,000 HP regen per tick in one run.", "\u{1F372}", (ctx) => (ctx.hpRegenReached ?? 0) >= STAT_ACHIEVEMENT_THRESHOLDS.hpRegen),
+    ach("damage_3000", "Number Go Up", "Reach 3,000 physical damage in one run.", "\u{1F4C8}", (ctx) => (ctx.physicalDamageReached ?? 0) >= STAT_ACHIEVEMENT_THRESHOLDS.physicalDamage),
     // —— Skills ——
     ach("skill_any", "First Spell", "Learn any active skill (sum of levels \u2265 1).", "\u{1FA84}", (ctx) => (ctx.skillLevelSum ?? 0) >= 1),
     ach("skill_5", "Spell Student", "Reach 5 total skill levels.", "\u{1F4D8}", (ctx) => (ctx.skillLevelSum ?? 0) >= 5),
-    ach("skill_15", "Spell Adept", "Reach 15 total skill levels.", "\u{1F4D7}", (ctx) => (ctx.skillLevelSum ?? 0) >= 15),
-    ach("skill_30", "Spell Master", "Reach 30 total skill levels.", "\u{1F4D5}", (ctx) => (ctx.skillLevelSum ?? 0) >= 30),
-    ach("skill_max_1", "Specialize", "Max out any one skill.", "\u{1F3AF}", (ctx) => (ctx.skillsAtMax ?? 0) >= 1),
-    ach("skill_max_3", "Multi-Talent", "Max out 3 different skills.", "\u{1F31F}", (ctx) => (ctx.skillsAtMax ?? 0) >= 3),
+    // —— Meta roster victories ——
+    ach("victory_trio", "Triple Threat", "Beat the game with 3 different characters.", "\u{1F3AD}", (ctx) => (ctx.charactersBeatGame ?? 0) >= META_ACHIEVEMENT_THRESHOLDS.charactersBeatGameTrio),
+    ach("victory_full_roster", "Cast Party", `Beat the game with all ${META_ACHIEVEMENT_THRESHOLDS.charactersBeatGameFullRoster} characters.`, "\u{1F3AA}", (ctx) => (ctx.charactersBeatGame ?? 0) >= META_ACHIEVEMENT_THRESHOLDS.charactersBeatGameFullRoster),
     // —— Special enemies ——
     ach("elite_1", "Elite Hunter", "Defeat 1 elite enemy in one run.", "\u{1F7E3}", (ctx) => (ctx.elitesKilled ?? 0) >= 1),
     ach("elite_10", "Elite Slayer", "Defeat 10 elite enemies in one run.", "\u{1F49C}", (ctx) => (ctx.elitesKilled ?? 0) >= 10),
     ach("boss_1", "Boss Breaker", "Defeat 1 boss in one run.", "\u{1F432}", (ctx) => (ctx.bossesKilled ?? 0) >= 1),
     ach("boss_3", "Boss Bane", "Defeat 3 bosses in one run.", "\u{1F409}", (ctx) => (ctx.bossesKilled ?? 0) >= 3),
     ach("boss_5", "Dragon Killer", "Defeat 5 bosses in one run.", "\u{1F525}", (ctx) => (ctx.bossesKilled ?? 0) >= 5),
-    // —— Combo challenges (tuned for real clear pace — early packs are denser) ——
-    ach("combo_kills_wave", "Early Pressure", "Get 120 kills before wave 8.", "\u26A1", (ctx) => ctx.killCount >= 120 && (ctx.maxWaveReached ?? ctx.currentWave ?? 99) <= 8),
+    // —— Combo challenges (tuned for swarm unlock ~wave 7 and warmup spawn curve) ——
+    ach("combo_kills_wave", "Early Pressure", `Get ${COMBO_ACHIEVEMENT_LIMITS.earlyPressureKills} kills before wave ${COMBO_ACHIEVEMENT_LIMITS.earlyPressureMaxWave + 1}.`, "\u26A1", (ctx) => ctx.killCount >= COMBO_ACHIEVEMENT_LIMITS.earlyPressureKills && (ctx.maxWaveReached ?? ctx.currentWave ?? 99) <= COMBO_ACHIEVEMENT_LIMITS.earlyPressureMaxWave),
     ach("combo_level_streak", "Perfect Flow", "Reach level 15 with a best streak of 30+.", "\u{1F3AD}", (ctx) => ctx.level >= 15 && ctx.bestStreak >= 30),
     ach("combo_treasure_loot", "Fortune Favored", "Open 5 chests and loot 20 items in one run.", "\u{1F4B0}", (ctx) => ctx.treasuresOpened >= 5 && ctx.itemsLooted >= 20),
     ach("combo_tank", "Ironclad", "Survive 15 minutes with 5+ gear pieces equipped.", "\u{1F3F0}", (ctx) => ctx.elapsedSeconds >= 900 && ctx.equippedGearCount >= 5),
     ach("combo_glass", "Glass Cannon", "Reach wave 18 with fewer than 3 gear pieces equipped.", "\u{1F37E}", (ctx) => (ctx.maxWaveReached ?? ctx.currentWave ?? 0) >= 18 && ctx.equippedGearCount < 3),
-    /** Wave advances by clock (~20s); wave 24 ≈ 7.7 min — requiring ≤ 8 min is a true rush. */
-    ach("combo_speed", "Speed Demon", "Reach wave 24 within 8 minutes.", "\u{1F680}", (ctx) => (ctx.maxWaveReached ?? ctx.currentWave ?? 0) >= 24 && ctx.elapsedSeconds <= 480),
-    ach("combo_slayer_time", "Efficient Killer", "Get 1000 kills within 10 minutes.", "\u{1F3B3}", (ctx) => ctx.killCount >= 1e3 && ctx.elapsedSeconds <= 600),
-    ach("combo_blitz", "Blitz Pack", "Get 200 kills within 3 minutes.", "\u26A1", (ctx) => ctx.killCount >= 200 && ctx.elapsedSeconds <= 180),
+    /** Wave advances by clock (~20s); wave 24 ≈ 7.7 min — requiring ≤ 10 min leaves room for slow starts. */
+    ach("combo_speed", "Speed Demon", `Reach wave ${COMBO_ACHIEVEMENT_LIMITS.speedMinWave} within ${COMBO_ACHIEVEMENT_LIMITS.speedMaxSeconds / 60} minutes.`, "\u{1F680}", (ctx) => (ctx.maxWaveReached ?? ctx.currentWave ?? 0) >= COMBO_ACHIEVEMENT_LIMITS.speedMinWave && ctx.elapsedSeconds <= COMBO_ACHIEVEMENT_LIMITS.speedMaxSeconds),
+    ach("combo_slayer_time", "Efficient Killer", `Get ${COMBO_ACHIEVEMENT_LIMITS.slayerTimeKills} kills within ${COMBO_ACHIEVEMENT_LIMITS.slayerTimeMaxSeconds / 60} minutes.`, "\u{1F3B3}", (ctx) => ctx.killCount >= COMBO_ACHIEVEMENT_LIMITS.slayerTimeKills && ctx.elapsedSeconds <= COMBO_ACHIEVEMENT_LIMITS.slayerTimeMaxSeconds),
+    ach("combo_blitz", "Blitz Pack", `Get ${COMBO_ACHIEVEMENT_LIMITS.blitzKills} kills within ${COMBO_ACHIEVEMENT_LIMITS.blitzMaxSeconds / 60} minutes.`, "\u26A1", (ctx) => ctx.killCount >= COMBO_ACHIEVEMENT_LIMITS.blitzKills && ctx.elapsedSeconds <= COMBO_ACHIEVEMENT_LIMITS.blitzMaxSeconds),
     ach("combo_endurance_kills", "War of Attrition", "Get 1500 kills in one run.", "\u{1FA93}", (ctx) => ctx.killCount >= 1500)
   ];
   function getAchievementTooltipText(def) {
@@ -1933,6 +2408,28 @@
 
   // js/systems/metaProgress.js
   var STORAGE_KEY = "survivor-arena-meta";
+  function createEmptyCharacterRecord() {
+    return {
+      level: 0,
+      time: 0,
+      kills: 0,
+      wave: 0,
+      beatGame: false,
+      victoryCount: 0
+    };
+  }
+  function normalizeCharacterRecord(raw) {
+    const base = createEmptyCharacterRecord();
+    if (!raw || typeof raw !== "object") return base;
+    return {
+      level: Math.max(0, Number(raw.level) || 0),
+      time: Math.max(0, Number(raw.time) || 0),
+      kills: Math.max(0, Number(raw.kills) || 0),
+      wave: Math.max(0, Number(raw.wave) || 0),
+      beatGame: Boolean(raw.beatGame),
+      victoryCount: Math.max(0, Number(raw.victoryCount) || 0)
+    };
+  }
   function createDefaultMeta() {
     return {
       bestRun: { level: 0, time: 0, kills: 0, wave: 0, character: "" },
@@ -1948,6 +2445,11 @@
       const meta = { ...createDefaultMeta(), ...parsed };
       if (!meta.characterRecords) meta.characterRecords = {};
       if (parsed.totalGold !== void 0) delete meta.totalGold;
+      const normalized = {};
+      for (const [name, record] of Object.entries(meta.characterRecords)) {
+        normalized[name] = normalizeCharacterRecord(record);
+      }
+      meta.characterRecords = normalized;
       return meta;
     } catch {
       return createDefaultMeta();
@@ -1960,16 +2462,31 @@
     }
   }
   function getCharacterRecord(meta, characterName) {
-    return meta.characterRecords[characterName] || { level: 0, time: 0, kills: 0, wave: 0, beatGame: false };
+    return normalizeCharacterRecord(meta.characterRecords[characterName]);
   }
   function hasCharacterBeatGame(meta, characterName) {
-    return Boolean(getCharacterRecord(meta, characterName).beatGame);
+    return getCharacterRecord(meta, characterName).beatGame;
+  }
+  function getCharacterVictoryCount(meta, characterName) {
+    return getCharacterRecord(meta, characterName).victoryCount;
   }
   function markCharacterVictory(meta, characterName) {
     if (!characterName) return;
     const prev = getCharacterRecord(meta, characterName);
-    meta.characterRecords[characterName] = { ...prev, beatGame: true };
+    meta.characterRecords[characterName] = {
+      ...prev,
+      beatGame: true,
+      victoryCount: prev.victoryCount + 1
+    };
     saveMetaProgress(meta);
+  }
+  function recordCampaignVictoryIfPending(meta, characterName, runState) {
+    if (!characterName || !runState?.finalBossDefeatedThisRun) return false;
+    if (runState.campaignVictoryRecorded) return false;
+    markCharacterVictory(meta, characterName);
+    runState.campaignVictoryRecorded = true;
+    runState.finalVictoryAchieved = true;
+    return true;
   }
   function updateCharacterRecord(meta, run) {
     if (!run.character) return;
@@ -1977,6 +2494,7 @@
     const better = run.level > prev.level || run.level === prev.level && run.kills > prev.kills || run.level === prev.level && run.kills === prev.kills && run.time > prev.time;
     if (better) {
       meta.characterRecords[run.character] = {
+        ...prev,
         level: run.level,
         time: run.time,
         kills: run.kills,
@@ -1989,6 +2507,9 @@
       meta.bestRun = { ...run };
     }
     saveMetaProgress(meta);
+  }
+  function countCharactersBeatGame(meta) {
+    return Object.values(meta?.characterRecords || {}).filter((record) => normalizeCharacterRecord(record).beatGame).length;
   }
   function evaluateAchievements(meta, ctx) {
     const newlyUnlocked = [];
@@ -2006,47 +2527,293 @@
     return ACHIEVEMENTS.find((a) => a.id === id);
   }
 
-  // js/config/victory.js
+  // js/ui/characterSelectCard.js
+  var STAT_FIELDS = [
+    { label: "HP", title: "Hit Points", icon: "\u2665", stat: "maxHp", tone: "char-stat-hp" },
+    { label: "DMG", title: "Damage", icon: "\u2694", stat: "physicalDamage", tone: "char-stat-dmg" },
+    { label: "AoE", title: "Attack Range", icon: "\u25CE", stat: "attackRange", tone: "char-stat-aoe" },
+    { label: "DEF", title: "Defence", icon: "\u{1F6E1}", stat: "armour", tone: "char-stat-def" }
+  ];
+  var PASSIVE_INTERACTIVE_SELECTOR = ".character-passive-reveal, .character-passive-reveal *";
+  function formatCharacterBestRunText(record) {
+    if (!record || (record.level ?? 0) <= 0) return "";
+    return `Lv.${record.level} \xB7 Wave ${record.wave} \xB7 ${record.kills} kills \xB7 ${formatTime(record.time)}`;
+  }
+  function formatCharacterWinCount(victoryCount, beatGame = false) {
+    const count = Math.max(0, victoryCount || 0);
+    if (!beatGame && count <= 0) return 0;
+    return beatGame ? Math.max(1, count) : count;
+  }
+  function formatCharacterChampionLineText(victoryCount, beatGame = false) {
+    const wins = formatCharacterWinCount(victoryCount, beatGame);
+    if (!wins) return "";
+    return `${wins} \u2605`;
+  }
+  function buildCharacterChampionBadgeHtml(cardMeta) {
+    const wins = formatCharacterWinCount(cardMeta.victoryCount, cardMeta.beatGame);
+    if (!wins) return "";
+    const winWord = wins === 1 ? "win" : "wins";
+    return `<span class="character-champion-badge" aria-label="${wins} campaign ${winWord}"><span class="character-champion-count">${wins}</span><span class="character-champion-star" aria-hidden="true">\u2605</span></span>`;
+  }
+  function getCharacterCardMeta(char, meta) {
+    const record = meta ? getCharacterRecord(meta, char.name) : null;
+    const hasRecord = Boolean(record && record.level > 0);
+    const beatGame = meta ? hasCharacterBeatGame(meta, char.name) : false;
+    const victoryCount = meta ? getCharacterVictoryCount(meta, char.name) : 0;
+    const bestRunText = formatCharacterBestRunText(record);
+    const championLineText = formatCharacterChampionLineText(victoryCount, beatGame);
+    return {
+      bestRunText,
+      championLineText,
+      hasRecord,
+      beatGame,
+      victoryCount
+    };
+  }
+  function buildCharacterRecordLinesHtml(cardMeta) {
+    const parts = [];
+    if (cardMeta.bestRunText) {
+      parts.push(
+        `<span class="character-best-run has-record">${cardMeta.bestRunText}</span>`
+      );
+    } else if (!cardMeta.beatGame) {
+      parts.push('<span class="character-best-run">No record yet</span>');
+    }
+    return `<div class="character-record-lines">${parts.join("")}</div>`;
+  }
+  function buildCharacterStatsGridHtml(stats) {
+    const cells = STAT_FIELDS.map(({ label, title, icon, stat, tone }) => {
+      const value = stats[stat];
+      return `<div class="char-stat-cell ${tone}" title="${title}">
+            <span class="char-stat-ico ${tone}" aria-hidden="true">${icon}</span>
+            <span class="char-stat-label">${label}</span>
+            <span class="char-stat-value">${value}</span>
+        </div>`;
+    }).join("");
+    return `<div class="character-stats-grid" role="group" aria-label="Base stats">${cells}</div>`;
+  }
+  function buildCharacterPassiveRevealHtml(passive) {
+    if (!passive) return "";
+    const tipHtml = formatPassiveTooltipHtml(passive);
+    return `<details class="character-passive-reveal">
+        <summary class="character-passive-reveal-summary" aria-label="Unique passive: ${passive.name}. Tap for details.">
+            <span class="character-passive-reveal-icon" aria-hidden="true">${passive.icon}</span>
+            <span class="character-passive-reveal-name">${passive.name}</span>
+        </summary>
+        <div class="character-passive-reveal-body" role="tooltip">
+            ${tipHtml}
+        </div>
+    </details>`;
+  }
+  function bindCharacterCardSelect(card, onSelect) {
+    const name = card.dataset.character;
+    if (!name) return;
+    const trySelect = (event) => {
+      if (event.target.closest(PASSIVE_INTERACTIVE_SELECTOR)) return;
+      onSelect(name);
+    };
+    card.addEventListener("click", trySelect);
+    card.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      if (event.target.closest(PASSIVE_INTERACTIVE_SELECTOR)) return;
+      event.preventDefault();
+      onSelect(name);
+    });
+  }
+  function buildCharacterCard(char, index, meta, onSelect) {
+    const cardMeta = getCharacterCardMeta(char, meta);
+    const passive = getCharacterPassive(char.name);
+    const keyHint = index < 9 ? index + 1 : index === 9 ? "0" : "-";
+    const card = document.createElement("article");
+    card.className = "character-card" + (cardMeta.beatGame ? " character-card--champion" : "");
+    card.dataset.character = char.name;
+    card.tabIndex = 0;
+    card.setAttribute("role", "button");
+    card.setAttribute("aria-label", `Select ${char.name}`);
+    card.innerHTML = `
+        <span class="character-index">${keyHint}</span>
+        <div class="character-card-inner">
+            <div class="character-card-main">
+                <div class="character-card-preview">${getCharacterPreviewHtml(char.name)}${buildCharacterChampionBadgeHtml(cardMeta)}</div>
+                <div class="character-card-meta">
+                    <h3>${char.name}</h3>
+                    <span class="character-role">${char.role}</span>
+                    ${buildCharacterRecordLinesHtml(cardMeta)}
+                </div>
+                ${buildCharacterPassiveRevealHtml(passive)}
+            </div>
+            ${buildCharacterStatsGridHtml(char.stats)}
+            <p class="character-desc">${char.description}</p>
+        </div>
+    `;
+    if (onSelect) bindCharacterCardSelect(card, onSelect);
+    bindCharacterPassiveDesktopHover(card);
+    return card;
+  }
+  function bindCharacterPassiveDesktopHover(card) {
+    if (typeof window === "undefined") return;
+    const details = card.querySelector(".character-passive-reveal");
+    const summary = details?.querySelector("summary");
+    if (!summary) return;
+    const mq = window.matchMedia("(min-width: 769px)");
+    summary.addEventListener("click", (event) => {
+      if (mq.matches) event.preventDefault();
+    });
+  }
+
+  // js/config/milestoneBosses.js
+  var MINI_BOSS_WAVES = [25, 75];
+  var MIDPOINT_VICTORY_WAVE = 50;
   var FINAL_VICTORY_WAVE = 100;
-  var FINAL_BOSS_MULT = {
-    hpVsBoss: 20,
-    damage: 2,
-    armour: 2
+  var FINAL_BOSS_HP_MULT = 50;
+  var MIDPOINT_BOSS_HP_MULT = 30;
+  var MINI_BOSS_HP_MULT = 10;
+  var MILESTONE_BOSS_COMBAT_MULT = {
+    damage: 2.25,
+    armour: 2.1
   };
-  var FINAL_VICTORY_ARMY = {
-    swarmMin: 22,
-    swarmMax: 30,
-    gruntMin: 10,
-    gruntMax: 14,
-    eliteMin: 5,
-    eliteMax: 8
+  var BOSS_WAVE_PROFILES = {
+    25: {
+      hpMult: MINI_BOSS_HP_MULT,
+      hudLabel: "Wave 25 Mini Boss",
+      worldLabel: "W25 BOSS",
+      priority: 1,
+      army: { swarmMin: 12, swarmMax: 18, gruntMin: 8, gruntMax: 12, eliteMin: 2, eliteMax: 4 },
+      reinforceIntervalMs: 5200,
+      reinforcementSwarmMin: 3,
+      reinforcementSwarmMax: 6,
+      guaranteesUniqueLoot: true
+    },
+    50: {
+      hpMult: MIDPOINT_BOSS_HP_MULT,
+      hudLabel: "Wave 50 Boss",
+      worldLabel: "W50 BOSS",
+      priority: 2,
+      army: { swarmMin: 28, swarmMax: 36, gruntMin: 18, gruntMax: 24, eliteMin: 4, eliteMax: 8 },
+      reinforceIntervalMs: 4800,
+      reinforcementSwarmMin: 4,
+      reinforcementSwarmMax: 8,
+      guaranteesUniqueLoot: true
+    },
+    75: {
+      hpMult: MINI_BOSS_HP_MULT,
+      hudLabel: "Wave 75 Mini Boss",
+      worldLabel: "W75 BOSS",
+      priority: 3,
+      army: { swarmMin: 16, swarmMax: 22, gruntMin: 10, gruntMax: 14, eliteMin: 3, eliteMax: 6 },
+      reinforceIntervalMs: 5e3,
+      reinforcementSwarmMin: 3,
+      reinforcementSwarmMax: 7,
+      guaranteesUniqueLoot: true
+    },
+    100: {
+      hpMult: FINAL_BOSS_HP_MULT,
+      hudLabel: "Final Boss",
+      worldLabel: "FINAL BOSS",
+      priority: 4,
+      isFinalVictory: true,
+      army: { swarmMin: 38, swarmMax: 52, gruntMin: 20, gruntMax: 30, eliteMin: 12, eliteMax: 18 },
+      reinforceIntervalMs: 4800,
+      reinforcementSwarmMin: 4,
+      reinforcementSwarmMax: 8,
+      guaranteesUniqueLoot: true
+    }
   };
+  var BOSS_HP_BY_WAVE = Object.fromEntries(
+    Object.entries(BOSS_WAVE_PROFILES).map(([wave, profile]) => [Number(wave), profile.hpMult])
+  );
+  var BOSS_HUD_LABELS = Object.fromEntries(
+    Object.entries(BOSS_WAVE_PROFILES).map(([wave, p]) => [wave, p.hudLabel])
+  );
+  var MILESTONE_BOSS_WORLD_LABELS = Object.fromEntries(
+    Object.entries(BOSS_WAVE_PROFILES).map(([wave, p]) => [wave, p.worldLabel])
+  );
+  var BOSS_HUD_PRIORITY = Object.fromEntries(
+    Object.entries(BOSS_WAVE_PROFILES).map(([wave, p]) => [Number(wave), p.priority])
+  );
+  var MILESTONE_BOSS_SPAWN_OPTS = {
+    skipGroup: true,
+    bypassCap: true
+  };
+  var MIDPOINT_VICTORY_ARMY = BOSS_WAVE_PROFILES[50].army;
+  var FINAL_VICTORY_ARMY = BOSS_WAVE_PROFILES[100].army;
+  function getBossWaveProfile(wave) {
+    return BOSS_WAVE_PROFILES[wave] || null;
+  }
+  function milestoneBossGuaranteesUniqueLoot(wave) {
+    return Boolean(getBossWaveProfile(wave)?.guaranteesUniqueLoot);
+  }
+  function isMidpointVictoryWave(wave) {
+    return wave === MIDPOINT_VICTORY_WAVE;
+  }
   function isFinalVictoryWave(wave) {
     return wave === FINAL_VICTORY_WAVE;
+  }
+  function isMilestoneBossWave(wave) {
+    return Boolean(BOSS_WAVE_PROFILES[wave]);
+  }
+  function isMilestoneBossEnemy(enemy) {
+    return Boolean(enemy?.milestoneBossWave && BOSS_WAVE_PROFILES[enemy.milestoneBossWave]);
   }
   function rollInt(min, max) {
     const lo = Math.min(min, max);
     const hi = Math.max(min, max);
     return lo + Math.floor(Math.random() * (hi - lo + 1));
   }
-  function rollFinalVictorySwarmCount() {
-    return rollInt(FINAL_VICTORY_ARMY.swarmMin, FINAL_VICTORY_ARMY.swarmMax);
+  function rollBossArmyCount(wave, kind) {
+    const army = getBossWaveProfile(wave)?.army;
+    if (!army) return 0;
+    if (kind === "swarm") return rollInt(army.swarmMin, army.swarmMax);
+    if (kind === "grunt") return rollInt(army.gruntMin, army.gruntMax);
+    return rollInt(army.eliteMin, army.eliteMax);
   }
-  function rollFinalVictoryGruntCount() {
-    return rollInt(FINAL_VICTORY_ARMY.gruntMin, FINAL_VICTORY_ARMY.gruntMax);
-  }
-  function rollFinalVictoryEliteCount() {
-    return rollInt(FINAL_VICTORY_ARMY.eliteMin, FINAL_VICTORY_ARMY.eliteMax);
-  }
-  function applyFinalBossCombatScaling(stats) {
+  function applyMilestoneBossCombatScaling(stats, wave = MIDPOINT_VICTORY_WAVE) {
     if (!stats) return stats;
-    stats.hp = Math.max(1, Math.floor(stats.hp * FINAL_BOSS_MULT.hpVsBoss));
+    const profile = getBossWaveProfile(wave);
+    const hpMult = profile?.hpMult ?? FINAL_BOSS_HP_MULT;
+    stats.hp = Math.max(1, Math.floor(stats.hp * hpMult));
     stats.maxHp = stats.hp;
-    stats.physicalDamage = Math.max(1, Math.floor(stats.physicalDamage * FINAL_BOSS_MULT.damage));
+    stats.physicalDamage = Math.max(
+      1,
+      Math.floor(stats.physicalDamage * MILESTONE_BOSS_COMBAT_MULT.damage)
+    );
     if (typeof stats.armour === "number") {
-      stats.armour = Math.max(0, Math.floor(stats.armour * FINAL_BOSS_MULT.armour));
+      stats.armour = Math.max(0, Math.floor(stats.armour * MILESTONE_BOSS_COMBAT_MULT.armour));
     }
     return stats;
+  }
+  function findLivingMilestoneBoss(enemies, preferredWave) {
+    const living = enemies.filter(
+      (e) => e.milestoneBossWave && BOSS_WAVE_PROFILES[e.milestoneBossWave] && (e.stats?.hp ?? 0) > 0
+    );
+    if (preferredWave != null) {
+      return living.find((e) => e.milestoneBossWave === preferredWave) || null;
+    }
+    let best = null;
+    let bestPriority = 0;
+    for (const enemy of living) {
+      const priority = BOSS_WAVE_PROFILES[enemy.milestoneBossWave]?.priority ?? 0;
+      if (priority > bestPriority) {
+        best = enemy;
+        bestPriority = priority;
+      }
+    }
+    return best;
+  }
+  function getMidpointReinforcementIntervalMs() {
+    return BOSS_WAVE_PROFILES[MIDPOINT_VICTORY_WAVE].reinforceIntervalMs;
+  }
+  function getMilestoneReinforcementIntervalMs(milestoneWave) {
+    return getBossWaveProfile(milestoneWave)?.reinforceIntervalMs ?? getMidpointReinforcementIntervalMs();
+  }
+  function rollMidpointReinforcementSwarmSize() {
+    const p = BOSS_WAVE_PROFILES[MIDPOINT_VICTORY_WAVE];
+    return rollInt(p.reinforcementSwarmMin, p.reinforcementSwarmMax);
+  }
+  function rollMilestoneReinforcementSwarmSize(milestoneWave) {
+    const p = getBossWaveProfile(milestoneWave);
+    if (!p) return rollMidpointReinforcementSwarmSize();
+    return rollInt(p.reinforcementSwarmMin, p.reinforcementSwarmMax);
   }
 
   // js/utils/tooltipClamp.js
@@ -2065,128 +2832,30 @@
     return { shiftX: Math.round(shiftX), placement };
   }
 
-  // js/config/characterPassives.js
-  var CHARACTER_PASSIVES = {
-    Adventurer: {
-      id: "adventurer",
-      name: "Explorer's Quill",
-      icon: "\u{1F4DC}",
-      description: "Gains +50% all EXP from kills (stacks with base expGain).",
-      params: { expBonus: 0.5 }
-    },
-    Warrior: {
-      id: "warrior",
-      name: "War Cry Strike",
-      icon: "\u{1F4A5}",
-      description: "Basic attacks have 15% chance to explode in a small AoE.",
-      params: { chance: 15, radiusPx: 90, splashMult: 0.55 }
-    },
-    Ranger: {
-      id: "ranger",
-      name: "Evershadow Companion",
-      icon: "\u{1F3F9}",
-      description: "Always has a free-roaming illusion that deals 60% of your damage.",
-      params: { damagePercent: 60, roamRadiusFraction: 0.85 }
-    },
-    Assassin: {
-      id: "assassin",
-      name: "Crit Echo",
-      icon: "\u{1F5E1}\uFE0F",
-      description: "Critical hits have 30% chance to splash nearby foes.",
-      params: { chance: 30, radiusPx: 70, splashMult: 0.4 }
-    },
-    Healer: {
-      id: "healer",
-      name: "Sacred Pulse",
-      icon: "\u{1F49A}",
-      description: "Every few seconds pulses AoE damage based on HP regen.",
-      params: { intervalMs: 2500, radiusPx: 140, regenDamageMult: 0.35 }
-    },
-    Necromancer: {
-      id: "necromancer",
-      name: "Raise Zombie",
-      icon: "\u{1F9DF}",
-      description: "Raises a melee zombie that deals 100% of your damage for a duration.",
-      params: {
-        cooldownMs: 12e3,
-        durationMs: 14e3,
-        damagePercent: 100,
-        moveSpeed: 0.55,
-        attackIntervalMs: 900,
-        offsetVw: 3.5
-      }
-    },
-    Paladin: {
-      id: "paladin",
-      name: "Aegis of Faith",
-      icon: "\u{1F6E1}\uFE0F",
-      description: "Gain a shield equal to 10% max HP; fully repaired every 15s.",
-      params: { shieldPercent: 10, repairIntervalMs: 15e3 }
-    },
-    Berserker: {
-      id: "berserker",
-      name: "Blood Frenzy",
-      icon: "\u{1FA78}",
-      description: "Periodically gains +50% attack speed for several seconds.",
-      params: {
-        bonusPercent: 50,
-        durationMs: 5e3,
-        cooldownMs: 1e4
-      }
-    },
-    Elementalist: {
-      id: "elementalist",
-      name: "Elemental Attunement",
-      icon: "\u2728",
-      description: "Fire, cold, and lightning skill damage deal +50% more.",
-      params: { elementBonus: 0.5 }
-    },
-    Summoner: {
-      id: "summoner",
-      name: "Twin Bears",
-      icon: "\u{1F43B}",
-      description: "Commands two bears that each deal 30% of your damage.",
-      params: {
-        count: 2,
-        damagePercent: 30,
-        moveSpeed: 0.48,
-        attackIntervalMs: 1100,
-        orbitVw: 4.2
-      }
-    },
-    Capybara: {
-      id: "capybara",
-      name: "Snack & Soak",
-      icon: "\u{1F34A}",
-      description: "Every few seconds soaks foes in chill water and snacks for a heal.",
-      params: {
-        intervalMs: 4e3,
-        radiusPx: 120,
-        damageMult: 0.6,
-        healPercent: 3,
-        chillPercent: 25,
-        chillDurationMs: 1800
-      }
-    },
-    Slayer: {
-      id: "slayer",
-      name: "Weapon Mastery",
-      icon: "\u2694\uFE0F",
-      description: "All physical damage deals +50% more (skills and basic attacks).",
-      params: { physicalBonus: 0.5 }
-    }
-  };
-  var ELEMENTALIST_ELEMENTS = /* @__PURE__ */ new Set(["fire", "cold", "lightning"]);
-  function getCharacterPassive(characterName) {
-    return CHARACTER_PASSIVES[characterName] || null;
+  // js/systems/playerVitality.js
+  function clampPlayerHp(stats) {
+    if (!stats) return;
+    if (stats.hp > stats.maxHp) stats.hp = stats.maxHp;
+    if (stats.hp < 0) stats.hp = 0;
   }
-  function formatPassiveTooltipHtml(passive) {
-    if (!passive) return "";
-    return `
-        <strong class="passive-tip-name">${passive.name}</strong>
-        <span class="passive-tip-tag">Character Passive</span>
-        <p class="passive-tip-desc">${passive.description}</p>
-    `;
+  function isPlayerDefeated(stats) {
+    return stats.hp <= 0;
+  }
+  function applyPlayerDamage(stats, amount) {
+    stats.hp -= amount;
+  }
+  function tickPlayerRegen(state, now) {
+    const s = state;
+    const regenBoost = s.abilityList["Regen To Damage"].level > 0 ? s.abilityList["Regen To Damage"].level * 20 / 100 : 0;
+    const interval = s.healthRegenInterval / (1 + regenBoost);
+    if (now - s.healthRegenTime >= interval) {
+      s.healthRegenTime = now;
+      s.stats.hp += s.stats.hpRegen;
+    }
+  }
+  function resolvePlayerDefeat(stats) {
+    clampPlayerHp(stats);
+    return isPlayerDefeated(stats);
   }
 
   // js/ui/manager.js
@@ -2245,6 +2914,7 @@
       this._gearLootTimer = null;
       this._treasurePingTimer = null;
       this._lastStreak = 0;
+      this.characterSelectTooltips = new CharacterSelectTooltips();
       this._initPauseMenu();
     }
     _initPauseMenu() {
@@ -2411,43 +3081,9 @@
       this.els.gameContainer.style.display = "none";
       this.els.characterList.innerHTML = "";
       CHARACTERS.forEach((char, index) => {
-        const record = meta ? getCharacterRecord(meta, char.name) : null;
-        const hasRecord = record && record.level > 0;
-        const beatGame = meta ? hasCharacterBeatGame(meta, char.name) : false;
-        const bestText = beatGame ? `\u2605 Champion \u2014 Beat Wave ${FINAL_VICTORY_WAVE}!` : hasRecord ? `Best: Lv.${record.level} \xB7 Wave ${record.wave} \xB7 ${record.kills} kills \xB7 ${formatTime(record.time)}` : "No record yet";
-        const passive = getCharacterPassive(char.name);
-        const passiveChip = passive ? `<span class="character-passive-chip" title="${passive.name}">
-                        <span aria-hidden="true">${passive.icon}</span>
-                        <span>${passive.name}</span>
-                        <span class="chip-tip"><strong>${passive.name}</strong><br>${passive.description}</span>
-                   </span>` : "";
-        const card = document.createElement("button");
-        card.className = "character-card" + (beatGame ? " character-card--champion" : "");
-        card.dataset.character = char.name;
-        const keyHint = index < 9 ? index + 1 : index === 9 ? "0" : "-";
-        card.innerHTML = `
-                <span class="character-index">${keyHint}</span>
-                ${getCharacterPreviewHtml(char.name)}
-                <div class="character-card-body">
-                    <h3>${char.name}</h3>
-                    <span class="character-role">${char.role}</span>
-                    <p class="character-desc">${char.description}</p>
-                    ${passiveChip}
-                    <div class="character-stats-line">
-                        <span class="char-stat" title="Hit Points"><span class="char-stat-ico char-stat-hp">\u2665</span>${char.stats.maxHp}</span>
-                        <span class="char-stat-sep">\xB7</span>
-                        <span class="char-stat" title="Damage"><span class="char-stat-ico char-stat-dmg">\u2694</span>${char.stats.physicalDamage}</span>
-                        <span class="char-stat-sep">\xB7</span>
-                        <span class="char-stat" title="Attack Range"><span class="char-stat-ico char-stat-aoe">\u25CE</span>${char.stats.attackRange}</span>
-                        <span class="char-stat-sep">\xB7</span>
-                        <span class="char-stat" title="Defence"><span class="char-stat-ico char-stat-def">\u{1F6E1}</span>${char.stats.armour}</span>
-                    </div>
-                    <span class="character-best-run ${hasRecord || beatGame ? "has-record" : ""}">${bestText}</span>
-                </div>
-            `;
-        card.addEventListener("click", () => onSelect(char.name));
-        this.els.characterList.appendChild(card);
+        this.els.characterList.appendChild(buildCharacterCard(char, index, meta, onSelect));
       });
+      this.characterSelectTooltips.bind(this.els.characterList);
     }
     showGame() {
       this.els.characterSelection.style.display = "none";
@@ -2460,10 +3096,13 @@
       this.els.attackRange.style.height = `${size}px`;
     }
     updateStats(stats, skillList) {
-      if (stats.hp > stats.maxHp) stats.hp = stats.maxHp;
+      clampPlayerHp(stats);
       const fmt = (n, dec = 2) => Number(n).toFixed(dec).replace(/\.?0+$/, "");
-      this.els.hpBarFill.style.width = `${stats.hp / stats.maxHp * 100}%`;
-      this.els.hpValue.textContent = `${Math.max(0, Math.floor(stats.hp))} / ${stats.maxHp}`;
+      const maxHp = Math.max(1, stats.maxHp || 1);
+      const displayHp = Math.max(0, Math.floor(stats.hp));
+      const hpPct = Math.min(100, Math.max(0, displayHp / maxHp * 100));
+      this.els.hpBarFill.style.width = `${hpPct}%`;
+      this.els.hpValue.textContent = `${displayHp} / ${maxHp}`;
       this.els.expBarFill.style.width = `${stats.exp / stats.expThreshold * 100}%`;
       this.els.expValue.textContent = `${stats.exp} / ${stats.expThreshold}`;
       this.els.level.textContent = `Lv. ${stats.level}`;
@@ -2477,6 +3116,16 @@
       this.els.critMultiplier.textContent = `${stats.critMultiplier}%`;
       syncPlayerSkillLevels(stats.skills, skillList);
       this.updateSkillBar(stats.skills, skillList);
+    }
+    /** Lightweight HP bar refresh after mid-tick damage (before end-of-tick regen). */
+    syncPlayerHp(stats) {
+      if (!stats || !this.els.hpBarFill || !this.els.hpValue) return;
+      clampPlayerHp(stats);
+      const maxHp = Math.max(1, stats.maxHp || 1);
+      const displayHp = Math.max(0, Math.floor(stats.hp));
+      const pct = Math.min(100, Math.max(0, displayHp / maxHp * 100));
+      this.els.hpBarFill.style.width = `${pct}%`;
+      this.els.hpValue.textContent = `${displayHp} / ${maxHp}`;
     }
     /** @param {import('../config/characterPassives.js').CharacterPassiveDef|null} passive */
     setCharacterPassive(passive) {
@@ -2674,6 +3323,10 @@
       if (!this.els.waveToast || wave <= 0) return;
       if (wave === FINAL_VICTORY_WAVE) {
         this.els.waveToast.textContent = `Wave ${wave} \u2014 The Final Boss approaches!`;
+      } else if (wave === MIDPOINT_VICTORY_WAVE) {
+        this.els.waveToast.textContent = `Wave ${wave} \u2014 Midpoint Boss approaches!`;
+      } else if (MINI_BOSS_WAVES.includes(wave)) {
+        this.els.waveToast.textContent = `Wave ${wave} \u2014 Mini Boss approaches!`;
       } else {
         this.els.waveToast.textContent = `Wave ${wave} \u2014 Difficulty rising!`;
       }
@@ -2684,10 +3337,32 @@
         this.els.waveToast.classList.remove("toast-visible");
       }, 2200);
     }
+    /** @param {number} wave Mini-boss waves 25 & 75 */
+    showMiniBossIncoming(wave) {
+      if (!this.els.waveToast) return;
+      this.els.waveToast.textContent = `\u26A0\uFE0F Wave ${wave} MINI BOSS \u2014 20\xD7 HP \xB7 Escorts incoming!`;
+      this.els.waveToast.classList.remove("toast-victory");
+      this.els.waveToast.classList.add("toast-visible", "toast-boss-final");
+      clearTimeout(this._waveTimer);
+      this._waveTimer = setTimeout(() => {
+        this.els.waveToast.classList.remove("toast-visible", "toast-boss-final");
+      }, 3600);
+    }
+    /** @param {number} wave */
+    showMidpointVictoryBossIncoming(wave) {
+      if (!this.els.waveToast) return;
+      this.els.waveToast.textContent = `\u26A0\uFE0F Wave ${wave} MIDPOINT BOSS \u2014 50\xD7 HP \xB7 Army incoming!`;
+      this.els.waveToast.classList.remove("toast-victory");
+      this.els.waveToast.classList.add("toast-visible", "toast-boss-final");
+      clearTimeout(this._waveTimer);
+      this._waveTimer = setTimeout(() => {
+        this.els.waveToast.classList.remove("toast-visible", "toast-boss-final");
+      }, 3800);
+    }
     /** @param {number} wave */
     showFinalVictoryBossIncoming(wave) {
       if (!this.els.waveToast) return;
-      this.els.waveToast.textContent = `\u26A0\uFE0F Wave ${wave} FINAL BOSS \u2014 20\xD7 HP \xB7 2\xD7 damage \xB7 Army incoming!`;
+      this.els.waveToast.textContent = `\u26A0\uFE0F Wave ${wave} FINAL BOSS \u2014 50\xD7 HP \xB7 2\xD7 damage \xB7 Army incoming!`;
       this.els.waveToast.classList.remove("toast-victory");
       this.els.waveToast.classList.add("toast-visible", "toast-boss-final");
       clearTimeout(this._waveTimer);
@@ -2755,6 +3430,108 @@
     }
   };
 
+  // js/config/runtimeBudget.js
+  var RUNTIME_BUDGET = {
+    maxEffects: 64,
+    maxClassTimers: 120,
+    maxSkillImpacts: 28,
+    maxProjectiles: 48,
+    maxEnemies: BALANCE.maxEnemiesOnScreen,
+    /** Skip non-critical VFX when active nodes exceed this fraction of maxEffects. */
+    cosmeticThrottleRatio: 0.55,
+    /** Max floating damage numbers per budget window (scaled down at 4×). */
+    damageNumberBudgetPerWindow: 10,
+    /** Wall-clock ms for damage-number budget reset (divided by time scale). */
+    damageNumberBudgetWindowMs: 80,
+    /** Cap simultaneous skill spark projectiles. */
+    maxActiveSparks: 24,
+    /** Projectile travel speed in viewport widths per simulated second. */
+    enemyProjectileSpeedVwPerSec: 52,
+    /** Max vw moved per sub-step — prevents tunneling through the player at 4× sim deltas. */
+    enemyProjectileMaxStepVw: 1.75,
+    /** Player hit radius for enemy projectiles (pixels, matches distanceVw output). */
+    enemyProjectileHitRadius: 30,
+    /** Pre-allocated DOM nodes per pool — reduces churn under swarm pressure. */
+    poolPrewarm: {
+      projectiles: 16,
+      hitEffects: 20,
+      expOrbs: 16,
+      damageNumbers: 12
+    },
+    /** Force-remove orphaned skill projectiles / trails after this wall-clock age. */
+    maxTransientDomLifetimeMs: 15e3
+  };
+
+  // js/systems/runtimeBudget.js
+  var RUNTIME_BUDGET_DEFAULTS = {
+    effects: RUNTIME_BUDGET.maxEffects,
+    classTimers: RUNTIME_BUDGET.maxClassTimers,
+    skillImpacts: RUNTIME_BUDGET.maxSkillImpacts,
+    enemies: RUNTIME_BUDGET.maxEnemies,
+    projectiles: RUNTIME_BUDGET.maxProjectiles
+  };
+  function getRuntimeBudgets() {
+    return {
+      maxEffects: RUNTIME_BUDGET.maxEffects,
+      maxClassTimers: RUNTIME_BUDGET.maxClassTimers,
+      maxSkillImpacts: RUNTIME_BUDGET.maxSkillImpacts,
+      maxEnemies: RUNTIME_BUDGET.maxEnemies,
+      maxProjectiles: RUNTIME_BUDGET.maxProjectiles,
+      projectileSpeedVwPerSec: RUNTIME_BUDGET.enemyProjectileSpeedVwPerSec,
+      projectileMaxStepVw: RUNTIME_BUDGET.enemyProjectileMaxStepVw,
+      projectileHitRadius: RUNTIME_BUDGET.enemyProjectileHitRadius,
+      cosmeticThrottleRatio: RUNTIME_BUDGET.cosmeticThrottleRatio
+    };
+  }
+  function shouldThrottleCosmeticEffects(activeCount, maxEffects, ratio = RUNTIME_BUDGET.cosmeticThrottleRatio) {
+    if (maxEffects <= 0) return true;
+    return activeCount >= Math.floor(maxEffects * ratio);
+  }
+
+  // js/utils/domPool.js
+  var DomPool = class {
+    /**
+     * @param {() => HTMLElement} factory
+     * @param {number} [prewarm=0]
+     */
+    constructor(factory, prewarm = 0) {
+      this._factory = factory;
+      this._free = [];
+      for (let i = 0; i < prewarm; i++) {
+        this._free.push(this._prepare(this._factory()));
+      }
+    }
+    /** @param {HTMLElement} el */
+    _prepare(el) {
+      el.style.display = "none";
+      return el;
+    }
+    /** @returns {HTMLElement} */
+    acquire() {
+      const el = this._free.pop();
+      if (el) {
+        el.style.display = "";
+        return el;
+      }
+      return this._factory();
+    }
+    /** @param {HTMLElement} el */
+    release(el) {
+      if (!el) return;
+      el.style.display = "none";
+      this._free.push(el);
+    }
+    /** @param {HTMLElement} [container] */
+    clear(container) {
+      if (container) {
+        this._free.forEach((el) => {
+          if (el.parentElement === container) el.remove();
+        });
+      }
+      this._free = [];
+    }
+  };
+
   // js/systems/effects.js
   var EffectManager = class {
     /** @param {HTMLElement} container */
@@ -2762,7 +3539,66 @@
       this.container = container;
       this.activeEffects = [];
       this._classTimers = [];
-      this.maxEffects = 64;
+      const budgets = getRuntimeBudgets();
+      this.maxEffects = budgets.maxEffects;
+      this._maxClassTimers = budgets.maxClassTimers;
+      this._timeScale = 1;
+      this._damageNumberBudget = RUNTIME_BUDGET.damageNumberBudgetPerWindow;
+      this._damageNumberBudgetWindowStart = 0;
+      this._hitEffectPool = new DomPool(() => this._createHitEffectElement(), RUNTIME_BUDGET.poolPrewarm.hitEffects);
+      this._expOrbPool = new DomPool(() => this._createExpOrbElement(), RUNTIME_BUDGET.poolPrewarm.expOrbs);
+      this._damageNumberPool = new DomPool(
+        () => this._createDamageNumberElement(),
+        RUNTIME_BUDGET.poolPrewarm.damageNumbers ?? 12
+      );
+    }
+    _createDamageNumberElement() {
+      const el = document.createElement("div");
+      el.className = "damage-number";
+      return el;
+    }
+    _createHitEffectElement() {
+      const el = document.createElement("div");
+      el.className = "hit-effect hit-effect-physical particle-25d";
+      el.innerHTML = '<span class="particle-25d-face"></span><span class="particle-25d-shadow"></span>';
+      return el;
+    }
+    _createExpOrbElement() {
+      const el = document.createElement("div");
+      el.className = "world-exp-orb particle-25d";
+      el.innerHTML = '<span class="particle-25d-face"></span><span class="particle-25d-shadow"></span>';
+      return el;
+    }
+    /** @param {HTMLElement} el @param {'hit'|'exp'|'damage'} kind */
+    _releasePooledElement(el, kind) {
+      if (kind === "hit") this._hitEffectPool.release(el);
+      else if (kind === "damage") this._damageNumberPool.release(el);
+      else this._expOrbPool.release(el);
+    }
+    /** @param {number} scale — affects VFX lifetime only (sim-time), not spawn rules or caps. */
+    setTimeScale(scale) {
+      this._timeScale = Math.max(1, scale || 1);
+      this._trimEffects();
+      this._trimClassTimers();
+    }
+    _isCosmeticThrottled() {
+      return shouldThrottleCosmeticEffects(this.activeEffects.length, this.maxEffects);
+    }
+    /** Public check for gameplay code that should skip heavy VFX under load. */
+    isCosmeticThrottled() {
+      return this._isCosmeticThrottled();
+    }
+    _consumeDamageNumberBudget() {
+      const now = Date.now();
+      const windowMs = RUNTIME_BUDGET.damageNumberBudgetWindowMs / this._timeScale;
+      if (!this._damageNumberBudgetWindowStart || now - this._damageNumberBudgetWindowStart >= windowMs) {
+        this._damageNumberBudgetWindowStart = now;
+        const base = RUNTIME_BUDGET.damageNumberBudgetPerWindow;
+        this._damageNumberBudget = Math.max(4, Math.floor(base / this._timeScale));
+      }
+      if (this._damageNumberBudget <= 0) return false;
+      this._damageNumberBudget -= 1;
+      return true;
     }
     /**
      * Register a transient node owned by this manager.
@@ -2770,33 +3606,50 @@
      * @param {number} lifetimeMs
      * @returns {HTMLElement}
      */
-    _trackEffect(el, lifetimeMs) {
+    _trackEffect(el, lifetimeMs, poolKind = null) {
       this.container.appendChild(el);
+      const maxLife = RUNTIME_BUDGET.maxTransientDomLifetimeMs ?? 15e3;
+      const scaledMs = Math.min(maxLife, Math.max(80, lifetimeMs / this._timeScale));
       const id = setTimeout(() => {
-        el.remove();
+        if (poolKind) {
+          this._releasePooledElement(el, poolKind);
+        } else {
+          el.remove();
+        }
         this.activeEffects = this.activeEffects.filter((e) => e.el !== el);
-      }, lifetimeMs);
-      this.activeEffects.push({ el, id });
+      }, scaledMs);
+      this.activeEffects.push({ el, id, poolKind });
       this._trimEffects();
       return el;
+    }
+    _trimClassTimers() {
+      const cap = this._maxClassTimers ?? 120;
+      while (this._classTimers.length > cap) {
+        const old = this._classTimers.shift();
+        if (!old) break;
+        clearTimeout(old.id);
+        old.el.classList.remove(old.className);
+        old.onDone?.();
+      }
     }
     _trimEffects() {
       while (this.activeEffects.length > this.maxEffects) {
         const old = this.activeEffects.shift();
         if (old) {
           clearTimeout(old.id);
-          old.el?.remove();
+          if (old.poolKind) this._releasePooledElement(old.el, old.poolKind);
+          else old.el?.remove();
         }
       }
     }
     /** @param {number} x @param {number} y @param {string} type */
     spawnHitEffect(x, y, type = "physical") {
-      const el = document.createElement("div");
+      if (this._isCosmeticThrottled()) return null;
+      const el = this._hitEffectPool.acquire();
       el.className = `hit-effect hit-effect-${type} particle-25d`;
-      el.innerHTML = '<span class="particle-25d-face"></span><span class="particle-25d-shadow"></span>';
       el.style.left = `${x}vw`;
       el.style.top = `${y}vh`;
-      return this._trackEffect(el, 550);
+      return this._trackEffect(el, 550, "hit");
     }
     /** @param {number} x1 @param {number} y1 @param {number} x2 @param {number} y2 @param {boolean} [enhanced] */
     spawnLightningBolt(x1, y1, x2, y2, enhanced = false) {
@@ -2885,6 +3738,7 @@
       slash.style.transform = `translate(0, -50%) rotate(${angleDeg}deg)`;
       slash.innerHTML = '<span class="melee-sword-blade" aria-hidden="true"></span><span class="melee-sword-tip" aria-hidden="true"></span>';
       this._trackEffect(slash, 320);
+      if (this._isCosmeticThrottled()) return slash;
       const spark = document.createElement("div");
       spark.className = "melee-sword-impact";
       spark.style.left = `${toX}vw`;
@@ -2926,6 +3780,7 @@
      * @param {(() => void)|null} [onDone]
      */
     _trackClassTimeout(el, className, ms, onDone = null) {
+      const scaledMs = Math.max(40, ms / this._timeScale);
       for (let i = this._classTimers.length - 1; i >= 0; i--) {
         const t = this._classTimers[i];
         if (t.el === el && t.className === className) {
@@ -2937,15 +3792,9 @@
         el.classList.remove(className);
         onDone?.();
         this._classTimers = this._classTimers.filter((t) => t.id !== id);
-      }, ms);
+      }, scaledMs);
       this._classTimers.push({ el, className, id, onDone });
-      while (this._classTimers.length > 120) {
-        const old = this._classTimers.shift();
-        if (!old) break;
-        clearTimeout(old.id);
-        old.el.classList.remove(old.className);
-        old.onDone?.();
-      }
+      this._trimClassTimers();
     }
     spawnDeathExplosion(x, y, type = "normal") {
       const el = document.createElement("div");
@@ -2969,7 +3818,10 @@
       return this._trackEffect(el, 480);
     }
     spawnDamageNumber(x, y, damage, isCrit, element = null) {
-      const el = document.createElement("div");
+      if (this._isCosmeticThrottled()) return null;
+      if (!this._consumeDamageNumberBudget()) return null;
+      if (this.activeEffects.length >= this.maxEffects) return null;
+      const el = this._damageNumberPool.acquire();
       let className = "damage-number";
       if (isCrit) className += " damage-crit";
       if (element) className += ` damage-${element}`;
@@ -2977,7 +3829,8 @@
       el.textContent = String(damage);
       el.style.left = `${x}vw`;
       el.style.top = `${y}vh`;
-      this._trackEffect(el, 1100);
+      el.classList.remove("damage-float");
+      this._trackEffect(el, 1100, "damage");
       requestAnimationFrame(() => {
         el.classList.add("damage-float");
       });
@@ -2993,16 +3846,17 @@
     }
     /** @param {number} x @param {number} y @param {number} [count] */
     spawnExpOrbs(x, y, count = 3) {
+      if (this._isCosmeticThrottled()) {
+        count = 1;
+      }
       const n = Math.min(count, 4);
       for (let i = 0; i < n; i++) {
-        const el = document.createElement("div");
-        el.className = "world-exp-orb particle-25d";
-        el.innerHTML = '<span class="particle-25d-face"></span><span class="particle-25d-shadow"></span>';
+        const el = this._expOrbPool.acquire();
         const ox = (Math.random() - 0.5) * 4;
         el.style.left = `${x + ox}vw`;
         el.style.top = `${y}vh`;
         el.style.animationDelay = `${i * 0.06}s`;
-        this._trackEffect(el, 750);
+        this._trackEffect(el, 750, "exp");
       }
     }
     /** @param {HTMLElement} enemyEl */
@@ -3019,9 +3873,10 @@
       this._trackClassTimeout(rangeEl, "player-attacking-range", 280);
     }
     cleanup() {
-      this.activeEffects.forEach(({ el, id }) => {
+      this.activeEffects.forEach(({ el, id, poolKind }) => {
         clearTimeout(id);
-        el?.remove();
+        if (poolKind) this._releasePooledElement(el, poolKind);
+        else el?.remove();
       });
       this.activeEffects = [];
       this._classTimers.forEach(({ el, className, id, onDone }) => {
@@ -3032,6 +3887,67 @@
       this._classTimers = [];
     }
   };
+
+  // js/systems/gameClock.js
+  var GAME_SPEED_OPTIONS = [1, 2, 4];
+  var MAX_REAL_DELTA_MS = 48;
+  var MAX_SIM_ADVANCE_PER_FRAME_MS = 120;
+  function initGameClock(state) {
+    state.timeScale = 1;
+    state.simulatedMs = 0;
+    state.lastSimDeltaMs = 0;
+    state.lastRealTickMs = Date.now();
+  }
+  function advanceGameClock(state, realNow = Date.now()) {
+    if (state.lastRealTickMs == null) {
+      state.lastRealTickMs = realNow;
+    }
+    const rawDelta = Math.max(0, realNow - state.lastRealTickMs);
+    const realDelta = Math.min(rawDelta, MAX_REAL_DELTA_MS);
+    state.lastRealTickMs = realNow;
+    const scale = state.timeScale ?? 1;
+    const simAdvance = Math.min(realDelta * scale, MAX_SIM_ADVANCE_PER_FRAME_MS);
+    state.lastSimDeltaMs = simAdvance;
+    state.simulatedMs = (state.simulatedMs ?? 0) + simAdvance;
+    return state.simulatedMs;
+  }
+  function getLastSimDeltaMs(state) {
+    return state.lastSimDeltaMs ?? 0;
+  }
+  function getSimulatedMs(state) {
+    return state.simulatedMs ?? 0;
+  }
+  function getElapsedSeconds(state) {
+    return Math.floor(getSimulatedMs(state) / 1e3);
+  }
+  function setTimeScale(state, scale, realNow = Date.now()) {
+    if (!GAME_SPEED_OPTIONS.includes(scale)) return;
+    advanceGameClock(state, realNow);
+    state.timeScale = scale;
+  }
+  function getProjectedSimMs(state, realNow = Date.now()) {
+    const rawDelta = Math.max(0, realNow - (state.lastRealTickMs ?? realNow));
+    const realDelta = Math.min(rawDelta, MAX_REAL_DELTA_MS);
+    const projected = realDelta * (state.timeScale ?? 1);
+    return (state.simulatedMs ?? 0) + Math.min(projected, MAX_SIM_ADVANCE_PER_FRAME_MS);
+  }
+  function syncClockAfterResume(state) {
+    state.lastRealTickMs = Date.now();
+  }
+  function intervalElapsed(lastSimMs, intervalMs, simNow) {
+    return simNow - lastSimMs >= intervalMs;
+  }
+  function scaleMovementSpeed(state, baseSpeed) {
+    return baseSpeed * (state.timeScale ?? 1);
+  }
+  function scaledRealTimeoutMs(state, durationMs) {
+    const scale = state.timeScale ?? 1;
+    return Math.max(16, durationMs / scale);
+  }
+  function scaledEffectLifetimeMs(state, durationMs) {
+    const scale = Math.max(1, state?.timeScale ?? 1);
+    return Math.max(80, durationMs / scale);
+  }
 
   // js/ui/playerVisuals.js
   function getPlayerSprite(playerEl) {
@@ -3049,45 +3965,65 @@
     anchorEl.classList.add("player-damage-shake");
   }
 
-  // js/utils/projectileCollision.js
-  function getEnemyHitRadiusVw(enemy, innerWidth) {
-    const sizePx = enemy.typeConfig?.size || enemy.element?.offsetWidth || 40;
-    return sizePx / Math.max(innerWidth, 1) * 100 * 0.55;
-  }
-  function projectilePointHitsEnemy(px, py, enemy, innerWidth, innerHeight, extraRadiusVw = 0) {
-    const ex = parseFloat(enemy.element.style.left);
-    const ey = parseFloat(enemy.element.style.top);
-    const r = getEnemyHitRadiusVw(enemy, innerWidth) + extraRadiusVw;
-    const dx = (px - ex) * innerWidth / 100;
-    const dy = (py - ey) * innerHeight / 100;
-    return Math.hypot(dx, dy) <= r * innerWidth / 100;
-  }
-  function projectileSegmentHitsEnemy(x0, y0, x1, y1, enemy, innerWidth, innerHeight, extraRadiusVw = 1.2) {
-    const ex = parseFloat(enemy.element.style.left);
-    const ey = parseFloat(enemy.element.style.top);
-    const r = getEnemyHitRadiusVw(enemy, innerWidth) + extraRadiusVw;
-    const ax = x0 * innerWidth / 100;
-    const ay = y0 * innerHeight / 100;
-    const bx = x1 * innerWidth / 100;
-    const by = y1 * innerHeight / 100;
-    const cx = ex * innerWidth / 100;
-    const cy = ey * innerHeight / 100;
-    const radiusPx = r * innerWidth / 100;
-    const dx = bx - ax;
-    const dy = by - ay;
-    const lenSq = dx * dx + dy * dy;
-    if (lenSq <= 1e-4) {
-      return Math.hypot(cx - ax, cy - ay) <= radiusPx;
+  // js/utils/transientDomRegistry.js
+  var DEFAULT_TRANSIENT_DOM_MAX_MS = 15e3;
+  var TransientDomRegistry = class {
+    /**
+     * @param {number} [maxLifetimeMs]
+     */
+    constructor(maxLifetimeMs = DEFAULT_TRANSIENT_DOM_MAX_MS) {
+      this.maxLifetimeMs = Math.max(1e3, maxLifetimeMs);
+      this._entries = /* @__PURE__ */ new Map();
     }
-    const t = Math.max(0, Math.min(1, ((cx - ax) * dx + (cy - ay) * dy) / lenSq));
-    const closestX = ax + t * dx;
-    const closestY = ay + t * dy;
-    return Math.hypot(cx - closestX, cy - closestY) <= radiusPx;
-  }
-  function hasExhaustedPierce(hitCount, maxPierce) {
-    if (maxPierce == null || maxPierce === Infinity) return false;
-    return hitCount > maxPierce;
-  }
+    /**
+     * @param {HTMLElement} el
+     * @param {() => void} [dispose] Optional extra cleanup (e.g. cancelAnimationFrame).
+     */
+    track(el, dispose) {
+      if (!el) return;
+      this._entries.set(el, {
+        el,
+        bornAt: Date.now(),
+        dispose: typeof dispose === "function" ? dispose : null
+      });
+    }
+    /** @param {HTMLElement} el */
+    untrack(el) {
+      if (el) this._entries.delete(el);
+    }
+    /** @param {number} [now] */
+    purgeExpired(now = Date.now()) {
+      for (const [el, entry] of [...this._entries]) {
+        const expired = now - entry.bornAt >= this.maxLifetimeMs;
+        const detached = typeof el.isConnected === "boolean" && !el.isConnected;
+        if (expired || detached) {
+          this._forceRemove(el, entry);
+        }
+      }
+    }
+    clearAll() {
+      for (const [el, entry] of [...this._entries]) {
+        this._forceRemove(el, entry);
+      }
+      this._entries.clear();
+    }
+    /** @returns {number} */
+    get size() {
+      return this._entries.size;
+    }
+    /** @param {HTMLElement} el @param {TransientDomEntry} entry */
+    _forceRemove(el, entry) {
+      try {
+        entry.dispose?.();
+      } catch {
+      }
+      try {
+        el?.remove();
+      } catch {
+      }
+      this._entries.delete(el);
+    }
+  };
 
   // js/systems/skillExecutor.js
   var SkillExecutor = class {
@@ -3097,11 +4033,36 @@
       this._rfLastTick = 0;
       this._rfLastSfx = 0;
       this._activeSparks = [];
+      this._transientDom = new TransientDomRegistry(RUNTIME_BUDGET.maxTransientDomLifetimeMs);
+    }
+    /**
+     * Tracks a skill projectile DOM node with a hard lifetime cap and safe disposal.
+     * @param {HTMLElement} el
+     * @param {import('../game/gameState.js').GameState} state
+     */
+    _trackSkillProjectile(el, state) {
+      let animId = null;
+      const dispose = () => {
+        if (animId != null) {
+          state.cancelAnimation(animId);
+          animId = null;
+        }
+        this._transientDom.untrack(el);
+        el.remove();
+      };
+      this._transientDom.track(el, dispose);
+      return {
+        setAnimId: (id) => {
+          animId = id;
+        },
+        dispose
+      };
     }
     /** @param {number} now */
     tick(now) {
       const s = this.game.state;
       if (s.gamePaused || s.gameOver) return;
+      this._transientDom.purgeExpired();
       const rfLevel = s.skillList.righteousFire?.level || 0;
       if (rfLevel > 0) this._tickRighteousFire(now, rfLevel);
       this._tickSparks(now);
@@ -3165,12 +4126,13 @@
       const tx = parseFloat(nearest.element.style.left);
       const ty = parseFloat(nearest.element.style.top);
       const angle = Math.atan2(ty - py, tx - px);
-      let bx = px, by = py;
-      let animId = null;
+      let bx = px;
+      let by = py;
+      const tracker = this._trackSkillProjectile(el, s);
+      let lastAnimId = null;
       const animate = () => {
         if (s.gamePaused || s.gameOver) {
-          if (animId) s.cancelAnimation(animId);
-          el.remove();
+          tracker.dispose();
           return;
         }
         bx += Math.cos(angle) * cfg.projectileSpeed;
@@ -3190,14 +4152,14 @@
           }
         }
         if (hit || distanceVw(bx, by, tx, ty, window.innerWidth, window.innerHeight) < 15) {
-          if (animId) s.cancelAnimation(animId);
-          el.remove();
+          tracker.dispose();
           this._fireballExplode(bx, by, level, hit);
           return;
         }
-        const prevAnim = animId;
-        animId = requestAnimationFrame(animate);
-        s.trackAnimation(animId, prevAnim);
+        const animId = requestAnimationFrame(animate);
+        tracker.setAnimId(animId);
+        s.trackAnimation(animId, lastAnimId);
+        lastAnimId = animId;
       };
       animate();
     }
@@ -3320,11 +4282,11 @@
       const ty = parseFloat(nearest.element.style.top);
       const angle = Math.atan2(ty - py, tx - px);
       let bx = px, by = py;
-      let animId = null;
+      const tracker = this._trackSkillProjectile(el, s);
+      let lastAnimId = null;
       const animate = () => {
         if (s.gamePaused || s.gameOver) {
-          if (animId) s.cancelAnimation(animId);
-          el.remove();
+          tracker.dispose();
           return;
         }
         bx += Math.cos(angle) * cfg.projectileSpeed;
@@ -3345,14 +4307,14 @@
           }
         }
         if (hit || distanceVw(bx, by, tx, ty, window.innerWidth, window.innerHeight) < 12) {
-          if (animId) s.cancelAnimation(animId);
-          el.remove();
+          tracker.dispose();
           this._poisonShatter(bx, by, level, hit);
           return;
         }
-        const prevAnim = animId;
-        animId = requestAnimationFrame(animate);
-        s.trackAnimation(animId, prevAnim);
+        const animId = requestAnimationFrame(animate);
+        tracker.setAnimId(animId);
+        s.trackAnimation(animId, lastAnimId);
+        lastAnimId = animId;
       };
       animate();
     }
@@ -3405,14 +4367,14 @@
       let prevBy = originY;
       let traveledPx = 0;
       const hitIds = /* @__PURE__ */ new Set();
-      let animId = null;
+      const tracker = this._trackSkillProjectile(el, s);
+      let lastAnimId = null;
       const damage = computeSkillDamage(s.stats.physicalDamage, "frostbolt", level);
       const pierceRadius = 2.2 + level * 0.2;
       const maxPierce = cfg.maxPierce ?? Infinity;
       const animate = () => {
         if (s.gamePaused || s.gameOver) {
-          if (animId) s.cancelAnimation(animId);
-          el.remove();
+          tracker.dispose();
           return;
         }
         prevBx = bx;
@@ -3449,13 +4411,13 @@
         }
         const offscreen = bx < -8 || bx > 108 || by < -8 || by > 108;
         if (exhausted || traveledPx >= maxTravelPx || offscreen) {
-          if (animId) s.cancelAnimation(animId);
-          el.remove();
+          tracker.dispose();
           return;
         }
-        const prevAnim = animId;
-        animId = requestAnimationFrame(animate);
-        s.trackAnimation(animId, prevAnim);
+        const animId = requestAnimationFrame(animate);
+        tracker.setAnimId(animId);
+        s.trackAnimation(animId, lastAnimId);
+        lastAnimId = animId;
       };
       animate();
     }
@@ -3522,12 +4484,12 @@
       let prevBx = px;
       let prevBy = py;
       let traveled = 0;
-      let animId = null;
+      const tracker = this._trackSkillProjectile(el, s);
+      let lastAnimId = null;
       let forked = false;
       const animate = () => {
         if (s.gamePaused || s.gameOver) {
-          if (animId) s.cancelAnimation(animId);
-          el.remove();
+          tracker.dispose();
           return;
         }
         prevBx = bx;
@@ -3578,13 +4540,13 @@
         }
         const offscreen = bx < -8 || bx > 108 || by < -8 || by > 108;
         if (traveled >= maxTravelVw || offscreen) {
-          if (animId) s.cancelAnimation(animId);
-          el.remove();
+          tracker.dispose();
           return;
         }
-        const prevAnim = animId;
-        animId = requestAnimationFrame(animate);
-        s.trackAnimation(animId, prevAnim);
+        const animId = requestAnimationFrame(animate);
+        tracker.setAnimId(animId);
+        s.trackAnimation(animId, lastAnimId);
+        lastAnimId = animId;
       };
       animate();
     }
@@ -3653,13 +4615,13 @@
       let prevBy = py;
       let traveledPx = 0;
       const hitIds = /* @__PURE__ */ new Set();
-      let animId = null;
+      const tracker = this._trackSkillProjectile(el, s);
+      let lastAnimId = null;
       const damage = computeSkillDamage(s.stats.physicalDamage, "throwSpear", level);
       const maxPierce = cfg.maxPierce ?? 2;
       const animate = () => {
         if (s.gamePaused || s.gameOver) {
-          if (animId) s.cancelAnimation(animId);
-          el.remove();
+          tracker.dispose();
           return;
         }
         prevBx = bx;
@@ -3700,13 +4662,13 @@
         }
         const offscreen = bx < -8 || bx > 108 || by < -8 || by > 108;
         if (exhausted || traveledPx >= maxTravelPx || offscreen) {
-          if (animId) s.cancelAnimation(animId);
-          el.remove();
+          tracker.dispose();
           return;
         }
-        const prevAnim = animId;
-        animId = requestAnimationFrame(animate);
-        s.trackAnimation(animId, prevAnim);
+        const animId = requestAnimationFrame(animate);
+        tracker.setAnimId(animId);
+        s.trackAnimation(animId, lastAnimId);
+        lastAnimId = animId;
       };
       animate();
     }
@@ -3743,6 +4705,7 @@
     }
     castSpark(px, py, level) {
       const s = this.game.state;
+      const simNow = getProjectedSimMs(s);
       const cfg = getSparkConfig(level);
       const damage = computeSkillDamage(s.stats.physicalDamage, "spark", level);
       const iw = window.innerWidth;
@@ -3756,8 +4719,10 @@
       this.game.ui.els.gameContainer.appendChild(origin);
       s.trackTimeout(setTimeout(() => origin.remove(), 420));
       const count = cfg.sparkCount;
+      const maxSparks = RUNTIME_BUDGET.maxActiveSparks ?? 24;
       const baseAngle = Math.random() * Math.PI * 2;
       for (let i = 0; i < count; i++) {
+        if (this._activeSparks.length >= maxSparks) break;
         const el = document.createElement("div");
         el.className = "skill-spark skill-spark-arc particle-25d";
         el.innerHTML = `
@@ -3782,7 +4747,7 @@
           by: py,
           vx: Math.cos(moveAngle) * cfg.speed,
           vy: Math.sin(moveAngle) * cfg.speed,
-          expires: Date.now() + cfg.duration,
+          expires: simNow + cfg.duration,
           hitIds: /* @__PURE__ */ new Set(),
           damage,
           wanderChance: cfg.wanderChance ?? 0.38,
@@ -3830,9 +4795,15 @@
       });
     }
     cleanup() {
-      this._activeSparks.forEach((spark) => spark.el.remove());
+      const s = this.game?.state;
+      this._transientDom.clearAll();
+      this._activeSparks.forEach((spark) => {
+        if (spark.animId && s) s.cancelAnimation(spark.animId);
+        spark.el?.remove();
+      });
       this._activeSparks = [];
       this._rfLastTick = 0;
+      this._rfLastSfx = 0;
     }
     _findNearestEnemy(fromX, fromY, range) {
       const s = this.game.state;
@@ -3890,6 +4861,33 @@
     return level >= 5 && (level - 5) % 10 === 0;
   }
 
+  // js/config/playerProgression.js
+  function computeLevelUpDamageBonus(level, originalPhysicalDamage) {
+    const nextLevel = level + 1;
+    return Math.floor(
+      0.75 + nextLevel / 5 + originalPhysicalDamage / 8
+    );
+  }
+  function computeUpgradeDamageIncrement(statLevel, originalPhysicalDamage) {
+    const tier = statLevel + 1;
+    return Math.floor(
+      0.75 + originalPhysicalDamage / 6 + tier * 0.75
+    );
+  }
+  function computeLevelUpHpGain(levelAfterIncrement, originalHp) {
+    return Math.floor(
+      8 + 2.5 * levelAfterIncrement + originalHp / 100
+    );
+  }
+  function computeLevelUpMaxHpGain(levelAfterIncrement, originalMaxHp) {
+    return Math.floor(
+      10 + 3.5 * levelAfterIncrement + originalMaxHp / 100
+    );
+  }
+  function computeArmourUpgradeIncrement(statLevel, originalArmour) {
+    return Math.floor(2 + statLevel * 1.25 + originalArmour / 20);
+  }
+
   // js/systems/combat.js
   var ARMOUR_MITIGATION_K = 40;
   var ARMOUR_MITIGATION_CAP = 0.75;
@@ -3927,9 +4925,24 @@
     }
     return { damage: Math.floor(Math.max(1, damage)), isCritical };
   }
-  function calculateReflectDamage(damageTaken, reflectLevel) {
-    if (reflectLevel <= 0 || damageTaken <= 0) return 0;
-    return Math.max(1, Math.floor(damageTaken * reflectLevel * 5 / 100));
+  function calculateEnemyHitDamageForReflect({ enemyDamage, elapsedSeconds }) {
+    let scaled = enemyDamage;
+    if (typeof elapsedSeconds === "number") {
+      scaled = scaleEnemyAttackDamageForElapsed(enemyDamage, elapsedSeconds);
+    }
+    return Math.max(1, Math.floor(scaled));
+  }
+  function calculateReflectDamage(hitDamage, reflectLevel) {
+    if (reflectLevel <= 0 || hitDamage <= 0) return 0;
+    const pct = getAbilityPercent("reflect", reflectLevel) / 100;
+    return Math.max(1, Math.floor(hitDamage * pct));
+  }
+  function applyReflectDamageToAttacker(hitDamage, reflectLevel, attackerHp) {
+    const hp = Math.max(0, Number(attackerHp) || 0);
+    if (hp <= 0) return { reflected: 0, remainingHp: 0 };
+    const reflected = calculateReflectDamage(hitDamage, reflectLevel);
+    if (reflected <= 0) return { reflected: 0, remainingHp: hp };
+    return { reflected, remainingHp: hp - reflected };
   }
   function calculatePlayerIncomingDamage(params) {
     const {
@@ -3946,7 +4959,7 @@
     const mitigation = ignoreArmour ? 0 : calculateArmourMitigation(playerArmour, scaledDamage);
     let damage = scaledDamage * (1 - mitigation);
     if (damageReductionLevel > 0) {
-      damage *= 1 - damageReductionLevel * 0.04;
+      damage *= 1 - getAbilityPercent("damageReduction", damageReductionLevel) / 100;
     }
     return Math.max(1, Math.floor(damage));
   }
@@ -3957,13 +4970,13 @@
   function calculateLifesteal(params) {
     const { damage, lifestealLevel } = params;
     if (lifestealLevel <= 0) return 0;
-    return Math.floor(damage * lifestealLevel * 5 / 100);
+    return Math.floor(damage * getAbilityPercent("lifesteal", lifestealLevel) / 100);
   }
   function applyStatUpgrade(statName, stats, originalStats, statsList) {
     const statLevel = statsList[statName].level + 1;
     switch (statName) {
       case "Upgrade Damage":
-        stats.physicalDamage += Math.floor(1 + originalStats.physicalDamage / 4 + statLevel);
+        stats.physicalDamage += computeUpgradeDamageIncrement(statLevel, originalStats.physicalDamage);
         break;
       case "Upgrade AoE":
         stats.attackRange += 15;
@@ -3982,7 +4995,7 @@
         stats.hpRegen += Math.floor(2 + statLevel * 2 + originalStats.hpRegen / 20);
         break;
       case "Upgrade Armour":
-        stats.armour += Math.floor(1 + statLevel / 2 + originalStats.armour / 40);
+        stats.armour += computeArmourUpgradeIncrement(statLevel, originalStats.armour);
         break;
       case "Upgrade Crit Chance":
         stats.critChance += 2.5;
@@ -3997,11 +5010,11 @@
   }
   function applyLevelUpBonuses(stats, originalStats) {
     stats.level += 1;
-    stats.physicalDamage += Math.floor(1 + stats.level / 3 + originalStats.physicalDamage / 5);
+    stats.physicalDamage += computeLevelUpDamageBonus(stats.level - 1, originalStats.physicalDamage);
     stats.armour += Math.floor(1 + stats.level / 8 + originalStats.armour / 40);
     stats.hpRegen += Math.floor(1 + stats.level / 15 + originalStats.hpRegen / 25);
-    stats.hp += Math.floor(5 + stats.level + originalStats.hp / 150);
-    stats.maxHp += Math.floor(5 + 1.5 * stats.level + originalStats.maxHp / 150);
+    stats.hp += computeLevelUpHpGain(stats.level, originalStats.hp);
+    stats.maxHp += computeLevelUpMaxHpGain(stats.level, originalStats.maxHp);
   }
 
   // js/systems/levelUp.js
@@ -4114,6 +5127,15 @@
       this.container = container;
       this.layer = layer;
       this.rings = {};
+      this._timeouts = /* @__PURE__ */ new Set();
+      this._impactNodes = /* @__PURE__ */ new Set();
+      this._maxSkillImpacts = getRuntimeBudgets().maxSkillImpacts;
+      this._timeScale = 1;
+    }
+    /** @param {number} scale — VFX lifetime only; impact cap stays fixed. */
+    setTimeScale(scale) {
+      this._timeScale = Math.max(1, scale || 1);
+      this._trimSkillImpacts();
     }
     /** @param {object} skillList @param {number} [playerAttackRange] */
     update(skillList, playerAttackRange = 0) {
@@ -4151,6 +5173,7 @@
       ring.classList.add("skill-range-cast");
     }
     showImpactArea(px, py, radiusPx, element, durationMs = 700) {
+      this._trimSkillImpacts();
       const el = document.createElement("div");
       el.className = `skill-impact-area skill-impact-${element}`;
       el.style.left = `${px}vw`;
@@ -4158,13 +5181,36 @@
       el.style.width = `${radiusPx * 2}px`;
       el.style.height = `${radiusPx * 2}px`;
       this.container.appendChild(el);
+      this._impactNodes.add(el);
       requestAnimationFrame(() => el.classList.add("skill-impact-active"));
-      setTimeout(() => el.remove(), durationMs);
+      const lifetime = scaledEffectLifetimeMs({ timeScale: this._timeScale }, durationMs);
+      const timeoutId = setTimeout(() => {
+        el.remove();
+        this._impactNodes.delete(el);
+        this._timeouts.delete(timeoutId);
+      }, lifetime);
+      this._timeouts.add(timeoutId);
+    }
+    _trimSkillImpacts() {
+      const cap = this._maxSkillImpacts ?? 28;
+      while (this._impactNodes.size > cap) {
+        const oldest = this._impactNodes.values().next().value;
+        if (!oldest) break;
+        oldest.remove();
+        this._impactNodes.delete(oldest);
+      }
+    }
+    _clearTransient() {
+      this._timeouts.forEach((id) => clearTimeout(id));
+      this._timeouts.clear();
+      this._impactNodes.forEach((el) => el.remove());
+      this._impactNodes.clear();
     }
     clear() {
       Object.values(this.rings).forEach((r) => r.remove());
       this.rings = {};
       this.layer?.replaceChildren();
+      this._clearTransient();
     }
   };
 
@@ -4179,6 +5225,7 @@
     /** @param {number} x @param {number} y @param {number} level @param {number} baseDamage */
     createPool(x, y, level, baseDamage) {
       const cfg = getPoisonBottleConfig(level);
+      const simNow = getProjectedSimMs(this.game.state);
       const el = document.createElement("div");
       el.className = "poison-pool";
       el.style.left = `${x}vw`;
@@ -4196,27 +5243,28 @@
         level,
         tickDamage: computePoisonTickDamage(baseDamage, level),
         tickInterval: cfg.tickInterval,
-        endTime: Date.now() + cfg.poolDuration,
-        lastTick: Date.now()
+        endTime: simNow + cfg.poolDuration,
+        lastTick: simNow
       };
       this.pools.push(pool);
       this.game.skillRanges?.showImpactArea(x, y, cfg.poolRadius, "chaos", cfg.poolDuration);
       requestAnimationFrame(() => el.classList.add("poison-pool-active"));
       return pool;
     }
-    /** @param {number} now */
-    tick(now) {
+    /** @param {number} simNow Simulated milliseconds from the game clock */
+    tick(simNow) {
       const s = this.game.state;
       if (s.gamePaused || s.gameOver) return;
       this.pools = this.pools.filter((pool) => {
-        if (now >= pool.endTime) {
+        if (simNow >= pool.endTime) {
           pool.element.classList.add("poison-pool-fade");
-          const t = setTimeout(() => pool.element.remove(), 500);
+          const fadeMs = scaledRealTimeoutMs(s, 500);
+          const t = setTimeout(() => pool.element.remove(), fadeMs);
           s.trackTimeout(t);
           return false;
         }
-        if (now - pool.lastTick >= pool.tickInterval) {
-          pool.lastTick = now;
+        if (simNow - pool.lastTick >= pool.tickInterval) {
+          pool.lastTick = simNow;
           this._damageEnemiesInPool(pool);
         }
         return true;
@@ -4269,7 +5317,7 @@
       this.onSelect = onSelect;
       this.onCategorySelect = onCategorySelect;
       this.onToggle = onToggle;
-      this.expanded = true;
+      this.expanded = !panelsStartCollapsed();
       this._view = "categories";
       this.els = {
         panel: document.getElementById("upgrade-panel"),
@@ -4421,7 +5469,7 @@
       return this._view;
     }
     reset() {
-      this.expanded = true;
+      this.expanded = !panelsStartCollapsed();
       this._view = "categories";
       this._applyExpandedClasses();
       this.els.panel?.classList.remove("upgrade-panel-has-pending");
@@ -4903,6 +5951,22 @@
     usedIds.add(def.id);
     return rolled;
   }
+  function pickTieredAffixAllowDuplicate(pool, slot, usedIds, ilvl) {
+    const candidates = pool.filter((a) => !a.slots || a.slots.includes(slot));
+    if (candidates.length === 0) return null;
+    const def = pickWeightedAffixDef(candidates);
+    if (!def) return null;
+    const rolled = rollTieredAffixValue(def, slot, ilvl);
+    if (!rolled) return null;
+    let dupKey = `${def.id}#2`;
+    let n = 2;
+    while (usedIds.has(dupKey)) {
+      n += 1;
+      dupKey = `${def.id}#${n}`;
+    }
+    usedIds.add(dupKey);
+    return { ...rolled, id: dupKey };
+  }
   function getTierDefForBaseStat(stat) {
     const prefixId = BASE_STAT_TIER_DEF[stat];
     if (!prefixId) return null;
@@ -4972,6 +6036,13 @@
       stats: { physicalDamage: 12, attackSpeed: 0.15, critMultiplier: 20 }
     }
   ];
+  var UNIQUE_BOSS_DROP_CONFIG = {
+    /** Rolled affixes on top of each unique's fixed base stats (7–8 total). */
+    bonusAffixCountMin: 7,
+    bonusAffixCountMax: 8,
+    /** Minimum ilvl used when rolling boss bonus affix tiers (display ilvl unchanged). */
+    minAffixIlvl: 48
+  };
   function getUniqueById(id) {
     return UNIQUE_ITEMS.find((u) => u.id === id);
   }
@@ -5060,32 +6131,48 @@
   function computeDropIlvl(playerLevel, difficulty = 0) {
     return Math.max(1, Math.min(80, Math.floor(playerLevel + difficulty * 0.4)));
   }
-  function rollAffixesForItem(slot, ilvl, affixCount) {
+  function rollAffixesForItem(slot, ilvl, affixCount, options = {}) {
     const prefixes = [];
     const suffixes = [];
     const used = /* @__PURE__ */ new Set();
     let remaining = Math.min(8, Math.max(0, affixCount));
     const maxPerSide = 4;
+    const guaranteeCount = Boolean(options.guaranteeCount);
+    const pickFromPool = (pool, tryPrefix) => {
+      let affix = pickTieredAffix(pool, slot, used, ilvl);
+      if (!affix && guaranteeCount) {
+        affix = pickTieredAffixAllowDuplicate(pool, slot, used, ilvl);
+      }
+      if (!affix) return false;
+      if (tryPrefix) prefixes.push(affix);
+      else suffixes.push(affix);
+      return true;
+    };
     while (remaining > 0 && (prefixes.length < maxPerSide || suffixes.length < maxPerSide)) {
       const canPre = prefixes.length < maxPerSide;
       const canSuf = suffixes.length < maxPerSide;
       if (!canPre && !canSuf) break;
       const tryPrefix = canPre && (canSuf ? Math.random() < 0.5 : true);
       if (tryPrefix) {
-        const a = pickTieredAffix(TIERED_PREFIXES, slot, used, ilvl);
-        if (a) {
-          prefixes.push(a);
+        if (pickFromPool(TIERED_PREFIXES, true)) {
           remaining--;
           continue;
         }
       }
       if (canSuf) {
-        const a = pickTieredAffix(TIERED_SUFFIXES, slot, used, ilvl);
-        if (a) {
-          suffixes.push(a);
+        if (pickFromPool(TIERED_SUFFIXES, false)) {
           remaining--;
           continue;
         }
+      }
+      if (!guaranteeCount) break;
+      if (tryPrefix && canSuf && pickFromPool(TIERED_SUFFIXES, false)) {
+        remaining--;
+        continue;
+      }
+      if (!tryPrefix && canPre && pickFromPool(TIERED_PREFIXES, true)) {
+        remaining--;
+        continue;
       }
       break;
     }
@@ -5094,7 +6181,9 @@
   function generateGearItem(slot, ilvl = 1, options = {}) {
     const base = getBaseForSlot(slot);
     const affixCount = options.affixCount ?? 0;
-    const { prefixes, suffixes } = rollAffixesForItem(slot, ilvl, affixCount);
+    const rollIlvl = options.affixRollIlvl ?? ilvl;
+    const affixOpts = options.guaranteeAffixCount ? { guaranteeCount: true } : {};
+    const { prefixes, suffixes } = rollAffixesForItem(slot, rollIlvl, affixCount, affixOpts);
     const totalAffixes = prefixes.length + suffixes.length;
     const { stats: baseStats, rolls: baseStatRolls } = rollBaseStatsWithTiers(base.stats, ilvl);
     const item = {
@@ -5120,8 +6209,8 @@
         item.baseStats = rolled.stats;
         item.baseStatRolls = rolled.rolls;
         item.slot = unique.slot;
-        item.prefixes = [];
-        item.suffixes = [];
+        item.prefixes = prefixes;
+        item.suffixes = suffixes;
         return item;
       }
     }
@@ -5144,6 +6233,23 @@
   function buildUniqueStyleName(item) {
     const pre = item.prefixes[0]?.label || "Exalted";
     return `${pre} ${item.baseLabel}`;
+  }
+  function rollBossBonusAffixCount() {
+    const cfg = UNIQUE_BOSS_DROP_CONFIG;
+    const min = cfg.bonusAffixCountMin ?? cfg.bonusAffixCount ?? 7;
+    const max = cfg.bonusAffixCountMax ?? min;
+    if (max <= min) return min;
+    return min + Math.floor(Math.random() * (max - min + 1));
+  }
+  function rollGuaranteedUniqueDrop(ilvl = 1) {
+    const unique = UNIQUE_ITEMS[Math.floor(Math.random() * UNIQUE_ITEMS.length)];
+    const affixIlvl = Math.max(ilvl, UNIQUE_BOSS_DROP_CONFIG.minAffixIlvl ?? 48);
+    return generateGearItem(unique.slot, ilvl, {
+      uniqueId: unique.id,
+      affixCount: rollBossBonusAffixCount(),
+      guaranteeAffixCount: true,
+      affixRollIlvl: affixIlvl
+    });
   }
   function rollLootDrop(enemyRarity, ilvl = 1) {
     const slot = GEAR_SLOTS[Math.floor(Math.random() * GEAR_SLOTS.length)];
@@ -5377,24 +6483,29 @@
     constructor() {
       this.el = document.createElement("div");
       this.el.id = "gear-tooltip";
-      this.el.className = "gear-tooltip";
+      this.el.className = "gear-tooltip floating-tooltip";
       this.el.setAttribute("role", "tooltip");
       this.el.hidden = true;
       document.body.appendChild(this.el);
-      this._anchor = null;
+      this._clientX = 0;
+      this._clientY = 0;
       this._onMove = this._onMove.bind(this);
     }
     /**
      * @param {object} item
      * @param {HTMLElement} anchor
      * @param {object|null} [equippedItem]
+     * @param {number} [clientX]
+     * @param {number} [clientY]
      */
-    show(item, anchor, equippedItem = null) {
+    show(item, anchor, equippedItem = null, clientX, clientY) {
       this._anchor = anchor;
       const hoveredIsEquipped = Boolean(equippedItem && item?.id === equippedItem.id);
       this.el.innerHTML = buildGearCompareTooltipHtml(item, equippedItem, { hoveredIsEquipped });
-      this.el.hidden = false;
-      this._position();
+      const rect = anchor.getBoundingClientRect();
+      this._clientX = clientX ?? rect.left + rect.width / 2;
+      this._clientY = clientY ?? rect.top + rect.height / 2;
+      positionFloatingTooltip(this.el, this._clientX, this._clientY);
       document.addEventListener("mousemove", this._onMove);
     }
     hide() {
@@ -5403,26 +6514,12 @@
       this._anchor = null;
       document.removeEventListener("mousemove", this._onMove);
     }
-    _onMove() {
-      if (this._anchor) this._position();
-    }
-    _position() {
-      if (!this._anchor) return;
-      const rect = this._anchor.getBoundingClientRect();
-      const tipRect = this.el.getBoundingClientRect();
-      const margin = 10;
-      let left = rect.right + margin;
-      let top = rect.top;
-      if (left + tipRect.width > window.innerWidth - 8) {
-        left = rect.left - tipRect.width - margin;
+    _onMove(event) {
+      this._clientX = event.clientX;
+      this._clientY = event.clientY;
+      if (!this.el.hidden) {
+        positionFloatingTooltip(this.el, this._clientX, this._clientY);
       }
-      if (top + tipRect.height > window.innerHeight - 8) {
-        top = window.innerHeight - tipRect.height - 8;
-      }
-      if (top < 8) top = 8;
-      if (left < 8) left = 8;
-      this.el.style.left = `${left}px`;
-      this.el.style.top = `${top}px`;
     }
     /**
      * @param {HTMLElement} el
@@ -5431,9 +6528,15 @@
      */
     bind(el, item, getEquipped) {
       if (!item) return;
-      el.addEventListener("mouseenter", () => {
+      el.addEventListener("mouseenter", (event) => {
         const equipped = getEquipped?.() ?? null;
-        this.show(item, el, equipped);
+        this.show(item, el, equipped, event.clientX, event.clientY);
+      });
+      el.addEventListener("mousemove", (event) => {
+        if (this.el.hidden) return;
+        this._clientX = event.clientX;
+        this._clientY = event.clientY;
+        positionFloatingTooltip(this.el, this._clientX, this._clientY);
       });
       el.addEventListener("mouseleave", () => this.hide());
       el.addEventListener("mousedown", () => this.hide());
@@ -5490,7 +6593,7 @@
       this.onUnequip = onUnequip;
       this.onDelete = onDelete;
       this.onBulkDelete = onBulkDelete;
-      this.expanded = true;
+      this.expanded = !panelsStartCollapsed();
       this.tooltip = new GearTooltip();
       this._pendingBulkRarity = null;
       this.els = {
@@ -5652,7 +6755,7 @@
       });
     }
     reset() {
-      this.expanded = true;
+      this.expanded = !panelsStartCollapsed();
       this.tooltip.hide();
       this._hideBulkConfirm();
       this.lootFilter?.reset();
@@ -5676,7 +6779,7 @@
       this.state = state;
     }
     get maxEnemies() {
-      return BALANCE.maxEnemiesOnScreen;
+      return getRuntimeBudgets().maxEnemies;
     }
     isAtCap() {
       const active = this.state.enemies.filter((e) => !e.isSplitFragment && !e.isSplitMinion);
@@ -5695,7 +6798,9 @@
       if (s.enemies.length <= this.maxEnemies) return;
       const { x: px, y: py } = game.ui.getPlayerPosition();
       const excess = s.enemies.length - this.maxEnemies;
-      const sorted = [...s.enemies].filter((e) => e.rarity === "normal" && !e.isTreasure && !e.isSplitFragment && !e.isSplitMinion).map((e) => ({
+      const sorted = [...s.enemies].filter(
+        (e) => e.rarity === "normal" && !e.isTreasure && !e.isSplitFragment && !e.isSplitMinion && !isMilestoneBossEnemy(e)
+      ).map((e) => ({
         enemy: e,
         dist: Math.hypot(
           parseFloat(e.element.style.left) - px,
@@ -5731,7 +6836,9 @@
     /** Whether a spawn tick should fire this frame. @param {number} now */
     shouldSpawnNow(category, elapsedSeconds, lastSpawn, intervalMs, now = Date.now()) {
       if (!this.canSpawn()) return false;
-      const mult = this.getSpawnMultiplier(elapsedSeconds);
+      const warmupMult = this.getSpawnMultiplier(elapsedSeconds);
+      const waveMult = getWaveSpawnDensityMultiplier(this.state.currentWave ?? 1);
+      const mult = warmupMult * waveMult;
       const adjustedInterval = intervalMs / Math.max(0.35, mult);
       return now - lastSpawn >= adjustedInterval;
     }
@@ -5871,35 +6978,44 @@
     /** @param {object} game */
     constructor(game) {
       this.game = game;
-      this.clone = null;
+      this.roamClone = null;
+      this.skillClone = null;
     }
     /** @param {number} now */
     tick(now) {
-      if (!this.clone) return;
-      if (now >= this.clone.expiresAt) {
-        this.dismiss();
-        return;
-      }
-      if (this.clone.roam) {
-        this._tickRoamMovement();
-      } else {
-        this._syncPosition();
-      }
-      this._tickCloneAttacks(now);
+      this._tickSlot(this.skillClone, now, { allowExpiry: true });
+      this._tickSlot(this.roamClone, now, { allowExpiry: false });
     }
     /**
-     * Permanent roaming companion (Ranger passive) — never expires.
+     * @param {IllusionCloneState|null} clone
+     * @param {number} now
+     * @param {{ allowExpiry: boolean }} opts
+     */
+    _tickSlot(clone, now, opts) {
+      if (!clone) return;
+      if (opts.allowExpiry && now >= clone.expiresAt) {
+        this._removeSkillClone();
+        return;
+      }
+      if (clone.roam) {
+        this._tickRoamMovement(clone);
+      } else {
+        this._syncSkillPosition(clone);
+      }
+      this._tickCloneAttacks(clone, now);
+    }
+    /**
+     * Permanent roaming companion (Ranger passive) — never expires; does not block the Illusion skill.
      * @param {number} now
      * @param {{ damagePercent: number, speedVw?: number, leashVw?: number }} opts
      */
     ensureRoamingCompanion(now, opts) {
-      if (this.clone?.roam) {
-        this.clone.damagePercent = opts.damagePercent ?? this.clone.damagePercent;
-        if (opts.speedVw != null) this.clone.speedVw = opts.speedVw;
-        if (opts.leashVw != null) this.clone.leashVw = opts.leashVw;
+      if (this.roamClone) {
+        this.roamClone.damagePercent = opts.damagePercent ?? this.roamClone.damagePercent;
+        if (opts.speedVw != null) this.roamClone.speedVw = opts.speedVw;
+        if (opts.leashVw != null) this.roamClone.leashVw = opts.leashVw;
         return;
       }
-      this.dismiss();
       const { x, y } = this.game.ui.getPlayerPosition();
       const homeX = x + 3.2;
       const homeY = y;
@@ -5910,7 +7026,7 @@
       el.style.left = `${homeX}vw`;
       el.style.top = `${homeY}vh`;
       this.game.ui.els.gameContainer.appendChild(el);
-      this.clone = {
+      this.roamClone = {
         el,
         x: homeX,
         y: homeY,
@@ -5926,14 +7042,14 @@
     }
     /** External roam step — move clone to new vw position. */
     setRoamPosition(x, y) {
-      if (!this.clone?.roam) return;
-      this.clone.x = x;
-      this.clone.y = y;
-      this.clone.el.style.left = `${x}vw`;
-      this.clone.el.style.top = `${y}vh`;
+      if (!this.roamClone) return;
+      this.roamClone.x = x;
+      this.roamClone.y = y;
+      this.roamClone.el.style.left = `${x}vw`;
+      this.roamClone.el.style.top = `${y}vh`;
     }
     /**
-     * Summon if off cooldown and no active clone.
+     * Summon skill clone if off cooldown — coexists with the Ranger roam companion.
      * @param {number} level
      * @param {number} now
      * @returns {boolean}
@@ -5941,20 +7057,20 @@
     trySummon(level, now) {
       const s = this.game.state;
       const cfg = getIllusionConfig(level);
-      if (level <= 0 || this.clone) return false;
+      if (level <= 0 || this.skillClone) return false;
       if (now - (s.skillCooldowns.illusion || 0) < cfg.cooldown) return false;
       s.skillCooldowns.illusion = now;
-      this._spawn(now, cfg);
+      this._spawnSkillClone(now, cfg);
       this.game.audio?.playSkillSfx?.("illusion");
       this.game.effects?.spawnCastFlash(
-        parseFloat(this.clone.el.style.left),
-        parseFloat(this.clone.el.style.top),
+        parseFloat(this.skillClone.el.style.left),
+        parseFloat(this.skillClone.el.style.top),
         "arcane"
       );
       return true;
     }
     /** @param {number} now @param {ReturnType<typeof getIllusionConfig>} cfg */
-    _spawn(now, cfg) {
+    _spawnSkillClone(now, cfg) {
       const { x, y } = this.game.ui.getPlayerPosition();
       const el = document.createElement("div");
       el.className = "illusion-clone";
@@ -5963,7 +7079,7 @@
       el.style.left = `${x + cfg.offsetVw}vw`;
       el.style.top = `${y}vh`;
       this.game.ui.els.gameContainer.appendChild(el);
-      this.clone = {
+      this.skillClone = {
         el,
         x: x + cfg.offsetVw,
         y,
@@ -5973,12 +7089,13 @@
         roam: false
       };
       el.classList.add("illusion-spawn-in");
-      setTimeout(() => el.classList.remove("illusion-spawn-in"), 500);
+      const spawnMs = scaledRealTimeoutMs(this.game.state, 500);
+      this.game.state.trackTimeout(setTimeout(() => {
+        el.classList.remove("illusion-spawn-in");
+      }, spawnMs));
     }
-    /** Ranger passive: ranged bot chase within leash. */
-    _tickRoamMovement() {
-      const clone = this.clone;
-      if (!clone?.roam) return;
+    /** @param {IllusionCloneState} clone */
+    _tickRoamMovement(clone) {
       const { x: px, y: py } = this.game.ui.getPlayerPosition();
       const iw = window.innerWidth;
       const ih = window.innerHeight;
@@ -6001,47 +7118,64 @@
           innerHeight: ih
         }
       );
-      this.setRoamPosition(step.x, step.y);
+      clone.x = step.x;
+      clone.y = step.y;
+      clone.el.style.left = `${step.x}vw`;
+      clone.el.style.top = `${step.y}vh`;
     }
-    _syncPosition() {
-      if (!this.clone || this.clone.roam) return;
+    /** @param {IllusionCloneState} clone */
+    _syncSkillPosition(clone) {
       const cfg = getIllusionConfig(this.game.state.skillList.illusion?.level || 1);
       const { x, y } = this.game.ui.getPlayerPosition();
-      this.clone.x = x + cfg.offsetVw;
-      this.clone.y = y;
-      this.clone.el.style.left = `${this.clone.x}vw`;
-      this.clone.el.style.top = `${this.clone.y}vh`;
+      clone.x = x + cfg.offsetVw;
+      clone.y = y;
+      clone.el.style.left = `${clone.x}vw`;
+      clone.el.style.top = `${clone.y}vh`;
     }
-    _tickCloneAttacks(now) {
+    /** @param {IllusionCloneState} clone @param {number} now */
+    _tickCloneAttacks(clone, now) {
       const s = this.game.state;
-      if (!this.clone || s.gamePaused || s.gameOver) return;
+      if (!clone || s.gamePaused || s.gameOver) return;
       const interval = 1e3 / s.stats.attackSpeed;
-      if (now - this.clone.lastAttackTime < interval) return;
-      const x = Number.isFinite(this.clone.x) ? this.clone.x : parseFloat(this.clone.el.style.left);
-      const y = Number.isFinite(this.clone.y) ? this.clone.y : parseFloat(this.clone.el.style.top);
+      if (now - clone.lastAttackTime < interval) return;
+      const x = Number.isFinite(clone.x) ? clone.x : parseFloat(clone.el.style.left);
+      const y = Number.isFinite(clone.y) ? clone.y : parseFloat(clone.el.style.top);
       const { x: px, y: py } = this.game.ui.getPlayerPosition();
-      this.clone.lastAttackTime = now;
-      this.clone.el.classList.remove("illusion-attacking");
-      void this.clone.el.offsetWidth;
-      this.clone.el.classList.add("illusion-attacking");
+      clone.lastAttackTime = now;
+      clone.el.classList.remove("illusion-attacking");
+      void clone.el.offsetWidth;
+      clone.el.classList.add("illusion-attacking");
       this.game._attackNearestEnemy(x, y, null, null, {
         rangeCenterX: px,
         rangeCenterY: py,
-        damageMultiplier: this.clone.damagePercent / 100,
+        damageMultiplier: clone.damagePercent / 100,
         skipPlayerAnim: true,
         projectileClass: "projectile-illusion"
       });
     }
+    _removeSkillClone() {
+      if (!this.skillClone) return;
+      this.skillClone.el.remove();
+      this.skillClone = null;
+    }
+    _removeRoamClone() {
+      if (!this.roamClone) return;
+      this.roamClone.el.remove();
+      this.roamClone = null;
+    }
     dismiss() {
-      if (!this.clone) return;
-      this.clone.el.remove();
-      this.clone = null;
+      this._removeSkillClone();
+      this._removeRoamClone();
     }
     cleanup() {
       this.dismiss();
     }
     isActive() {
-      return Boolean(this.clone);
+      return Boolean(this.roamClone || this.skillClone);
+    }
+    /** @deprecated Prefer roamClone / skillClone — legacy alias for tests. */
+    get clone() {
+      return this.skillClone || this.roamClone;
     }
   };
 
@@ -6069,11 +7203,24 @@
       this.cleanup();
       this.def = getCharacterPassive(characterName);
       if (!this.def) return;
-      if (this.def.id === "paladin") this._initShield();
+      const now = this._getSimNow();
+      if (this.def.id === "paladin") this._initShield(now);
       if (this.def.id === "summoner") this._spawnBears();
-      if (this.def.id === "berserker") this._frenzyReadyAt = Date.now();
-      if (this.def.id === "necromancer") this._zombieReadyAt = Date.now();
+      if (this.def.id === "berserker") this._frenzyReadyAt = now;
+      if (this.def.id === "necromancer") this._zombieReadyAt = now;
       this.game.ui?.setCharacterPassive?.(this.def);
+      this.refreshPassiveHud(now);
+    }
+    /** @param {number} [now] */
+    refreshPassiveHud(now = this._getSimNow()) {
+      this.game.ui?.updatePassiveHud?.({
+        shield: this._shield,
+        shieldMax: this._shieldMax,
+        frenzyActive: now < this._frenzyUntil
+      });
+    }
+    _getSimNow() {
+      return getSimulatedMs(this.game.state);
     }
     /** @param {number} now */
     tick(now) {
@@ -6103,11 +7250,7 @@
         default:
           break;
       }
-      this.game.ui?.updatePassiveHud?.({
-        shield: this._shield,
-        shieldMax: this._shieldMax,
-        frenzyActive: now < this._frenzyUntil
-      });
+      this.refreshPassiveHud(now);
     }
     /**
      * @param {object} hitEnemy
@@ -6167,6 +7310,7 @@
       if (this.def?.id !== "paladin" || this._shield <= 0) return damage;
       const blocked = Math.min(this._shield, damage);
       this._shield -= blocked;
+      this.refreshPassiveHud();
       return damage - blocked;
     }
     getShieldState() {
@@ -6184,16 +7328,21 @@
       this.game.ui?.clearCharacterPassive?.();
     }
     // --- implementation ---
-    _initShield() {
+    _initShield(now) {
+      this._syncPaladinShieldCap();
+      this._shield = this._shieldMax;
+      this._lastShieldRepair = now;
+    }
+    _syncPaladinShieldCap() {
+      if (this.def?.id !== "paladin") return;
       const maxHp = this.game.state.stats.maxHp;
       this._shieldMax = Math.max(1, Math.floor(maxHp * this.def.params.shieldPercent / 100));
-      this._shield = this._shieldMax;
-      this._lastShieldRepair = Date.now();
+      this._shield = Math.min(this._shield, this._shieldMax);
     }
     _tickPaladinShield(now) {
-      if (now - this._lastShieldRepair < this.def.params.repairIntervalMs) return;
+      this._syncPaladinShieldCap();
+      if (!intervalElapsed(this._lastShieldRepair, this.def.params.repairIntervalMs, now)) return;
       this._lastShieldRepair = now;
-      this._shieldMax = Math.max(1, Math.floor(this.game.state.stats.maxHp * this.def.params.shieldPercent / 100));
       this._shield = this._shieldMax;
       const { x, y } = this.game.ui.getPlayerPosition();
       this.game.effects?.spawnCastFlash?.(x, y, "heal");
@@ -6205,7 +7354,7 @@
       const damage = Math.max(1, Math.floor(this.game.state.stats.hpRegen * this.def.params.regenDamageMult));
       this._splashAround(x, y, this.def.params.radiusPx, damage, null, "heal");
       this.game.effects?.spawnCastFlash?.(x, y, "heal");
-      this.game.skillRanges?.showImpactArea?.(x, y, this.def.params.radiusPx, "holy", 500);
+      this.game.skillRanges?.showImpactArea?.(x, y, this.def.params.radiusPx, "holy", 650);
     }
     _tickCapybara(now) {
       if (now - this._lastSnack < this.def.params.intervalMs) return;
@@ -6214,6 +7363,7 @@
       const { x, y } = this.game.ui.getPlayerPosition();
       const damage = Math.max(1, Math.floor(s.stats.physicalDamage * this.def.params.damageMult));
       this._splashAround(x, y, this.def.params.radiusPx, damage, null, "cold");
+      this.game.skillRanges?.showImpactArea?.(x, y, this.def.params.radiusPx, "cold", 700);
       const heal = Math.max(1, Math.floor(s.stats.maxHp * this.def.params.healPercent / 100));
       s.stats.hp = Math.min(s.stats.maxHp, s.stats.hp + heal);
       this.game.effects?.spawnDamageNumber?.(x, y - 2, heal, false, "heal");
@@ -6397,8 +7547,15 @@
       void minion.el.offsetWidth;
       minion.el.classList.add("passive-minion-attack");
     }
+    _getViewport() {
+      return {
+        innerWidth: typeof window !== "undefined" ? window.innerWidth : 1920,
+        innerHeight: typeof window !== "undefined" ? window.innerHeight : 1080
+      };
+    }
     _splashAround(cx, cy, radiusPx, damage, excludeId, element) {
       const dmg = Math.max(1, Math.floor(damage));
+      const { innerWidth, innerHeight } = this._getViewport();
       const targets = findEnemiesInRadius(
         this.game.state.enemies.map((e) => ({
           id: e.id,
@@ -6410,8 +7567,8 @@
         cx,
         cy,
         radiusPx,
-        window.innerWidth,
-        window.innerHeight,
+        innerWidth,
+        innerHeight,
         excludeId
       );
       targets.forEach((t) => {
@@ -6557,8 +7714,7 @@
       ignoreArmour: false,
       elapsedSeconds: s.elapsedSeconds
     });
-    s.stats.hp -= game.characterPassives?.absorbDamage(dealt) ?? dealt;
-    game._onPlayerDamaged();
+    game.dealPlayerDamage(dealt);
   }
 
   // js/systems/enemySpawn.js
@@ -6614,47 +7770,151 @@
 
   // js/systems/enemyProjectiles.js
   var EnemyProjectileManager = class {
-    /** @param {import('../game/gameState.js').GameState} state */
-    constructor(state) {
+    /**
+     * @param {import('../game/gameState.js').GameState} state
+     * @param {HTMLElement} container
+     */
+    constructor(state, container) {
       this.state = state;
+      this.container = container;
+      const budgets = getRuntimeBudgets();
+      this._maxProjectiles = budgets.maxProjectiles;
+      this._speedVwPerSec = budgets.projectileSpeedVwPerSec;
+      this._maxStepVw = budgets.projectileMaxStepVw;
+      this._hitRadius = budgets.projectileHitRadius;
       this.projectiles = [];
+      this._domPool = new DomPool(() => {
+        const el = document.createElement("div");
+        el.className = "enemy-projectile";
+        return el;
+      }, RUNTIME_BUDGET.poolPrewarm.projectiles);
+    }
+    get activeCount() {
+      return this.projectiles.length;
+    }
+    /** @param {EnemyProjectileSpec} spec */
+    spawn(spec) {
+      while (this.projectiles.length >= this._maxProjectiles) {
+        this._removeAt(0);
+      }
+      const el = this._domPool.acquire();
+      if (!el.parentElement) this.container.appendChild(el);
+      el.style.left = `${spec.x}vw`;
+      el.style.top = `${spec.y}vh`;
+      this.projectiles.push({
+        el,
+        x: spec.x,
+        y: spec.y,
+        ownerId: spec.ownerId ?? null,
+        onHit: spec.onHit
+      });
+    }
+    /** Remove all projectiles fired by a dead or despawned enemy. */
+    removeForOwner(ownerId) {
+      if (!ownerId) return;
+      for (let i = this.projectiles.length - 1; i >= 0; i--) {
+        if (this.projectiles[i].ownerId === ownerId) {
+          this._removeAt(i);
+        }
+      }
     }
     /**
-     * @param {HTMLElement} el
-     * @param {() => void} onTick
-     * @returns {() => void} cancel
+     * Advance all live projectiles in simulated time (called from the main game tick).
+     * @param {number} simDeltaMs
+     * @param {EnemyProjectileTickContext} ctx
      */
-    track(el, onTick) {
-      const entry = { el, animId: null };
-      this.projectiles.push(entry);
-      const step = () => {
-        if (!this.projectiles.includes(entry)) return;
-        if (this.state.gamePaused || this.state.gameOver) {
-          this._removeEntry(entry);
-          return;
+    tick(simDeltaMs, ctx) {
+      if (simDeltaMs <= 0 || this.projectiles.length === 0) return;
+      if (this.state.gamePaused || this.state.gameOver) {
+        this.clearAll();
+        return;
+      }
+      const totalStepVw = this._speedVwPerSec * (simDeltaMs / 1e3);
+      const { getPlayerPosition, innerWidth, innerHeight } = ctx;
+      const { x: px, y: py } = getPlayerPosition();
+      for (let i = this.projectiles.length - 1; i >= 0; i--) {
+        const projectile = this.projectiles[i];
+        if (projectile.ownerId && !this._isOwnerAlive(projectile.ownerId)) {
+          this._removeAt(i);
+          continue;
         }
-        const keepAlive = onTick();
-        if (!keepAlive) {
-          this._removeEntry(entry);
-          return;
+        if (this._isAtPlayer(projectile.x, projectile.y, px, py, innerWidth, innerHeight)) {
+          projectile.onHit?.();
+          this._removeAt(i);
+          continue;
         }
-        const prev = entry.animId;
-        entry.animId = requestAnimationFrame(step);
-        this.state.trackAnimation(entry.animId, prev);
-      };
-      entry.animId = requestAnimationFrame(step);
-      this.state.trackAnimation(entry.animId);
-      return () => this._removeEntry(entry);
+        const hit = this._advanceTowardPlayer(
+          projectile,
+          totalStepVw,
+          px,
+          py,
+          innerWidth,
+          innerHeight
+        );
+        projectile.el.style.left = `${projectile.x}vw`;
+        projectile.el.style.top = `${projectile.y}vh`;
+        if (hit) {
+          projectile.onHit?.();
+          this._removeAt(i);
+        }
+      }
     }
-    /** @param {{ el: HTMLElement, animId: number|null }} entry */
-    _removeEntry(entry) {
-      if (entry.animId) this.state.cancelAnimation(entry.animId);
-      entry.el?.remove();
-      const idx = this.projectiles.indexOf(entry);
-      if (idx !== -1) this.projectiles.splice(idx, 1);
+    /**
+     * Move in capped sub-steps with swept segment tests so large 4× sim deltas cannot tunnel.
+     * @returns {boolean} true when the path intersects the player this tick
+     */
+    _advanceTowardPlayer(projectile, totalStepVw, px, py, innerWidth, innerHeight) {
+      const angle = Math.atan2(py - projectile.y, px - projectile.x);
+      const cos = Math.cos(angle);
+      const sin = Math.sin(angle);
+      let remaining = totalStepVw;
+      while (remaining > 0) {
+        const step = Math.min(this._maxStepVw, remaining);
+        const fromX = projectile.x;
+        const fromY = projectile.y;
+        projectile.x += cos * step;
+        projectile.y += sin * step;
+        remaining -= step;
+        if (this._segmentHitsPlayer(fromX, fromY, projectile.x, projectile.y, px, py, innerWidth, innerHeight)) {
+          return true;
+        }
+      }
+      return false;
+    }
+    _isAtPlayer(x, y, px, py, innerWidth, innerHeight) {
+      return distanceVw(x, y, px, py, innerWidth, innerHeight) < this._hitRadius;
+    }
+    _segmentHitsPlayer(x1, y1, x2, y2, px, py, innerWidth, innerHeight) {
+      if (this._isAtPlayer(x2, y2, px, py, innerWidth, innerHeight)) return true;
+      const pxPx = px * innerWidth / 100;
+      const pyPx = py * innerHeight / 100;
+      const segX1 = x1 * innerWidth / 100;
+      const segY1 = y1 * innerHeight / 100;
+      const segX2 = x2 * innerWidth / 100;
+      const segY2 = y2 * innerHeight / 100;
+      return distancePointToSegmentPx(pxPx, pyPx, segX1, segY1, segX2, segY2) < this._hitRadius;
+    }
+    /** @param {string} ownerId */
+    _isOwnerAlive(ownerId) {
+      return this.state.enemies.some(
+        (e) => e.id === ownerId && (e.stats?.hp ?? 0) > 0
+      );
+    }
+    /** @param {number} index */
+    _removeAt(index) {
+      const entry = this.projectiles[index];
+      if (!entry) return;
+      this._domPool.release(entry.el);
+      this.projectiles.splice(index, 1);
     }
     clearAll() {
-      [...this.projectiles].forEach((entry) => this._removeEntry(entry));
+      while (this.projectiles.length > 0) {
+        this._removeAt(0);
+      }
+    }
+    destroy() {
+      this.clearAll();
+      this._domPool.clear(this.container);
     }
   };
 
@@ -6726,15 +7986,28 @@
   ];
 
   // js/ui/enemyGuidePanel.js
+  var PANEL_WIDTH_PX = 300;
+  var PANEL_GAP_PX = 8;
+  var PLACEMENT_CLASSES = ["placement-right", "placement-left", "placement-center"];
   var EnemyGuidePanel = class {
     constructor() {
       this.root = document.getElementById("enemy-guide-panel");
       this.toggleBtn = document.getElementById("enemy-guide-toggle");
       this.body = document.getElementById("enemy-guide-body");
       this.expanded = false;
+      this._pausedHidden = false;
       if (!this.root) return;
+      this._resetDomState();
       this._renderEntries();
       this.toggleBtn?.addEventListener("click", () => this.toggle());
+    }
+    _resetDomState() {
+      if (!this.root) return;
+      this.root.classList.remove("expanded", ...PLACEMENT_CLASSES);
+      this.root.classList.remove("enemy-guide-panel--paused-hidden");
+      this.toggleBtn?.setAttribute("aria-expanded", "false");
+      this.expanded = false;
+      this._pausedHidden = false;
     }
     _renderEntries() {
       if (!this.body) return;
@@ -6757,13 +8030,292 @@
       if (this.toggleBtn) {
         this.toggleBtn.setAttribute("aria-expanded", String(this.expanded));
       }
+      if (this.expanded) {
+        this._updateBodyPlacement();
+      } else {
+        this.root?.classList.remove(...PLACEMENT_CLASSES);
+      }
     }
     collapse() {
       this.expanded = false;
-      this.root?.classList.remove("expanded");
+      this.root?.classList.remove("expanded", ...PLACEMENT_CLASSES);
       this.toggleBtn?.setAttribute("aria-expanded", "false");
     }
+    /** Hide the entire panel while the game is paused (ESC menu). */
+    setPausedHidden(hidden) {
+      this._pausedHidden = hidden;
+      if (!this.root) return;
+      this.root.classList.toggle("enemy-guide-panel--paused-hidden", hidden);
+      if (hidden) this.collapse();
+    }
+    isPausedHidden() {
+      return this._pausedHidden;
+    }
+    /**
+     * Prefer opening to the right of the toggle; flip left or center when cramped.
+     * @param {number} [viewportWidth]
+     */
+    _updateBodyPlacement(viewportWidth = typeof window !== "undefined" ? window.innerWidth : MOBILE_BREAKPOINT_PX + 1) {
+      if (!this.root || !this.toggleBtn) return;
+      this.root.classList.remove(...PLACEMENT_CLASSES);
+      if (isMobileViewport(viewportWidth)) {
+        this.root.classList.add("placement-center");
+        return;
+      }
+      const toggleRect = this.toggleBtn.getBoundingClientRect();
+      const bodyWidth = Math.min(PANEL_WIDTH_PX, viewportWidth - 24);
+      const spaceRight = viewportWidth - toggleRect.right - PANEL_GAP_PX;
+      const spaceLeft = toggleRect.left - PANEL_GAP_PX;
+      if (spaceRight >= bodyWidth) {
+        this.root.classList.add("placement-right");
+      } else if (spaceLeft >= bodyWidth) {
+        this.root.classList.add("placement-left");
+      } else {
+        this.root.classList.add("placement-center");
+      }
+    }
   };
+
+  // js/ui/bossHud.js
+  var BossHud = class {
+    constructor() {
+      this.root = null;
+      this.label = null;
+      this.fill = null;
+      this.value = null;
+      this._bossId = null;
+      this._priority = 0;
+      this._ensureDom();
+    }
+    /** Lazy DOM bind — safe if constructed before first paint. */
+    _ensureDom() {
+      if (!this.root) this.root = document.getElementById("final-boss-hud");
+      if (!this.label) this.label = document.getElementById("boss-hud-label");
+      if (!this.fill) this.fill = document.getElementById("final-boss-hp-fill");
+      if (!this.value) this.value = document.getElementById("final-boss-hp-value");
+    }
+    /** @param {{ id: string, milestoneBossWave?: number, stats: { hp: number, maxHp: number } }} enemy */
+    track(enemy) {
+      this._ensureDom();
+      const wave = enemy?.milestoneBossWave;
+      if (!this.root || !wave || !BOSS_HUD_LABELS[wave]) return;
+      const priority = BOSS_HUD_PRIORITY[wave] ?? 0;
+      if (this._bossId && this._priority > priority) return;
+      this._bossId = enemy.id;
+      this._priority = priority;
+      if (this.label) this.label.textContent = BOSS_HUD_LABELS[wave];
+      this._show();
+      this.update(enemy);
+    }
+    /**
+     * Self-healing sync — ensures the HUD tracks a living milestone boss even if
+     * the initial track() was missed (e.g. spawn race or DOM not ready).
+     * @param {Array<{ id: string, milestoneBossWave?: number, stats?: { hp?: number, maxHp?: number } }>} enemies
+     */
+    syncFromEnemies(enemies) {
+      this._ensureDom();
+      const living = findLivingMilestoneBoss(enemies);
+      if (!living) {
+        if (this._bossId && !enemies.some(
+          (e) => e.id === this._bossId && (e.stats?.hp ?? 0) > 0
+        )) {
+          this.clear();
+        }
+        return;
+      }
+      if (!this._bossId || this._bossId !== living.id) {
+        this.track(living);
+        return;
+      }
+      this.update(living);
+    }
+    /** @param {{ id: string, milestoneBossWave?: number, stats: { hp: number, maxHp: number } }} enemy */
+    update(enemy) {
+      if (!this.root || !enemy?.milestoneBossWave || enemy.id !== this._bossId) return;
+      const maxHp = Math.max(1, enemy.stats.maxHp);
+      const hp = Math.max(0, Math.floor(enemy.stats.hp));
+      const pct = Math.min(100, hp / maxHp * 100);
+      if (this.fill) this.fill.style.width = `${pct}%`;
+      if (this.value) this.value.textContent = `${hp} / ${maxHp}`;
+    }
+    /**
+     * Clear tracking for a defeated boss; retarget a lower-priority milestone boss if one remains.
+     * @param {{ id: string }} enemy
+     * @param {Array<{ id: string, milestoneBossWave?: number, stats?: { hp?: number } }>} [enemies]
+     */
+    onBossDeath(enemy, enemies = []) {
+      if (!enemy || enemy.id !== this._bossId) return;
+      this.clear();
+      const next = findLivingMilestoneBoss(enemies);
+      if (next) this.track(next);
+    }
+    _show() {
+      if (!this.root) return;
+      this.root.hidden = false;
+      this.root.classList.add("final-boss-hud--active");
+    }
+    clear() {
+      this._bossId = null;
+      this._priority = 0;
+      if (this.root) {
+        this.root.hidden = true;
+        this.root.classList.remove("final-boss-hud--active");
+      }
+      if (this.fill) this.fill.style.width = "0%";
+      if (this.value) this.value.textContent = "";
+    }
+    isTracking(enemyId) {
+      return Boolean(this._bossId && this._bossId === enemyId);
+    }
+  };
+
+  // js/config/enemyScaling.js
+  var WAVE_100_HP_RAMP_SECONDS = 180;
+  var WAVE_100_MAX_LATE_HP_BONUS = 0.45;
+  var POST_FINAL_WAVE_STAT_STEP = 0.3;
+  var WAVE_DAMAGE_RAMP = {
+    startWave: 50,
+    endWave: 100,
+    totalBonus: 0.25
+  };
+  function getWaveDamageRampMultiplier(currentWave) {
+    const { startWave, endWave, totalBonus } = WAVE_DAMAGE_RAMP;
+    if (currentWave <= startWave) return 1;
+    if (currentWave >= endWave) return 1 + totalBonus;
+    const progress = (currentWave - startWave) / (endWave - startWave);
+    return 1 + totalBonus * progress;
+  }
+  function getWave100LateGameHpMultiplier(elapsedSeconds, currentWave) {
+    const wave = currentWave ?? getWaveNumber(elapsedSeconds);
+    if (wave < FINAL_VICTORY_WAVE) return 1;
+    const waveStartSec = (FINAL_VICTORY_WAVE - 1) * BALANCE.difficultyIntervalSec;
+    const intoWave = Math.max(0, elapsedSeconds - waveStartSec);
+    const t = Math.min(1, intoWave / WAVE_100_HP_RAMP_SECONDS);
+    return 1 + WAVE_100_MAX_LATE_HP_BONUS * t;
+  }
+  function getPostFinalWaveStatMultiplier(currentWave) {
+    if (currentWave <= FINAL_VICTORY_WAVE) return 1;
+    const steps = currentWave - FINAL_VICTORY_WAVE;
+    return 1 + POST_FINAL_WAVE_STAT_STEP * steps;
+  }
+  function getEnemyHpRuntimeMultiplier(elapsedSeconds, currentWave) {
+    return getWave100LateGameHpMultiplier(elapsedSeconds, currentWave);
+  }
+  function applyPostFinalWaveStatScaling(stats, currentWave) {
+    if (!stats) return stats;
+    const mult = getPostFinalWaveStatMultiplier(currentWave);
+    if (mult === 1) return stats;
+    stats.hp = Math.max(1, Math.floor(stats.hp * mult + 1e-9));
+    stats.maxHp = stats.hp;
+    stats.physicalDamage = Math.max(1, Math.floor(stats.physicalDamage * mult + 1e-9));
+    if (typeof stats.armour === "number") {
+      stats.armour = Math.max(0, Math.floor(stats.armour * mult + 1e-9));
+    }
+    if (typeof stats.attackSpeed === "number" && stats.attackSpeed > 0) {
+      stats.attackSpeed = stats.attackSpeed * mult;
+    }
+    return stats;
+  }
+  function applyRuntimeEnemyScaling(stats, elapsedSeconds, currentWave) {
+    if (!stats) return stats;
+    const wave = currentWave ?? getWaveNumber(elapsedSeconds);
+    applyPostFinalWaveStatScaling(stats, wave);
+    const dmgRamp = getWaveDamageRampMultiplier(wave);
+    if (dmgRamp !== 1 && typeof stats.physicalDamage === "number") {
+      stats.physicalDamage = Math.max(1, Math.floor(stats.physicalDamage * dmgRamp + 1e-9));
+    }
+    const hpMult = getEnemyHpRuntimeMultiplier(elapsedSeconds, currentWave);
+    if (hpMult === 1) return stats;
+    stats.hp = Math.max(1, Math.floor(stats.hp * hpMult + 1e-9));
+    stats.maxHp = stats.hp;
+    return stats;
+  }
+  function getFinalVictoryReinforcementIntervalMs(elapsedSeconds, currentWave) {
+    const escalation = getWave100LateGameHpMultiplier(elapsedSeconds, currentWave);
+    return Math.max(650, Math.floor(4200 / escalation));
+  }
+  function rollFinalVictoryReinforcementSwarmSize(elapsedSeconds, currentWave) {
+    const escalation = getWave100LateGameHpMultiplier(elapsedSeconds, currentWave);
+    const min = 4 + Math.floor(escalation * 4);
+    const max = min + 4 + Math.floor(escalation * 6);
+    return min + Math.floor(Math.random() * (max - min + 1));
+  }
+
+  // js/systems/achievementContext.js
+  function trackRunStatPeaks(state) {
+    if (!state?.stats) return;
+    if (!state.runStatPeaks) {
+      state.runStatPeaks = createEmptyRunStatPeaks();
+    }
+    const st = state.stats;
+    const peaks = state.runStatPeaks;
+    peaks.maxHp = Math.max(peaks.maxHp, st.maxHp || 0);
+    peaks.critChance = Math.max(peaks.critChance, st.critChance || 0);
+    peaks.critMultiplier = Math.max(peaks.critMultiplier, st.critMultiplier || 0);
+    peaks.hpRegen = Math.max(peaks.hpRegen, st.hpRegen || 0);
+    peaks.physicalDamage = Math.max(peaks.physicalDamage, st.physicalDamage || 0);
+    if (peaks.maxHp > (state.maxHpReached || 0)) {
+      state.maxHpReached = peaks.maxHp;
+    }
+  }
+  function createEmptyRunStatPeaks() {
+    return {
+      maxHp: 0,
+      critChance: 0,
+      critMultiplier: 0,
+      hpRegen: 0,
+      physicalDamage: 0
+    };
+  }
+  function buildAchievementContext({ state, killStreak, treasureEvents, gearInventory, meta }) {
+    trackRunStatPeaks(state);
+    const peaks = state.runStatPeaks ?? createEmptyRunStatPeaks();
+    const equipped = gearInventory?.equipped || {};
+    const equippedValues = Object.values(equipped).filter(Boolean);
+    const skillEntries = Object.values(state.skillList || {});
+    return {
+      killCount: state.killCount,
+      level: state.stats?.level ?? 0,
+      elapsedSeconds: state.elapsedSeconds,
+      bestStreak: killStreak?.bestStreak ?? 0,
+      treasuresOpened: treasureEvents?.treasuresOpened ?? 0,
+      itemsLooted: state.itemsLooted ?? 0,
+      equippedRareCount: equippedValues.filter((i) => i.rarity === "rare" || i.rarity === "unique").length,
+      equippedUniqueCount: equippedValues.filter((i) => i.rarity === "unique").length,
+      equippedGearCount: gearInventory?.getEquippedCount?.() ?? 0,
+      currentWave: state.currentWave,
+      maxWaveReached: state.maxWaveReached ?? state.currentWave,
+      skillLevelSum: skillEntries.reduce((sum, sk) => sum + (sk?.level || 0), 0),
+      skillsAtMax: skillEntries.filter((sk) => sk && sk.level >= (sk.maxLevel || 5)).length,
+      elitesKilled: state.elitesKilled ?? 0,
+      bossesKilled: state.bossesKilled ?? 0,
+      maxHpReached: peaks.maxHp,
+      maxHp: state.stats?.maxHp ?? 0,
+      critChanceReached: peaks.critChance,
+      critMultiplierReached: peaks.critMultiplier,
+      hpRegenReached: peaks.hpRegen,
+      physicalDamageReached: peaks.physicalDamage,
+      charactersBeatGame: countCharactersBeatGame(meta),
+      finalVictoryAchieved: Boolean(state.finalVictoryAchieved)
+    };
+  }
+  function reconcileMetaAchievements(meta) {
+    return evaluateAchievements(meta, buildMetaOnlyAchievementContext(meta));
+  }
+  function buildMetaOnlyAchievementContext(meta) {
+    return {
+      killCount: 0,
+      level: 0,
+      elapsedSeconds: 0,
+      bestStreak: 0,
+      treasuresOpened: 0,
+      itemsLooted: 0,
+      equippedRareCount: 0,
+      equippedGearCount: 0,
+      charactersBeatGame: countCharactersBeatGame(meta),
+      finalVictoryAchieved: false
+    };
+  }
 
   // js/systems/audioManager.js
   var BGM_MP3_PATH = "audio/bgm.mp3";
@@ -7298,14 +8850,212 @@
     }
   };
 
+  // js/ui/mobileHud.js
+  var MobileHudController = class {
+    constructor() {
+      this._onResize = null;
+      this._onMenuPress = null;
+      this._menuBtn = null;
+      this._menuClickHandler = null;
+      if (typeof document !== "undefined") {
+        this._menuBtn = document.getElementById("mobile-menu-btn");
+      }
+      if (typeof window !== "undefined") {
+        this._onResize = () => this.syncLayoutClass();
+        window.addEventListener("resize", this._onResize);
+        this.syncLayoutClass();
+      }
+    }
+    /** Sync `layout-mobile` on <html> for CSS hooks + panel defaults. */
+    syncLayoutClass() {
+      if (typeof document === "undefined") return;
+      document.documentElement.classList.toggle("layout-mobile", isMobileViewport());
+      this._syncMenuButtonDom();
+    }
+    /**
+     * Wire the mobile menu button to the same handler as keyboard Escape.
+     * @param {() => void} onMenuPress
+     */
+    bindMenuButton(onMenuPress) {
+      this._onMenuPress = onMenuPress;
+      if (!this._menuBtn || this._menuClickHandler) return;
+      this._menuClickHandler = (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        this._onMenuPress?.();
+      };
+      this._menuBtn.addEventListener("click", this._menuClickHandler);
+    }
+    /**
+     * Show the menu button only during active gameplay on mobile viewports.
+     * @param {boolean} visible
+     */
+    setGameplayMenuVisible(visible) {
+      this._gameplayMenuVisible = visible;
+      this._syncMenuButtonDom();
+    }
+    /**
+     * Call after in-game panels are constructed for a new run.
+     * @param {{ gearPanel?: { toggle: (v: boolean) => void }, upgradePanel?: { toggle: (v: boolean) => void }, enemyGuidePanel?: { collapse?: () => void } }} panels
+     */
+    applyForGame(panels) {
+      this.syncLayoutClass();
+      if (!isMobileViewport()) return;
+      panels.gearPanel?.toggle(false);
+      panels.upgradePanel?.toggle(false);
+      panels.enemyGuidePanel?.collapse?.();
+    }
+    destroy() {
+      if (this._menuBtn && this._menuClickHandler) {
+        this._menuBtn.removeEventListener("click", this._menuClickHandler);
+      }
+      if (this._onResize && typeof window !== "undefined") {
+        window.removeEventListener("resize", this._onResize);
+      }
+      this._onResize = null;
+      this._onMenuPress = null;
+      this._menuClickHandler = null;
+      this._menuBtn = null;
+    }
+    /** @private */
+    _syncMenuButtonDom() {
+      if (!this._menuBtn) return;
+      const show = Boolean(this._gameplayMenuVisible) && isMobileViewport();
+      this._menuBtn.hidden = !show;
+    }
+  };
+
+  // js/ui/gameSpeedControls.js
+  var GameSpeedControls = class {
+    /**
+     * @param {import('../game/gameState.js').GameState} state
+     * @param {HTMLElement} [root]
+     */
+    constructor(state, root = document.getElementById("game-speed-controls")) {
+      this.state = state;
+      this.root = root;
+      this._buttons = [];
+      if (!this.root) return;
+      this._buttons = [...this.root.querySelectorAll("[data-speed]")];
+      this._buttons.forEach((btn) => {
+        btn.addEventListener("click", (event) => {
+          event.stopPropagation();
+          const speed = Number(btn.dataset.speed);
+          this.setSpeed(speed);
+        });
+      });
+      this.syncUi();
+    }
+    /** @param {number} speed */
+    setSpeed(speed) {
+      if (!GAME_SPEED_OPTIONS.includes(speed)) return;
+      setTimeScale(this.state, speed);
+      this._applyDomSpeed(speed);
+      this.syncUi();
+    }
+    syncUi() {
+      const active = this.state.timeScale ?? 1;
+      this._buttons.forEach((btn) => {
+        const speed = Number(btn.dataset.speed);
+        const isActive = speed === active;
+        btn.classList.toggle("game-speed-btn-active", isActive);
+        btn.setAttribute("aria-pressed", String(isActive));
+      });
+    }
+    /** @private */
+    _applyDomSpeed(speed) {
+      document.documentElement.style.setProperty("--game-speed", String(speed));
+      const container = document.getElementById("game-container");
+      container?.style.setProperty("--game-speed", String(speed));
+    }
+    destroy() {
+      this._buttons = [];
+      this.root = null;
+    }
+  };
+
+  // js/ui/panelCoordinator.js
+  function bindExclusiveGearUpgradePanels(gearPanel, upgradePanel, isMobileLayout = isMobileViewport) {
+    if (!gearPanel || !upgradePanel) return;
+    const gearToggle = gearPanel.toggle.bind(gearPanel);
+    const upgradeToggle = upgradePanel.toggle.bind(upgradePanel);
+    gearPanel.toggle = (forceExpanded) => {
+      const wasExpanded = gearPanel.isExpanded();
+      gearToggle(forceExpanded);
+      if (isMobileLayout() && gearPanel.isExpanded() && !wasExpanded) {
+        upgradeToggle(false);
+      }
+    };
+    upgradePanel.toggle = (forceExpanded) => {
+      const wasExpanded = upgradePanel.isExpanded();
+      upgradeToggle(forceExpanded);
+      if (isMobileLayout() && upgradePanel.isExpanded() && !wasExpanded) {
+        gearToggle(false);
+      }
+    };
+  }
+  function collapseSidePanelsOnPause(gearPanel, upgradePanel) {
+    gearPanel?.toggle(false);
+    upgradePanel?.toggle(false);
+  }
+
+  // js/ui/statsPanelController.js
+  var StatsPanelController = class {
+    constructor() {
+      this.els = {
+        panel: document.getElementById("player-stats"),
+        toggle: document.getElementById("stats-detail-toggle"),
+        grid: document.querySelector("#player-stats .stats-grid")
+      };
+      this.expanded = !panelsStartCollapsed();
+      this._onResize = () => this._syncDefaultForViewport();
+      this.els.toggle?.addEventListener("click", (event) => {
+        event.stopPropagation();
+        this.toggle();
+      });
+      if (typeof window !== "undefined") {
+        window.addEventListener("resize", this._onResize);
+      }
+      this.syncDom();
+    }
+    toggle(forceExpanded) {
+      if (typeof forceExpanded === "boolean") {
+        this.expanded = forceExpanded;
+      } else {
+        this.expanded = !this.expanded;
+      }
+      this.syncDom();
+    }
+    isExpanded() {
+      return this.expanded;
+    }
+    syncDom() {
+      this.els.panel?.classList.toggle("stats-panel--detail-expanded", this.expanded);
+      this.els.panel?.classList.toggle("stats-panel--detail-collapsed", !this.expanded);
+      this.els.toggle?.setAttribute("aria-expanded", String(this.expanded));
+    }
+    /** @private */
+    _syncDefaultForViewport() {
+      this.expanded = !panelsStartCollapsed();
+      this.syncDom();
+    }
+    destroy() {
+      if (this._onResize && typeof window !== "undefined") {
+        window.removeEventListener("resize", this._onResize);
+      }
+    }
+  };
+
   // js/game/game.js
   var Game = class {
     constructor() {
       this.state = new GameState();
       this.ui = new UIManager();
       this.audio = new AudioManager();
+      this.mobileHud = new MobileHudController();
       this.effects = null;
       this.meta = loadMetaProgress();
+      reconcileMetaAchievements(this.meta);
       this.killStreak = new KillStreakTracker();
       this._treasureGuideArrow = null;
       this._treasureGuideRing = null;
@@ -7317,8 +9067,10 @@
         characterSelect: () => this.quitToCharacterSelect(),
         achievements: () => this.ui.openAchievementsPanel(this.meta)
       });
+      this.mobileHud.bindMenuButton(() => this.handleMenuAction());
       this.ui.bindAudioControls(this.audio);
       this.ui.syncAudioVolumeUi(this.audio);
+      this.mobileHud.setGameplayMenuVisible(false);
       this.ui.showCharacterSelection((name) => this.selectCharacter(name), this.meta);
     }
     _bindEvents() {
@@ -7351,11 +9103,7 @@
         return;
       }
       if (event.key === "Escape" && !this.state.characterSelection) {
-        if (this.ui.els.achievementsOverlay?.style.display === "flex") {
-          this.ui.closeAchievementsPanel();
-          return;
-        }
-        this.togglePause();
+        this.handleMenuAction();
         return;
       }
       if (event.key === "u" || event.key === "U") {
@@ -7426,7 +9174,7 @@
       this.illusionClone = new IllusionCloneManager(this);
       this.characterPassives = new CharacterPassiveManager(this);
       this.buffTracker = new BuffTracker();
-      this.enemyProjectiles = new EnemyProjectileManager(this.state);
+      this.enemyProjectiles = new EnemyProjectileManager(this.state, this.ui.els.gameContainer);
       this.poisonPools = new PoisonPoolManager(this);
       this.skillRanges = new SkillRangeDisplay(
         this.ui.els.gameContainer,
@@ -7450,25 +9198,51 @@
       );
       this.gearPanel.reset();
       this.enemyGuidePanel = new EnemyGuidePanel();
+      this.bossHud = new BossHud();
+      bindExclusiveGearUpgradePanels(this.gearPanel, this.upgradePanel);
+      this.statsPanel = new StatsPanelController();
+      this.gameSpeedControls = new GameSpeedControls(this.state);
+      this.mobileHud.applyForGame({
+        gearPanel: this.gearPanel,
+        upgradePanel: this.upgradePanel,
+        enemyGuidePanel: this.enemyGuidePanel
+      });
       this.ui.showGame();
+      this.mobileHud.setGameplayMenuVisible(true);
       this.ui.els.playerAnchor.style.left = "50vw";
       this.ui.els.playerAnchor.style.top = "50vh";
       this.ui.updateAttackRange(this.state.stats.attackRange);
       this.ui.updateStats(this.state.stats, this.state.skillList);
-      this._trackMaxHp();
       this.ui.updateMeta(this.state.killCount, this.state.currentWave, this.killStreak.streak);
       this.ui.showWaveAnnouncement(this.state.currentWave);
       this.state.previousWave = this.state.currentWave;
       this.characterPassives?.activate(name);
+      this._beginActiveRun();
+    }
+    /**
+     * Unpause, reset the sim clock, refresh the timer UI, and start the main loop.
+     * Must run at the end of character select / restart — keep free of optional side effects.
+     */
+    _beginActiveRun() {
+      const s = this.state;
+      s.gamePaused = false;
+      s.gameOver = false;
+      s.characterSelection = false;
+      s.elapsedSeconds = 0;
+      s.pauseTime = 0;
+      initGameClock(s);
+      this.ui.updateTimer(0);
       this._startGameLoop();
     }
     restart() {
       this.quitToCharacterSelect();
     }
     quitToCharacterSelect() {
+      this.enemyGuidePanel?.setPausedHidden(false);
       this._endRun(false);
       this.state.characterSelection = true;
       this.state.gameOver = false;
+      this.mobileHud.setGameplayMenuVisible(false);
       this.ui.hideGameOver();
       this.ui.showPause(false);
       this.ui.showCharacterSelection((name) => this.selectCharacter(name), this.meta);
@@ -7482,6 +9256,7 @@
       }
       this.state.gamePaused = false;
       this.ui.showPause(false);
+      this.enemyGuidePanel?.setPausedHidden(false);
       this._endRun(false);
       this.selectCharacter(name);
     }
@@ -7489,6 +9264,7 @@
     _endRun(died) {
       const s = this.state;
       if (s.stats && s.selectedCharacterName) {
+        recordCampaignVictoryIfPending(this.meta, s.selectedCharacterName, s);
         updateCharacterRecord(this.meta, {
           character: s.selectedCharacterName,
           level: s.stats.level,
@@ -7513,8 +9289,22 @@
       this.buffTracker?.clear();
       this.ui?.updateBuffBar?.([]);
       this.enemyProjectiles?.clearAll();
+      this.bossHud?.clear();
       this.gearInventory = null;
       if (died) s.gameOver = true;
+    }
+    /** Shared handler for Escape key and the mobile menu button. */
+    handleMenuAction() {
+      if (this.state.gameOver && !this.state.gamePaused) {
+        this.restart();
+        return;
+      }
+      if (this.state.characterSelection) return;
+      if (this.ui.els.achievementsOverlay?.style.display === "flex") {
+        this.ui.closeAchievementsPanel();
+        return;
+      }
+      this.togglePause();
     }
     togglePause() {
       if (this.state.gamePaused) this.resumeGame();
@@ -7531,6 +9321,9 @@
       s.gamePaused = true;
       s.pauseTime = Date.now();
       if (!silent) this.ui.showPause(true);
+      collapseSidePanelsOnPause(this.gearPanel, this.upgradePanel);
+      this.enemyGuidePanel?.collapse();
+      this.enemyGuidePanel?.setPausedHidden(true);
       if (s.gameLoopId) {
         s.cancelAnimation(s.gameLoopId);
         s.gameLoopId = null;
@@ -7547,18 +9340,13 @@
       s.gamePaused = false;
       this._pausedByTabHidden = false;
       this.ui.showPause(false);
+      this.enemyGuidePanel?.setPausedHidden(false);
       const elapsed = Date.now() - s.pauseTime;
-      s.lastAttackTime += elapsed;
-      s.timerStart += elapsed;
-      s.bossSpawnTime += elapsed;
-      s.eliteSpawnTime += elapsed;
-      s.rareEnemySpawnTime += elapsed;
-      s.normalSpawnTime += elapsed;
-      s.attackSpeedBuffTime += elapsed;
-      s.healthRegenTime += elapsed;
-      if (this.treasureEvents) this.treasureEvents.lastSpawnTime += elapsed;
+      syncClockAfterResume(s);
+      if (this.treasureEvents?.lastSpawnTime != null) {
+        this.treasureEvents.lastSpawnTime += elapsed;
+      }
       s.enemies.forEach((e) => {
-        s.enemyAttackCooldown[e.id] = (s.enemyAttackCooldown[e.id] || 0) + elapsed;
         this._startEnemyMovement(e);
       });
       s.bullets.forEach((b) => this._startBulletMovement(b));
@@ -7580,84 +9368,50 @@
     _tick() {
       const s = this.state;
       if (s.gamePaused || s.gameOver) return;
-      const now = Date.now();
-      if (now - s.lastAttackTime >= 1e3 / s.stats.attackSpeed) {
+      const realNow = Date.now();
+      const simNow = advanceGameClock(s, realNow);
+      const simDeltaMs = getLastSimDeltaMs(s);
+      if (simNow - s.lastAttackTime >= 1e3 / s.stats.attackSpeed) {
         const { x, y } = this.ui.getPlayerPosition();
         this._attackNearestEnemy(x, y);
       }
-      this._tickBuffs(now);
-      this.buffTracker?.tick(now);
-      this.ui?.updateBuffBar?.(this.buffTracker?.getActiveBuffs(now) || []);
-      this._tickTimer(now);
-      this._tickSpawns(now);
-      this._tickEnemyAttacks(now);
-      this._tickRegen(now);
-      this._tickStatusEffects(now);
-      this.skillExecutor?.tick(now);
-      this.characterPassives?.tick(now);
-      this.illusionClone?.tick(now);
-      this.poisonPools?.tick(now);
-      this.treasureEvents?.tick(now);
-      this.killStreak.tick(now);
+      this._tickBuffs(simNow);
+      this.buffTracker?.tick(simNow);
+      this.ui?.updateBuffBar?.(this.buffTracker?.getActiveBuffs(simNow) || []);
+      this.effects?.setTimeScale(s.timeScale ?? 1);
+      this.skillRanges?.setTimeScale(s.timeScale ?? 1);
+      this.enemyProjectiles?.tick(simDeltaMs, {
+        getPlayerPosition: () => this.ui.getPlayerPosition(),
+        innerWidth: window.innerWidth,
+        innerHeight: window.innerHeight
+      });
+      this._tickTimer(simNow);
+      this._tickSpawns(simNow);
+      this._tickEnemyAttacks(simNow);
+      this._tickStatusEffects(simNow);
+      this.skillExecutor?.tick(simNow);
+      this.characterPassives?.tick(simNow);
+      this.illusionClone?.tick(simNow);
+      this.poisonPools?.tick(simNow);
+      this.treasureEvents?.tick(simNow);
+      this.killStreak.tick(simNow);
       this.skillRanges?.update(s.skillList, s.stats.attackRange);
       this.enemyPopulation?.enforceCap(this);
-      if (s.stats.hp <= 0) {
-        s.gameOver = true;
-        s.cancelAllAnimations();
-        this.enemyProjectiles?.clearAll();
-        this.effects?.cleanup();
-        this.skillExecutor?.cleanup();
-        updateCharacterRecord(this.meta, {
-          character: s.selectedCharacterName,
-          level: s.stats.level,
-          time: s.elapsedSeconds,
-          kills: s.killCount,
-          wave: s.currentWave
-        });
-        this.ui.showGameOver(s.stats, s.elapsedSeconds, s.killCount, s.currentWave);
-        return;
-      }
+      this.bossHud?.syncFromEnemies(s.enemies);
+      tickPlayerRegen(s, simNow);
+      if (this._resolvePlayerVitalityEndOfTick()) return;
       this.ui.updateStats(s.stats, s.skillList);
       this.ui.updateMeta(s.killCount, s.currentWave, this.killStreak.streak);
-      this._trackMaxHp();
       this._checkAchievements();
     }
-    /** Track peak max HP for achievements. */
-    _trackMaxHp() {
-      const s = this.state;
-      if (!s.stats) return;
-      const peak = s.stats.maxHp || 0;
-      if (peak > (s.maxHpReached || 0)) s.maxHpReached = peak;
-    }
     _checkAchievements() {
-      const s = this.state;
-      const equipped = this.gearInventory?.equipped || {};
-      const equippedValues = Object.values(equipped).filter(Boolean);
-      const equippedRareCount = equippedValues.filter((i) => i.rarity === "rare" || i.rarity === "unique").length;
-      const equippedUniqueCount = equippedValues.filter((i) => i.rarity === "unique").length;
-      const skillEntries = Object.values(s.skillList || {});
-      const skillLevelSum = skillEntries.reduce((sum, sk) => sum + (sk?.level || 0), 0);
-      const skillsAtMax = skillEntries.filter((sk) => sk && sk.level >= (sk.maxLevel || 5)).length;
-      const unlocked = evaluateAchievements(this.meta, {
-        killCount: s.killCount,
-        level: s.stats.level,
-        elapsedSeconds: s.elapsedSeconds,
-        bestStreak: this.killStreak.bestStreak,
-        treasuresOpened: this.treasureEvents?.treasuresOpened ?? 0,
-        itemsLooted: s.itemsLooted ?? 0,
-        equippedRareCount,
-        equippedUniqueCount,
-        equippedGearCount: this.gearInventory?.getEquippedCount() ?? 0,
-        currentWave: s.currentWave,
-        maxWaveReached: s.maxWaveReached ?? s.currentWave,
-        skillLevelSum,
-        skillsAtMax,
-        elitesKilled: s.elitesKilled ?? 0,
-        bossesKilled: s.bossesKilled ?? 0,
-        maxHpReached: s.maxHpReached ?? s.stats.maxHp,
-        maxHp: s.stats.maxHp,
-        finalVictoryAchieved: Boolean(s.finalVictoryAchieved)
-      });
+      const unlocked = evaluateAchievements(this.meta, buildAchievementContext({
+        state: this.state,
+        killStreak: this.killStreak,
+        treasureEvents: this.treasureEvents,
+        gearInventory: this.gearInventory,
+        meta: this.meta
+      }));
       unlocked.forEach((id) => this.ui.showAchievementUnlock(id));
     }
     _tickBuffs(now) {
@@ -7676,15 +9430,16 @@
       const s = this.state;
       if (s.stats.buffList[name]) this._removeBuff(name);
       if (name === "Attack Speed Buff") {
-        const bonus = s.abilityList[name].level * s.stats.attackSpeed * 16 / 100;
+        const level = s.abilityList[name].level;
+        const displayPct = getAbilityPercent("attackSpeedBuff", level);
+        const bonus = s.stats.attackSpeed * displayPct / 100;
         s.stats.buffList[name] = bonus;
         s.stats.attackSpeed += bonus;
-        const pct = Math.round(s.abilityList[name].level * 16);
         this.buffTracker?.apply({
           id: "attack-speed-buff",
           name: "Attack Speed Buff",
           icon: "\u26A1",
-          description: `+${pct}% attack speed`,
+          description: `+${displayPct}% attack speed`,
           durationMs: s.attackSpeedBuffDuration,
           now
         });
@@ -7699,10 +9454,11 @@
       }
       delete s.stats.buffList[name];
     }
-    _tickTimer(now) {
+    _tickTimer(simNow) {
       const s = this.state;
-      if (now - s.timerStart < 1e3) return;
-      s.elapsedSeconds = Math.floor((now - s.timerStart) / 1e3);
+      const elapsedSec = getElapsedSeconds(s);
+      if (elapsedSec === s.elapsedSeconds) return;
+      s.elapsedSeconds = elapsedSec;
       this.ui.updateTimer(s.elapsedSeconds);
       s.currentWave = getWaveNumber(s.elapsedSeconds);
       if (s.currentWave > (s.maxWaveReached || 1)) s.maxWaveReached = s.currentWave;
@@ -7716,7 +9472,7 @@
         s.rareEnemySpawnInterval = getSpawnIntervalMs("rare", maxDiff);
         s.eliteSpawnInterval = getSpawnIntervalMs("elite", maxDiff);
         s.bossSpawnInterval = getSpawnIntervalMs("boss", maxDiff);
-        if (isBossWave(s.currentWave)) {
+        if (isMilestoneBossWave(s.currentWave) || isBossWave(s.currentWave)) {
           this._spawnBossWaveEvent(s.currentWave);
         }
       }
@@ -7727,8 +9483,8 @@
      * @param {number} wave
      */
     _spawnBossWaveEvent(wave) {
-      if (isFinalVictoryWave(wave)) {
-        this._spawnFinalVictoryBossEvent(wave);
+      if (isMilestoneBossWave(wave)) {
+        this._spawnTrackedBossEvent(wave);
         return;
       }
       const boss = this._spawnWithType("boss", pickEnemyType(this.state.currentDifficultyLevel));
@@ -7761,24 +9517,79 @@
       }
     }
     /**
-     * Wave 100 finale — 20× boss HP, 2× damage/armour, and a large multi-edge army.
+     * Tracked milestone boss (waves 25, 50, 75, 100) — scaled HP, escort army, HUD.
      * @param {number} wave
      */
-    _spawnFinalVictoryBossEvent(wave) {
+    _spawnTrackedBossEvent(wave) {
+      this._spawnMilestoneBoss(wave);
       const difficulty = this.state.currentDifficultyLevel;
-      const boss = this._spawnWithType("boss", pickEnemyType(difficulty));
-      if (boss?.stats) {
-        applyFinalBossCombatScaling(boss.stats);
-        boss.isFinalVictoryBoss = true;
-        boss.isWaveBoss = true;
-        this._updateEnemyHealthBar(boss);
-      }
       const edges = [0, 1, 2, 3];
-      this._spawnVictoryArmyPack(edges[0], rollFinalVictorySwarmCount(), "normal", "swarm");
-      this._spawnVictoryArmyPack(edges[1], rollFinalVictoryGruntCount(), "normal", "grunt");
-      this._spawnVictoryArmyPack(edges[2], rollFinalVictoryEliteCount(), "elite", pickEnemyType(difficulty));
-      this._spawnVictoryArmyPack(edges[3], rollFinalVictorySwarmCount(), "normal", "swarm");
-      this.ui.showFinalVictoryBossIncoming(wave);
+      this._spawnVictoryArmyPack(edges[0], rollBossArmyCount(wave, "swarm"), "normal", "swarm");
+      this._spawnVictoryArmyPack(edges[1], rollBossArmyCount(wave, "grunt"), "normal", "grunt");
+      this._spawnVictoryArmyPack(edges[2], rollBossArmyCount(wave, "elite"), "elite", pickEnemyType(difficulty));
+      this._spawnVictoryArmyPack(edges[3], rollBossArmyCount(wave, "swarm"), "normal", "swarm");
+      if (isFinalVictoryWave(wave)) {
+        this.ui.showFinalVictoryBossIncoming(wave);
+      } else if (isMidpointVictoryWave(wave)) {
+        this.ui.showMidpointVictoryBossIncoming(wave);
+      } else {
+        this.ui.showMiniBossIncoming(wave);
+      }
+    }
+    /** @deprecated Use _spawnTrackedBossEvent */
+    _spawnMidpointVictoryBossEvent(wave) {
+      this._spawnTrackedBossEvent(wave);
+    }
+    /** @deprecated Use _spawnTrackedBossEvent */
+    _spawnFinalVictoryBossEvent(wave) {
+      this._spawnTrackedBossEvent(wave);
+    }
+    /**
+     * Spawn a Wave 50 / Wave 100 milestone boss — bypasses population cap and applies HUD tracking.
+     * @param {number} milestoneWave MIDPOINT_VICTORY_WAVE or FINAL_VICTORY_WAVE
+     * @returns {object|null}
+     */
+    _spawnMilestoneBoss(milestoneWave) {
+      const s = this.state;
+      const difficulty = s.currentDifficultyLevel;
+      const simNow = getSimulatedMs(s);
+      const edge = Math.floor(Math.random() * 4);
+      const anchor = getEdgeSpawnAnchor(edge);
+      const boss = this._spawnEnemy("boss", pickEnemyType(difficulty), {
+        ...MILESTONE_BOSS_SPAWN_OPTS,
+        at: {
+          x: anchor.x + (Math.random() - 0.5) * 8,
+          y: anchor.y + (Math.random() - 0.5) * 8
+        }
+      });
+      if (!boss?.stats) return null;
+      applyMilestoneBossCombatScaling(boss.stats, milestoneWave);
+      boss.milestoneBossWave = milestoneWave;
+      boss.isWaveBoss = true;
+      if (milestoneWave === FINAL_VICTORY_WAVE) {
+        boss.isFinalVictoryBoss = true;
+      }
+      this._applyMilestoneBossPresentation(boss, milestoneWave);
+      this._updateEnemyHealthBar(boss);
+      this.bossHud.track(boss);
+      s.milestoneBossReinforceTime = simNow;
+      return boss;
+    }
+    /**
+     * Larger in-world HP bar + label for milestone bosses (Wave 50 / 100).
+     * @param {object} enemy
+     * @param {number} milestoneWave
+     */
+    _applyMilestoneBossPresentation(enemy, milestoneWave) {
+      enemy.element.classList.add("enemy-milestone-boss");
+      const bar = enemy.element.querySelector(".enemy-health-bar");
+      if (bar) {
+        bar.classList.add("enemy-health-bar--milestone");
+        const tag = bar.querySelector(".enemy-boss-label");
+        if (tag) {
+          tag.textContent = MILESTONE_BOSS_WORLD_LABELS[milestoneWave] || "BOSS";
+        }
+      }
     }
     /**
      * @param {number} edge @param {number} count @param {string} rarity @param {string} enemyType
@@ -7799,10 +9610,18 @@
     _onFinalVictoryBossDefeated() {
       const s = this.state;
       if (s.finalVictoryAchieved) return;
+      s.finalBossDefeatedThisRun = true;
       s.finalVictoryAchieved = true;
-      markCharacterVictory(this.meta, s.selectedCharacterName);
+      if (!s.campaignVictoryRecorded) {
+        markCharacterVictory(this.meta, s.selectedCharacterName);
+        s.campaignVictoryRecorded = true;
+      }
       this.ui.showFinalVictoryCelebration(s.selectedCharacterName);
       this._checkAchievements();
+    }
+    /** Victory requires killing the Wave 100 boss — wave 101+ alone does not count. */
+    _hasCampaignVictory() {
+      return Boolean(this.state.finalVictoryAchieved);
     }
     _tickSpawns(now) {
       const s = this.state;
@@ -7823,6 +9642,44 @@
       if (pop?.shouldSpawnNow("normal", elapsed, s.normalSpawnTime, s.normalSpawnInterval, now)) {
         s.normalSpawnTime = now;
         this._spawnWithType("normal", pickEnemyType(s.currentDifficultyLevel));
+      }
+      this._tickMilestoneBossReinforcements(now);
+    }
+    /** Ongoing reinforcements while a Wave 50 or Wave 100 milestone boss lives. */
+    _tickMilestoneBossReinforcements(now) {
+      const s = this.state;
+      const boss = findLivingMilestoneBoss(s.enemies);
+      if (!boss?.milestoneBossWave) return;
+      if (s.currentWave < boss.milestoneBossWave) return;
+      const milestoneWave = boss.milestoneBossWave;
+      const interval = milestoneWave === FINAL_VICTORY_WAVE ? getFinalVictoryReinforcementIntervalMs(s.elapsedSeconds, s.currentWave) : getMilestoneReinforcementIntervalMs(milestoneWave);
+      if (now - (s.milestoneBossReinforceTime || 0) < interval) return;
+      s.milestoneBossReinforceTime = now;
+      const difficulty = s.currentDifficultyLevel;
+      const edge = Math.floor(Math.random() * 4);
+      if (milestoneWave === FINAL_VICTORY_WAVE) {
+        const swarmCount = rollFinalVictoryReinforcementSwarmSize(s.elapsedSeconds, s.currentWave);
+        this._spawnVictoryArmyPack(edge, swarmCount, "normal", "swarm");
+        if (Math.random() < 0.55) {
+          const edge2 = (edge + 1 + Math.floor(Math.random() * 3)) % 4;
+          this._spawnVictoryArmyPack(
+            edge2,
+            2 + Math.floor(Math.random() * 4),
+            Math.random() < 0.35 ? "elite" : "normal",
+            pickEnemyType(difficulty)
+          );
+        }
+        return;
+      }
+      this._spawnVictoryArmyPack(edge, rollMilestoneReinforcementSwarmSize(milestoneWave), "normal", "swarm");
+      if (Math.random() < 0.45) {
+        const edge2 = (edge + 2) % 4;
+        this._spawnVictoryArmyPack(
+          edge2,
+          2 + Math.floor(Math.random() * 3),
+          "normal",
+          Math.random() < 0.25 ? "grunt" : "swarm"
+        );
       }
     }
     /** Routes swarm to group spawn; dasher and others always spawn solo. */
@@ -7845,7 +9702,9 @@
       return lead;
     }
     _tickEnemyAttacks(now) {
-      this.state.enemies.forEach((enemy) => {
+      const enemies = [...this.state.enemies];
+      enemies.forEach((enemy) => {
+        if ((enemy.stats?.hp ?? 0) <= 0) return;
         const last = this.state.enemyAttackCooldown[enemy.id] || 0;
         if (now - last >= 1e3 / enemy.stats.attackSpeed) {
           this.state.enemyAttackCooldown[enemy.id] = now;
@@ -7854,13 +9713,47 @@
       });
     }
     _tickRegen(now) {
+      tickPlayerRegen(this.state, now);
+    }
+    /**
+     * Apply incoming damage to the player, refresh the HP bar, and return damage dealt after passives.
+     * Defeat is only resolved at end-of-tick after regen (see resolvePlayerDefeat).
+     * @param {number} rawDamage
+     * @returns {number}
+     */
+    dealPlayerDamage(rawDamage) {
       const s = this.state;
-      const regenBoost = s.abilityList["Regen To Damage"].level > 0 ? s.abilityList["Regen To Damage"].level * 20 / 100 : 0;
-      const interval = s.healthRegenInterval / (1 + regenBoost);
-      if (now - s.healthRegenTime >= interval) {
-        s.healthRegenTime = now;
-        s.stats.hp += s.stats.hpRegen;
-      }
+      const dealt = this.characterPassives?.absorbDamage(rawDamage) ?? rawDamage;
+      applyPlayerDamage(s.stats, dealt);
+      this._onPlayerDamaged();
+      this.ui.syncPlayerHp(s.stats);
+      return dealt;
+    }
+    /** @returns {boolean} True when defeat was triggered. */
+    _resolvePlayerVitalityEndOfTick() {
+      const s = this.state;
+      if (!resolvePlayerDefeat(s.stats)) return false;
+      this._triggerPlayerDefeat();
+      return true;
+    }
+    _triggerPlayerDefeat() {
+      const s = this.state;
+      if (s.gameOver) return;
+      s.gameOver = true;
+      s.cancelAllAnimations();
+      this.enemyProjectiles?.clearAll();
+      this.effects?.cleanup();
+      this.skillExecutor?.cleanup();
+      updateCharacterRecord(this.meta, {
+        character: s.selectedCharacterName,
+        level: s.stats.level,
+        time: s.elapsedSeconds,
+        kills: s.killCount,
+        wave: s.currentWave
+      });
+      this.mobileHud.setGameplayMenuVisible(false);
+      this.ui.syncPlayerHp(s.stats);
+      this.ui.showGameOver(s.stats, s.elapsedSeconds, s.killCount, s.currentWave);
     }
     _tickStatusEffects(now) {
       const s = this.state;
@@ -7950,6 +9843,7 @@
         rarity,
         s.currentDifficultyLevel
       );
+      applyRuntimeEnemyScaling(stats, s.elapsedSeconds, s.currentWave);
       const el = document.createElement("div");
       el.id = `enemy-${s.nextEnemyId++}`;
       el.className = typeConfig.cssClass + rarityConfig.cssSuffix;
@@ -8093,15 +9987,15 @@
         }
         const { x: px, y: py } = this.ui.getPlayerPosition();
         const behavior = enemy.typeConfig.behavior;
-        const now = Date.now();
-        let speed = enemy.stats.moveSpeed;
-        if (behavior === "dash" && !enemy.dashing && now - enemy.lastDashTime >= (enemy.typeConfig.dashCooldown || 3e3)) {
+        const simNow = getProjectedSimMs(s);
+        let speed = scaleMovementSpeed(s, enemy.stats.moveSpeed);
+        if (behavior === "dash" && !enemy.dashing && simNow - enemy.lastDashTime >= (enemy.typeConfig.dashCooldown || 3e3)) {
           enemy.dashing = true;
-          enemy.lastDashTime = now;
+          enemy.lastDashTime = simNow;
           speed *= enemy.typeConfig.dashSpeed || 2.5;
           const dashTimeout = setTimeout(() => {
             enemy.dashing = false;
-          }, 400);
+          }, scaledRealTimeoutMs(s, 400));
           s.trackTimeout(dashTimeout);
         }
         const angle = Math.atan2(py - ey, px - ex);
@@ -8139,7 +10033,7 @@
       const forceProjectile = Boolean(attackOpts.forceProjectile || attackOpts.projectileClass);
       const isMelee = !forceProjectile && usesMeleeBasicAttack(s.selectedModelClass);
       if (!excludeTarget && !attackOpts.skipPlayerAnim) {
-        s.lastAttackTime = Date.now();
+        s.lastAttackTime = getProjectedSimMs(s);
         const tx = parseFloat(nearest.element.style.left);
         const ty = parseFloat(nearest.element.style.top);
         if (isMelee) {
@@ -8333,28 +10227,32 @@
     _applyBurn(enemy, totalBurnDamage, duration) {
       if (totalBurnDamage <= 0) return;
       const s = this.state;
+      const simNow = getProjectedSimMs(s);
       this.effects.applyBurnAura(enemy.element);
       if (!s.statusEffects[enemy.id]) s.statusEffects[enemy.id] = {};
       s.statusEffects[enemy.id].burn = {
         damagePerTick: totalBurnDamage / 6,
-        endTime: Date.now() + duration,
-        lastTick: Date.now()
+        endTime: simNow + duration,
+        lastTick: simNow
       };
     }
     _applySlow(enemy, slowPercent, duration) {
       const s = this.state;
+      const simNow = getProjectedSimMs(s);
       this.effects.applyFrostAura(enemy.element);
       enemy.stats.moveSpeed = enemy.baseMoveSpeed * (1 - slowPercent / 100);
       if (!s.statusEffects[enemy.id]) s.statusEffects[enemy.id] = {};
-      s.statusEffects[enemy.id].slow = { endTime: Date.now() + duration };
+      s.statusEffects[enemy.id].slow = { endTime: simNow + duration };
     }
     _applyFreeze(enemy, duration) {
       const s = this.state;
+      const simNow = getProjectedSimMs(s);
       enemy.frozen = true;
       if (!s.statusEffects[enemy.id]) s.statusEffects[enemy.id] = {};
-      s.statusEffects[enemy.id].freeze = { endTime: Date.now() + duration };
+      s.statusEffects[enemy.id].freeze = { endTime: simNow + duration };
     }
     _enemyAttackPlayer(enemy) {
+      if ((enemy.stats?.hp ?? 0) <= 0) return;
       const s = this.state;
       const { x: px, y: py } = this.ui.getPlayerPosition();
       const ex = parseFloat(enemy.element.style.left);
@@ -8369,6 +10267,10 @@
         this.effects.triggerEnemyAttackAnimation(enemy.element, px, py);
         if (rollChance(s.stats.evade)) return;
         const abilities = this._getAbilityLevels();
+        const reflectBasis = calculateEnemyHitDamageForReflect({
+          enemyDamage: enemy.stats.physicalDamage,
+          elapsedSeconds: s.elapsedSeconds
+        });
         const damage = calculatePlayerIncomingDamage({
           enemyDamage: enemy.stats.physicalDamage,
           playerArmour: s.stats.armour,
@@ -8376,69 +10278,67 @@
           ignoreArmour: Boolean(enemy.stats.ignoreArmour),
           elapsedSeconds: s.elapsedSeconds
         });
-        s.stats.hp -= this.characterPassives?.absorbDamage(damage) ?? damage;
-        this._onPlayerDamaged();
-        this._applyReflectDamage(enemy, damage);
+        this.dealPlayerDamage(damage);
+        this._applyReflectDamage(enemy, reflectBasis);
       }
     }
     /**
-     * Return-damage Reflect: deals % of damage just taken back to the attacker.
+     * Return-damage Reflect: deals % of pre-mitigation enemy hit back to the attacker.
      * Works for melee and ranged; does not miss or crit.
      * @param {object} enemy
-     * @param {number} damageTaken
+     * @param {number} hitDamage Pre-mitigation enemy attack damage
      */
-    _applyReflectDamage(enemy, damageTaken) {
+    _applyReflectDamage(enemy, hitDamage) {
       const s = this.state;
-      if (!enemy || enemy.stats?.hp <= 0) return;
-      const reflectLevel = s.abilityList.Reflect?.level || 0;
-      const reflected = calculateReflectDamage(damageTaken, reflectLevel);
+      if (!enemy) return;
+      const { reflectLevel } = this._getAbilityLevels();
+      const { reflected, remainingHp } = applyReflectDamageToAttacker(
+        hitDamage,
+        reflectLevel,
+        enemy.stats?.hp ?? 0
+      );
       if (reflected <= 0) return;
-      enemy.stats.hp -= reflected;
+      enemy.stats.hp = remainingHp;
       const ex = parseFloat(enemy.element.style.left);
       const ey = parseFloat(enemy.element.style.top);
       this.effects.triggerEnemyHitAnimation(enemy.element);
-      this.effects.spawnHitEffect(ex, ey, "physical");
-      this.effects.spawnDamageNumber(ex, ey - 2, reflected, false, "physical");
+      if (!this.effects.isCosmeticThrottled()) {
+        this.effects.spawnHitEffect(ex, ey, "reflect");
+      }
+      this.effects.spawnDamageNumber(ex, ey - 2, reflected, false, "reflect");
       this._updateEnemyHealthBar(enemy);
       if (enemy.stats.hp <= 0) this._removeEnemy(enemy);
     }
     _fireEnemyProjectile(enemy) {
+      if ((enemy.stats?.hp ?? 0) <= 0) return;
       const s = this.state;
-      const el = document.createElement("div");
-      el.className = "enemy-projectile";
       const ex = parseFloat(enemy.element.style.left);
       const ey = parseFloat(enemy.element.style.top);
-      el.style.left = `${ex}vw`;
-      el.style.top = `${ey}vh`;
-      this.ui.els.gameContainer.appendChild(el);
       const ignoreArmour = Boolean(enemy.stats.ignoreArmour);
-      this.enemyProjectiles.track(el, () => {
-        const { x: px, y: py } = this.ui.getPlayerPosition();
-        const bx = parseFloat(el.style.left);
-        const by = parseFloat(el.style.top);
-        const angle = Math.atan2(py - by, px - bx);
-        const nx = bx + Math.cos(angle) * 1.5;
-        const ny = by + Math.sin(angle) * 1.5;
-        el.style.left = `${nx}vw`;
-        el.style.top = `${ny}vh`;
-        const dist = distanceVw(nx, ny, px, py, window.innerWidth, window.innerHeight);
-        if (dist < 30) {
-          if (!rollChance(s.stats.evade)) {
-            const abilities = this._getAbilityLevels();
-            const damage = calculatePlayerIncomingDamage({
-              enemyDamage: enemy.stats.physicalDamage,
-              playerArmour: s.stats.armour,
-              damageReductionLevel: abilities.damageReductionLevel,
-              ignoreArmour,
-              elapsedSeconds: s.elapsedSeconds
-            });
-            s.stats.hp -= this.characterPassives?.absorbDamage(damage) ?? damage;
-            this._onPlayerDamaged();
-            if (enemy.stats?.hp > 0) this._applyReflectDamage(enemy, damage);
-          }
-          return false;
+      const damage = enemy.stats.physicalDamage;
+      const ownerId = enemy.id;
+      this.enemyProjectiles.spawn({
+        x: ex,
+        y: ey,
+        ownerId,
+        onHit: () => {
+          if (!s.enemies.some((e) => e.id === ownerId && (e.stats?.hp ?? 0) > 0)) return;
+          if (rollChance(s.stats.evade)) return;
+          const abilities = this._getAbilityLevels();
+          const reflectBasis = calculateEnemyHitDamageForReflect({
+            enemyDamage: damage,
+            elapsedSeconds: s.elapsedSeconds
+          });
+          this.dealPlayerDamage(calculatePlayerIncomingDamage({
+            enemyDamage: damage,
+            playerArmour: s.stats.armour,
+            damageReductionLevel: abilities.damageReductionLevel,
+            ignoreArmour,
+            elapsedSeconds: s.elapsedSeconds
+          }));
+          const attacker = s.enemies.find((e) => e.id === ownerId);
+          if (attacker?.stats?.hp > 0) this._applyReflectDamage(attacker, reflectBasis);
         }
-        return true;
       });
     }
     _removeEnemy(enemy) {
@@ -8486,24 +10386,33 @@
       this.effects.spawnDeathExplosion(ex, ey, enemy.rarity);
       delete s.statusEffects[enemy.id];
       handleEnemyDeathEffects(this, enemy, ex, ey, grantRewards);
+      if (enemy.milestoneBossWave) {
+        this.bossHud.onBossDeath(enemy, s.enemies);
+      }
       s.cancelAnimation(enemy.moveAnimationId);
       delete s.enemyAttackCooldown[enemy.id];
+      this.enemyProjectiles?.removeForOwner(enemy.id);
       enemy.element.remove();
       const idx = s.enemies.indexOf(enemy);
       if (idx !== -1) s.enemies.splice(idx, 1);
     }
     /** @param {object} enemy @param {number} x @param {number} y */
     _tryDropGear(enemy, x, y) {
-      const category = enemy.isTreasure ? "treasure" : enemy.rarity;
-      if (!shouldDropGear(category, this.state.currentWave)) return;
       const ilvl = computeDropIlvl(
         this.state.stats.level,
         this.state.currentDifficultyLevel
       );
-      const item = rollLootDrop(category, ilvl);
-      if (this.gearLootFilter?.shouldAutoDelete(item.rarity)) {
+      if (enemy.milestoneBossWave && milestoneBossGuaranteesUniqueLoot(enemy.milestoneBossWave)) {
+        this._grantGearItem(rollGuaranteedUniqueDrop(ilvl), x, y);
         return;
       }
+      const category = enemy.isTreasure ? "treasure" : enemy.rarity;
+      if (!shouldDropGear(category, this.state.currentWave)) return;
+      this._grantGearItem(rollLootDrop(category, ilvl), x, y);
+    }
+    /** @param {object} item @param {number} x @param {number} y */
+    _grantGearItem(item, x, y) {
+      if (this.gearLootFilter?.shouldAutoDelete(item.rarity)) return;
       if (!this.gearInventory.addItem(item)) return;
       this.state.itemsLooted += 1;
       this.effects.spawnLootBurst(x, y);
@@ -8666,6 +10575,9 @@
       const fill = enemy.element.querySelector(".enemy-health-bar-fill");
       if (fill) {
         fill.style.width = `${enemy.stats.hp / enemy.stats.maxHp * 100}%`;
+      }
+      if (enemy.milestoneBossWave) {
+        this.bossHud.update(enemy);
       }
     }
   };

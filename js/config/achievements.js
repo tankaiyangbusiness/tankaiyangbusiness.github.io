@@ -1,7 +1,10 @@
 /**
  * Achievement / challenge definitions for Survivor Arena.
  * Each entry: id, title, description (shown on hover), cute icon, and unlock check(ctx).
- *
+ */
+import { CHARACTERS } from './characters.js';
+
+/**
  * @typedef {{
  *   id: string,
  *   title: string,
@@ -34,6 +37,11 @@
  *   totalRuns?: number,
  *   maxHpReached?: number,
  *   maxHp?: number,
+ *   critChanceReached?: number,
+ *   critMultiplierReached?: number,
+ *   hpRegenReached?: number,
+ *   physicalDamageReached?: number,
+ *   charactersBeatGame?: number,
  *   finalVictoryAchieved?: boolean
  * }} AchievementContext
  */
@@ -50,6 +58,34 @@
 function ach(id, title, description, icon, check) {
     return { id, title, description, icon, check };
 }
+
+/** Combo achievement tuning — exported for tests and balance docs. */
+export const COMBO_ACHIEVEMENT_LIMITS = {
+    /** Swarm types unlock ~wave 7; allow time for density to ramp. */
+    blitzKills: 200,
+    blitzMaxSeconds: 300,
+    slayerTimeKills: 1000,
+    slayerTimeMaxSeconds: 720,
+    earlyPressureKills: 100,
+    earlyPressureMaxWave: 10,
+    speedMinWave: 24,
+    speedMaxSeconds: 600
+};
+
+/** Stat milestone thresholds — single tuning surface for build achievements. */
+export const STAT_ACHIEVEMENT_THRESHOLDS = {
+    maxHp: 10000,
+    critChance: 100,
+    critMultiplier: 500,
+    hpRegen: 1000,
+    physicalDamage: 3000
+};
+
+/** Meta roster victory thresholds. */
+export const META_ACHIEVEMENT_THRESHOLDS = {
+    charactersBeatGameTrio: 3,
+    charactersBeatGameFullRoster: CHARACTERS.length
+};
 
 /** @type {AchievementDef[]} */
 export const ACHIEVEMENTS = [
@@ -73,6 +109,7 @@ export const ACHIEVEMENTS = [
     ach('level_35', 'Warlord', 'Reach level 35 in one run.', '👑', ctx => ctx.level >= 35),
     ach('level_50', 'Elite Hunter', 'Reach level 50 in one run.', '💎', ctx => ctx.level >= 50),
     ach('level_75', 'Apex Predator', 'Reach level 75 in one run.', '🐆', ctx => ctx.level >= 75),
+    ach('level_100', 'Centennial', 'Reach level 100 in one run.', '🌟', ctx => ctx.level >= 100),
 
     // —— Survival time ——
     ach('survive_1m', 'One Minute', 'Survive 1 minute.', '⏱️', ctx => ctx.elapsedSeconds >= 60),
@@ -104,7 +141,7 @@ export const ACHIEVEMENTS = [
     ach('treasure_1', 'Lucky Find', 'Open 1 treasure chest in one run.', '🎁', ctx => ctx.treasuresOpened >= 1),
     ach('treasure_3', 'Chest Curious', 'Open 3 treasure chests in one run.', '📦', ctx => ctx.treasuresOpened >= 3),
     ach('treasure_5', 'Treasure Hunter', 'Open 5 treasure chests in one run.', '🗺️', ctx => ctx.treasuresOpened >= 5),
-    ach('treasure_10', 'Pirate Greed', 'Open 10 treasure chests in one run.', '🏴‍☠️', ctx => ctx.treasuresOpened >= 10),
+    ach('treasure_lucky', 'Shiny Surprise', 'Open 7 treasure chests in one run.', '✨', ctx => ctx.treasuresOpened >= 7),
 
     // —— Gear ——
     ach('loot_1', 'First Drop', 'Pick up 1 item in one run.', '🎒', ctx => ctx.itemsLooted >= 1),
@@ -117,14 +154,26 @@ export const ACHIEVEMENTS = [
     ach('gear_5', 'Geared Up', 'Equip items in 5 slots.', '🧤', ctx => ctx.equippedGearCount >= 5),
     ach('gear_full', 'Fully Loaded', 'Equip items in all 7 slots.', '🦾', ctx => ctx.equippedGearCount >= 7),
     ach('hp_5000', 'Iron Heart', 'Reach 5,000 maximum HP in one run.', '❤️‍🔥', ctx => (ctx.maxHpReached ?? ctx.maxHp ?? 0) >= 5000),
+    ach('hp_10000', 'Absolute Unit', 'Reach 10,000 maximum HP in one run.', '🫀', ctx =>
+        (ctx.maxHpReached ?? ctx.maxHp ?? 0) >= STAT_ACHIEVEMENT_THRESHOLDS.maxHp),
+    ach('crit_100', 'Crit Happens', 'Reach 100% crit chance in one run.', '🎲', ctx =>
+        (ctx.critChanceReached ?? 0) >= STAT_ACHIEVEMENT_THRESHOLDS.critChance),
+    ach('crit_dmg_500', 'Overkill Energy', 'Reach 500% crit damage in one run.', '💥', ctx =>
+        (ctx.critMultiplierReached ?? 0) >= STAT_ACHIEVEMENT_THRESHOLDS.critMultiplier),
+    ach('regen_1000', 'Soup Kitchen Hero', 'Reach 1,000 HP regen per tick in one run.', '🍲', ctx =>
+        (ctx.hpRegenReached ?? 0) >= STAT_ACHIEVEMENT_THRESHOLDS.hpRegen),
+    ach('damage_3000', 'Number Go Up', 'Reach 3,000 physical damage in one run.', '📈', ctx =>
+        (ctx.physicalDamageReached ?? 0) >= STAT_ACHIEVEMENT_THRESHOLDS.physicalDamage),
 
     // —— Skills ——
     ach('skill_any', 'First Spell', 'Learn any active skill (sum of levels ≥ 1).', '🪄', ctx => (ctx.skillLevelSum ?? 0) >= 1),
     ach('skill_5', 'Spell Student', 'Reach 5 total skill levels.', '📘', ctx => (ctx.skillLevelSum ?? 0) >= 5),
-    ach('skill_15', 'Spell Adept', 'Reach 15 total skill levels.', '📗', ctx => (ctx.skillLevelSum ?? 0) >= 15),
-    ach('skill_30', 'Spell Master', 'Reach 30 total skill levels.', '📕', ctx => (ctx.skillLevelSum ?? 0) >= 30),
-    ach('skill_max_1', 'Specialize', 'Max out any one skill.', '🎯', ctx => (ctx.skillsAtMax ?? 0) >= 1),
-    ach('skill_max_3', 'Multi-Talent', 'Max out 3 different skills.', '🌟', ctx => (ctx.skillsAtMax ?? 0) >= 3),
+
+    // —— Meta roster victories ——
+    ach('victory_trio', 'Triple Threat', 'Beat the game with 3 different characters.', '🎭', ctx =>
+        (ctx.charactersBeatGame ?? 0) >= META_ACHIEVEMENT_THRESHOLDS.charactersBeatGameTrio),
+    ach('victory_full_roster', 'Cast Party', `Beat the game with all ${META_ACHIEVEMENT_THRESHOLDS.charactersBeatGameFullRoster} characters.`, '🎪', ctx =>
+        (ctx.charactersBeatGame ?? 0) >= META_ACHIEVEMENT_THRESHOLDS.charactersBeatGameFullRoster),
 
     // —— Special enemies ——
     ach('elite_1', 'Elite Hunter', 'Defeat 1 elite enemy in one run.', '🟣', ctx => (ctx.elitesKilled ?? 0) >= 1),
@@ -133,9 +182,10 @@ export const ACHIEVEMENTS = [
     ach('boss_3', 'Boss Bane', 'Defeat 3 bosses in one run.', '🐉', ctx => (ctx.bossesKilled ?? 0) >= 3),
     ach('boss_5', 'Dragon Killer', 'Defeat 5 bosses in one run.', '🔥', ctx => (ctx.bossesKilled ?? 0) >= 5),
 
-    // —— Combo challenges (tuned for real clear pace — early packs are denser) ——
-    ach('combo_kills_wave', 'Early Pressure', 'Get 120 kills before wave 8.', '⚡', ctx =>
-        ctx.killCount >= 120 && (ctx.maxWaveReached ?? ctx.currentWave ?? 99) <= 8),
+    // —— Combo challenges (tuned for swarm unlock ~wave 7 and warmup spawn curve) ——
+    ach('combo_kills_wave', 'Early Pressure', `Get ${COMBO_ACHIEVEMENT_LIMITS.earlyPressureKills} kills before wave ${COMBO_ACHIEVEMENT_LIMITS.earlyPressureMaxWave + 1}.`, '⚡', ctx =>
+        ctx.killCount >= COMBO_ACHIEVEMENT_LIMITS.earlyPressureKills
+        && (ctx.maxWaveReached ?? ctx.currentWave ?? 99) <= COMBO_ACHIEVEMENT_LIMITS.earlyPressureMaxWave),
     ach('combo_level_streak', 'Perfect Flow', 'Reach level 15 with a best streak of 30+.', '🎭', ctx =>
         ctx.level >= 15 && ctx.bestStreak >= 30),
     ach('combo_treasure_loot', 'Fortune Favored', 'Open 5 chests and loot 20 items in one run.', '💰', ctx =>
@@ -144,13 +194,16 @@ export const ACHIEVEMENTS = [
         ctx.elapsedSeconds >= 900 && ctx.equippedGearCount >= 5),
     ach('combo_glass', 'Glass Cannon', 'Reach wave 18 with fewer than 3 gear pieces equipped.', '🍾', ctx =>
         (ctx.maxWaveReached ?? ctx.currentWave ?? 0) >= 18 && ctx.equippedGearCount < 3),
-    /** Wave advances by clock (~20s); wave 24 ≈ 7.7 min — requiring ≤ 8 min is a true rush. */
-    ach('combo_speed', 'Speed Demon', 'Reach wave 24 within 8 minutes.', '🚀', ctx =>
-        (ctx.maxWaveReached ?? ctx.currentWave ?? 0) >= 24 && ctx.elapsedSeconds <= 480),
-    ach('combo_slayer_time', 'Efficient Killer', 'Get 1000 kills within 10 minutes.', '🎳', ctx =>
-        ctx.killCount >= 1000 && ctx.elapsedSeconds <= 600),
-    ach('combo_blitz', 'Blitz Pack', 'Get 200 kills within 3 minutes.', '⚡', ctx =>
-        ctx.killCount >= 200 && ctx.elapsedSeconds <= 180),
+    /** Wave advances by clock (~20s); wave 24 ≈ 7.7 min — requiring ≤ 10 min leaves room for slow starts. */
+    ach('combo_speed', 'Speed Demon', `Reach wave ${COMBO_ACHIEVEMENT_LIMITS.speedMinWave} within ${COMBO_ACHIEVEMENT_LIMITS.speedMaxSeconds / 60} minutes.`, '🚀', ctx =>
+        (ctx.maxWaveReached ?? ctx.currentWave ?? 0) >= COMBO_ACHIEVEMENT_LIMITS.speedMinWave
+        && ctx.elapsedSeconds <= COMBO_ACHIEVEMENT_LIMITS.speedMaxSeconds),
+    ach('combo_slayer_time', 'Efficient Killer', `Get ${COMBO_ACHIEVEMENT_LIMITS.slayerTimeKills} kills within ${COMBO_ACHIEVEMENT_LIMITS.slayerTimeMaxSeconds / 60} minutes.`, '🎳', ctx =>
+        ctx.killCount >= COMBO_ACHIEVEMENT_LIMITS.slayerTimeKills
+        && ctx.elapsedSeconds <= COMBO_ACHIEVEMENT_LIMITS.slayerTimeMaxSeconds),
+    ach('combo_blitz', 'Blitz Pack', `Get ${COMBO_ACHIEVEMENT_LIMITS.blitzKills} kills within ${COMBO_ACHIEVEMENT_LIMITS.blitzMaxSeconds / 60} minutes.`, '⚡', ctx =>
+        ctx.killCount >= COMBO_ACHIEVEMENT_LIMITS.blitzKills
+        && ctx.elapsedSeconds <= COMBO_ACHIEVEMENT_LIMITS.blitzMaxSeconds),
     ach('combo_endurance_kills', 'War of Attrition', 'Get 1500 kills in one run.', '🪓', ctx =>
         ctx.killCount >= 1500),
 ];

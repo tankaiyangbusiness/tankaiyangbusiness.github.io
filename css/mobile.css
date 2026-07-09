@@ -1,0 +1,466 @@
+/**
+ * Mobile layout — loaded after desktop styles; only applies below MOBILE_BREAKPOINT.
+ * Desktop (wider than 768px) is unchanged.
+ */
+
+@media (max-width: 768px) {
+    /* --- Global touch / viewport --- */
+    html, body {
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+        overscroll-behavior: none;
+    }
+
+    #game-container,
+    #game-area {
+        width: 100vw;
+        height: 100dvh;
+        max-height: 100dvh;
+    }
+
+    /* --- Character select --- */
+    #character-selection {
+        display: grid;
+        grid-template-columns: 1fr;
+        grid-template-rows: auto 1fr auto;
+        grid-template-areas:
+            "header"
+            "body"
+            "hint";
+        padding:
+            max(0.5rem, env(safe-area-inset-top))
+            max(0.65rem, env(safe-area-inset-right))
+            max(0.65rem, env(safe-area-inset-bottom))
+            max(0.65rem, env(safe-area-inset-left));
+        gap: 0.35rem;
+        height: 100dvh;
+        max-height: 100dvh;
+        overflow: hidden;
+    }
+
+    .char-select-header {
+        grid-area: header;
+        padding-top: 2.4rem;
+        padding-right: 0.25rem;
+    }
+
+    .char-select-body {
+        grid-area: body;
+        min-height: 0;
+    }
+
+    .controls-hint {
+        grid-area: hint;
+        flex-shrink: 0;
+        font-size: 0.72rem;
+        padding: 0 0.25rem;
+    }
+
+    .controls-hint--desktop {
+        display: none;
+    }
+
+    .controls-hint--mobile {
+        display: block;
+    }
+
+    .game-title {
+        font-size: clamp(1.35rem, 6vw, 1.85rem);
+    }
+
+    .game-subtitle,
+    .game-objective {
+        font-size: 0.82rem;
+    }
+
+    .game-objective {
+        padding: 0.35rem 0.55rem;
+    }
+
+    .char-audio-dock {
+        position: absolute;
+        top: max(0.35rem, env(safe-area-inset-top));
+        right: max(0.45rem, env(safe-area-inset-right));
+        z-index: 12;
+        margin: 0;
+    }
+
+    .audio-controls-dock {
+        flex-direction: row;
+        gap: 0.5rem;
+        padding: 0.35rem 0.5rem;
+    }
+
+    .audio-controls-dock .audio-slider-row {
+        min-width: 0;
+        flex: 1;
+    }
+
+    #character-list {
+        grid-template-columns: 1fr;
+        width: 100%;
+        max-width: 100%;
+        margin: 0;
+        gap: 0.65rem;
+        padding: 0.25rem 0 0.5rem;
+    }
+
+    .character-index {
+        top: 0.4rem;
+        right: 0.45rem;
+    }
+
+    .section-title {
+        font-size: 0.95rem;
+    }
+
+    /* --- Mobile menu button (ESC equivalent) --- */
+    .mobile-menu-btn {
+        display: none;
+        grid-area: menu;
+        align-self: start;
+        justify-self: end;
+        pointer-events: auto;
+        z-index: 40;
+        width: 44px;
+        height: 44px;
+        margin: 0;
+        padding: 0;
+        border-radius: 10px;
+        border: 1px solid rgba(56, 189, 248, 0.45);
+        background: rgba(15, 23, 42, 0.92);
+        color: #7dd3fc;
+        font-family: inherit;
+        cursor: pointer;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+        backdrop-filter: blur(8px);
+        -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
+    }
+
+    .mobile-menu-btn:not([hidden]) {
+        display: flex;
+    }
+
+    .mobile-menu-btn:active {
+        transform: scale(0.96);
+        background: rgba(56, 189, 248, 0.18);
+    }
+
+    .mobile-menu-btn-icon {
+        font-size: 1.25rem;
+        line-height: 1;
+    }
+
+    /* --- Compact HUD top: HP/shield only + mini meta + timer --- */
+    .hud-top {
+        grid-template-columns: 1fr auto auto;
+        grid-template-areas:
+            "stats meta menu"
+            "stats timer menu";
+        padding: 0.45rem 0.5rem;
+        gap: 0.35rem 0.5rem;
+        align-items: start;
+    }
+
+    .hud-stats-wrap {
+        grid-area: stats;
+        width: 100%;
+        max-width: 52vw;
+    }
+
+    .hud-meta-center {
+        grid-area: meta;
+        justify-self: end;
+        padding-top: 0;
+        gap: 0.25rem;
+    }
+
+    .hud-timer-wrap {
+        grid-area: timer;
+        justify-self: end;
+        padding-right: 0;
+    }
+
+    /* Mobile HUD: HP bar + level; stats grid collapsible; passive icon hidden */
+    .character-passive-btn {
+        display: none !important;
+    }
+
+    .stat-level-row {
+        display: flex !important;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 0.2rem;
+    }
+
+    .stat-level-row .stat-level {
+        font-size: 0.95rem;
+        line-height: 1.1;
+    }
+
+    .stats-detail-toggle {
+        display: inline-flex;
+    }
+
+    .stat-hp-label {
+        display: none;
+    }
+
+    .stat-row-hp .bar-container {
+        margin-top: 0;
+    }
+
+    .stats-panel--detail-collapsed .stats-grid {
+        display: none !important;
+    }
+
+    .stats-panel:not(.stats-panel--detail-collapsed) .stats-grid {
+        display: grid !important;
+    }
+
+    .stats-panel {
+        min-width: 0;
+        width: 100%;
+        padding: 0.45rem 0.55rem;
+        border-radius: 10px;
+    }
+
+    .stat-row {
+        margin-bottom: 0.35rem;
+    }
+
+    .stat-row:last-child {
+        margin-bottom: 0;
+    }
+
+    .stat-row label {
+        font-size: 0.62rem;
+        letter-spacing: 0.04em;
+    }
+
+    .bar-container {
+        height: 16px;
+        margin-top: 2px;
+        border-radius: 8px;
+    }
+
+    .bar-fill {
+        border-radius: 7px;
+    }
+
+    .bar-text {
+        font-size: 0.62rem;
+    }
+
+    .meta-panel {
+        gap: 0.45rem;
+        padding: 0.3rem 0.45rem;
+        border-radius: 8px;
+    }
+
+    .meta-item {
+        min-width: 2.4rem;
+    }
+
+    .meta-label {
+        font-size: 0.55rem;
+    }
+
+    .meta-value {
+        font-size: 0.95rem;
+    }
+
+    .timer-display {
+        font-size: 0.95rem;
+    }
+
+    .game-speed-controls {
+        gap: 0.2rem;
+    }
+
+    .game-speed-btn {
+        min-width: 1.85rem;
+        height: 1.45rem;
+        font-size: 0.65rem;
+        padding: 0 0.25rem;
+    }
+
+    .hud-timer-wrap {
+        gap: 0.25rem;
+    }
+
+    /* Hide enemy guide on mobile — saves space; desktop unchanged */
+    .enemy-guide-panel {
+        display: none !important;
+    }
+
+    /* No skill bar on mobile */
+    .hud-skill-dock {
+        display: none !important;
+    }
+
+    /* EXP — thin line only, no numeric overlay */
+    .exp-bar-container {
+        bottom: 0.55rem;
+        width: calc(100% - 1rem);
+        height: 5px;
+        border-radius: 3px;
+        border-width: 1px;
+        background: rgba(15, 23, 42, 0.75);
+    }
+
+    .exp-bar-fill {
+        border-radius: 2px;
+        box-shadow: none;
+    }
+
+    .exp-bar-text {
+        display: none !important;
+    }
+
+    /* --- Gear & upgrade: compact corner toggles, bottom sheet when open --- */
+    .gear-panel,
+    .upgrade-panel {
+        bottom: 1.35rem;
+        max-width: none;
+        z-index: 28;
+    }
+
+    .gear-panel {
+        left: 0.45rem;
+        right: auto;
+        align-items: flex-start;
+    }
+
+    .upgrade-panel {
+        right: 0.45rem;
+        left: auto;
+        align-items: flex-end;
+    }
+
+    .gear-panel-toggle,
+    .upgrade-panel-toggle {
+        padding: 0.42rem 0.65rem;
+        font-size: 0.72rem;
+        border-radius: 8px;
+        min-height: 36px;
+    }
+
+    .gear-panel-badge,
+    .upgrade-panel-badge {
+        min-width: 1.15rem;
+        height: 1.15rem;
+        font-size: 0.68rem;
+    }
+
+    .gear-panel-expanded,
+    .upgrade-panel-expanded {
+        left: 0.45rem !important;
+        right: 0.45rem !important;
+        bottom: 3.25rem !important;
+        width: calc(100vw - 0.9rem);
+        max-width: calc(100vw - 0.9rem);
+    }
+
+    .gear-panel-expanded {
+        align-items: stretch;
+    }
+
+    .upgrade-panel-expanded {
+        align-items: stretch;
+    }
+
+    .gear-panel-expanded .gear-panel-body {
+        max-height: 42dvh;
+        padding: 0.45rem;
+    }
+
+    .upgrade-panel-expanded .upgrade-panel-body {
+        max-height: 46dvh;
+        padding: 0.55rem 0.65rem;
+    }
+
+    .gear-slots {
+        gap: 0.3rem;
+    }
+
+    .gear-slot {
+        height: 48px;
+        max-height: 48px;
+        font-size: 0.65rem;
+    }
+
+    .gear-inventory-list {
+        max-height: 28dvh;
+    }
+
+    .upgrade-panel-header h3 {
+        font-size: 0.95rem;
+    }
+
+    .upgrade-panel-queue {
+        font-size: 0.72rem;
+    }
+
+    .upgrade-category-btn,
+    .upgrade-choice-btn {
+        padding: 0.45rem 0.55rem;
+        font-size: 0.78rem;
+    }
+
+    .upgrade-hint {
+        display: none;
+    }
+
+    .gear-section-title {
+        font-size: 0.72rem;
+    }
+
+    .gear-section-hint {
+        font-size: 0.62rem;
+    }
+
+    /* Toasts / overlays */
+    .hud-toast,
+    .achievement-toast,
+    .wave-toast {
+        max-width: calc(100vw - 1.5rem);
+        font-size: 0.78rem;
+    }
+
+    .wave-toast {
+        top: 3.5rem;
+    }
+
+    .achievements-panel {
+        min-width: 0;
+        width: calc(100vw - 1rem);
+        max-width: calc(100vw - 1rem);
+    }
+
+    .overlay-content {
+        padding: 1.25rem 1rem;
+        max-width: calc(100vw - 1rem);
+    }
+
+    .pause-menu-actions {
+        flex-direction: column;
+        gap: 0.45rem;
+    }
+
+    .pause-btn {
+        width: 100%;
+        min-height: 44px;
+    }
+
+    .pause-menu .controls-hint--desktop {
+        display: none;
+    }
+
+    .pause-menu .controls-hint--mobile {
+        display: block;
+    }
+}

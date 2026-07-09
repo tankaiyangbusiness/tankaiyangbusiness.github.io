@@ -86,7 +86,8 @@ describe('EffectManager memory safety', () => {
         expect(effects.activeEffects.length).toBe(3);
         vi.advanceTimersByTime(800);
         expect(effects.activeEffects.length).toBe(0);
-        expect(container.children.length).toBe(0);
+        // Pooled nodes stay in the container (hidden) for reuse — no DOM churn.
+        expect(container.children.length).toBe(3);
     });
 
     it('trims oldest effects when over the soft cap', () => {
@@ -103,5 +104,30 @@ describe('EffectManager memory safety', () => {
         effects.cleanup();
         expect(effects.activeEffects.length).toBe(0);
         expect(container.children.length).toBe(0);
+    });
+
+    it('keeps the same effect cap at 4× — only lifetimes scale with speed', () => {
+        effects.setTimeScale(4);
+        expect(effects.maxEffects).toBe(64);
+        for (let i = 0; i < 40; i++) effects.spawnHitEffect(i, i, 'physical');
+        expect(effects.activeEffects.length).toBeLessThanOrEqual(64);
+        expect(container.children.length).toBeLessThanOrEqual(64);
+    });
+
+    it('rate-limits floating damage numbers under burst pressure', () => {
+        let spawned = 0;
+        for (let i = 0; i < 30; i++) {
+            if (effects.spawnDamageNumber(i, i, i, false, 'physical')) spawned++;
+        }
+        expect(spawned).toBeLessThanOrEqual(10);
+    });
+
+    it('pools damage numbers for reuse instead of allocating each spawn', () => {
+        effects.spawnDamageNumber(10, 10, 42, false, 'physical');
+        expect(effects.activeEffects.length).toBe(1);
+        vi.advanceTimersByTime(1200);
+        expect(effects.activeEffects.length).toBe(0);
+        effects.spawnDamageNumber(12, 12, 7, false, 'physical');
+        expect(effects.activeEffects.length).toBe(1);
     });
 });

@@ -10,6 +10,7 @@ import { findEnemiesInRadius, getSkillTags } from '../config/skills.js';
 import { distanceVw, rollChance } from '../utils/math.js';
 import { companionAiStep } from '../utils/companionAi.js';
 import { buildCompanionModelHtml } from '../ui/entityModels.js';
+import { getSimulatedMs, intervalElapsed } from './gameClock.js';
 
 export class CharacterPassiveManager {
     /** @param {import('../game/game.js').Game} game */
@@ -37,12 +38,28 @@ export class CharacterPassiveManager {
         this.def = getCharacterPassive(characterName);
         if (!this.def) return;
 
-        if (this.def.id === 'paladin') this._initShield();
+        const now = this._getSimNow();
+
+        if (this.def.id === 'paladin') this._initShield(now);
         if (this.def.id === 'summoner') this._spawnBears();
-        if (this.def.id === 'berserker') this._frenzyReadyAt = Date.now();
-        if (this.def.id === 'necromancer') this._zombieReadyAt = Date.now();
+        if (this.def.id === 'berserker') this._frenzyReadyAt = now;
+        if (this.def.id === 'necromancer') this._zombieReadyAt = now;
 
         this.game.ui?.setCharacterPassive?.(this.def);
+        this.refreshPassiveHud(now);
+    }
+
+    /** @param {number} [now] */
+    refreshPassiveHud(now = this._getSimNow()) {
+        this.game.ui?.updatePassiveHud?.({
+            shield: this._shield,
+            shieldMax: this._shieldMax,
+            frenzyActive: now < this._frenzyUntil
+        });
+    }
+
+    _getSimNow() {
+        return getSimulatedMs(this.game.state);
     }
 
     /** @param {number} now */
@@ -60,11 +77,7 @@ export class CharacterPassiveManager {
             default: break;
         }
 
-        this.game.ui?.updatePassiveHud?.({
-            shield: this._shield,
-            shieldMax: this._shieldMax,
-            frenzyActive: now < this._frenzyUntil
-        });
+        this.refreshPassiveHud(now);
     }
 
     /**
@@ -137,6 +150,7 @@ export class CharacterPassiveManager {
         if (this.def?.id !== 'paladin' || this._shield <= 0) return damage;
         const blocked = Math.min(this._shield, damage);
         this._shield -= blocked;
+        this.refreshPassiveHud();
         return damage - blocked;
     }
 
@@ -158,17 +172,23 @@ export class CharacterPassiveManager {
 
     // --- implementation ---
 
-    _initShield() {
+    _initShield(now) {
+        this._syncPaladinShieldCap();
+        this._shield = this._shieldMax;
+        this._lastShieldRepair = now;
+    }
+
+    _syncPaladinShieldCap() {
+        if (this.def?.id !== 'paladin') return;
         const maxHp = this.game.state.stats.maxHp;
         this._shieldMax = Math.max(1, Math.floor(maxHp * this.def.params.shieldPercent / 100));
-        this._shield = this._shieldMax;
-        this._lastShieldRepair = Date.now();
+        this._shield = Math.min(this._shield, this._shieldMax);
     }
 
     _tickPaladinShield(now) {
-        if (now - this._lastShieldRepair < this.def.params.repairIntervalMs) return;
+        this._syncPaladinShieldCap();
+        if (!intervalElapsed(this._lastShieldRepair, this.def.params.repairIntervalMs, now)) return;
         this._lastShieldRepair = now;
-        this._shieldMax = Math.max(1, Math.floor(this.game.state.stats.maxHp * this.def.params.shieldPercent / 100));
         this._shield = this._shieldMax;
         const { x, y } = this.game.ui.getPlayerPosition();
         this.game.effects?.spawnCastFlash?.(x, y, 'heal');
@@ -181,7 +201,7 @@ export class CharacterPassiveManager {
         const damage = Math.max(1, Math.floor(this.game.state.stats.hpRegen * this.def.params.regenDamageMult));
         this._splashAround(x, y, this.def.params.radiusPx, damage, null, 'heal');
         this.game.effects?.spawnCastFlash?.(x, y, 'heal');
-        this.game.skillRanges?.showImpactArea?.(x, y, this.def.params.radiusPx, 'holy', 500);
+        this.game.skillRanges?.showImpactArea?.(x, y, this.def.params.radiusPx, 'holy', 650);
     }
 
     _tickCapybara(now) {
@@ -191,6 +211,7 @@ export class CharacterPassiveManager {
         const { x, y } = this.game.ui.getPlayerPosition();
         const damage = Math.max(1, Math.floor(s.stats.physicalDamage * this.def.params.damageMult));
         this._splashAround(x, y, this.def.params.radiusPx, damage, null, 'cold');
+        this.game.skillRanges?.showImpactArea?.(x, y, this.def.params.radiusPx, 'cold', 700);
 
         const heal = Math.max(1, Math.floor(s.stats.maxHp * this.def.params.healPercent / 100));
         s.stats.hp = Math.min(s.stats.maxHp, s.stats.hp + heal);
@@ -394,8 +415,16 @@ export class CharacterPassiveManager {
         minion.el.classList.add('passive-minion-attack');
     }
 
+    _getViewport() {
+        return {
+            innerWidth: typeof window !== 'undefined' ? window.innerWidth : 1920,
+            innerHeight: typeof window !== 'undefined' ? window.innerHeight : 1080
+        };
+    }
+
     _splashAround(cx, cy, radiusPx, damage, excludeId, element) {
         const dmg = Math.max(1, Math.floor(damage));
+        const { innerWidth, innerHeight } = this._getViewport();
         const targets = findEnemiesInRadius(
             this.game.state.enemies.map(e => ({
                 id: e.id,
@@ -404,7 +433,7 @@ export class CharacterPassiveManager {
                 hp: e.stats.hp,
                 ref: e
             })),
-            cx, cy, radiusPx, window.innerWidth, window.innerHeight, excludeId
+            cx, cy, radiusPx, innerWidth, innerHeight, excludeId
         );
         targets.forEach(t => {
             if (t.ref) this.game._dealSkillDamageToEnemy?.(t.ref, dmg, element, false);

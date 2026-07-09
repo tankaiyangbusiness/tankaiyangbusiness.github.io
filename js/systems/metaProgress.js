@@ -5,6 +5,41 @@ const STORAGE_KEY = 'survivor-arena-meta';
 /** localStorage key for best runs, per-character records, and achievements. */
 export const META_STORAGE_KEY = STORAGE_KEY;
 
+/** @typedef {{
+ *   level: number,
+ *   time: number,
+ *   kills: number,
+ *   wave: number,
+ *   beatGame: boolean,
+ *   victoryCount: number
+ * }} CharacterRecord */
+
+/** @returns {CharacterRecord} */
+export function createEmptyCharacterRecord() {
+    return {
+        level: 0,
+        time: 0,
+        kills: 0,
+        wave: 0,
+        beatGame: false,
+        victoryCount: 0
+    };
+}
+
+/** @param {Partial<CharacterRecord>|null|undefined} raw @returns {CharacterRecord} */
+export function normalizeCharacterRecord(raw) {
+    const base = createEmptyCharacterRecord();
+    if (!raw || typeof raw !== 'object') return base;
+    return {
+        level: Math.max(0, Number(raw.level) || 0),
+        time: Math.max(0, Number(raw.time) || 0),
+        kills: Math.max(0, Number(raw.kills) || 0),
+        wave: Math.max(0, Number(raw.wave) || 0),
+        beatGame: Boolean(raw.beatGame),
+        victoryCount: Math.max(0, Number(raw.victoryCount) || 0)
+    };
+}
+
 /** @returns {object} */
 export function createDefaultMeta() {
     return {
@@ -23,6 +58,12 @@ export function loadMetaProgress() {
         const meta = { ...createDefaultMeta(), ...parsed };
         if (!meta.characterRecords) meta.characterRecords = {};
         if (parsed.totalGold !== undefined) delete meta.totalGold;
+
+        const normalized = {};
+        for (const [name, record] of Object.entries(meta.characterRecords)) {
+            normalized[name] = normalizeCharacterRecord(record);
+        }
+        meta.characterRecords = normalized;
         return meta;
     } catch {
         return createDefaultMeta();
@@ -36,25 +77,51 @@ export function saveMetaProgress(meta) {
     } catch { /* noop */ }
 }
 
-/** @param {ReturnType<typeof createDefaultMeta>} meta @param {string} characterName */
+/** @param {ReturnType<typeof createDefaultMeta>} meta @param {string} characterName @returns {CharacterRecord} */
 export function getCharacterRecord(meta, characterName) {
-    return meta.characterRecords[characterName] || { level: 0, time: 0, kills: 0, wave: 0, beatGame: false };
+    return normalizeCharacterRecord(meta.characterRecords[characterName]);
 }
 
 /** @param {ReturnType<typeof createDefaultMeta>} meta @param {string} characterName */
 export function hasCharacterBeatGame(meta, characterName) {
-    return Boolean(getCharacterRecord(meta, characterName).beatGame);
+    return getCharacterRecord(meta, characterName).beatGame;
+}
+
+/** @param {ReturnType<typeof createDefaultMeta>} meta @param {string} characterName */
+export function getCharacterVictoryCount(meta, characterName) {
+    return getCharacterRecord(meta, characterName).victoryCount;
 }
 
 /**
- * Mark a character as having defeated the Wave 100 final boss.
+ * Mark a character as having defeated the Wave 100 final boss (increments win count).
  * @param {ReturnType<typeof createDefaultMeta>} meta @param {string} characterName
  */
 export function markCharacterVictory(meta, characterName) {
     if (!characterName) return;
     const prev = getCharacterRecord(meta, characterName);
-    meta.characterRecords[characterName] = { ...prev, beatGame: true };
+    meta.characterRecords[characterName] = {
+        ...prev,
+        beatGame: true,
+        victoryCount: prev.victoryCount + 1
+    };
     saveMetaProgress(meta);
+}
+
+/**
+ * Record campaign victory when the final boss was defeated but not yet persisted
+ * (e.g. player manually quits to character select right after the kill).
+ * @param {ReturnType<typeof createDefaultMeta>} meta
+ * @param {string} characterName
+ * @param {{ finalBossDefeatedThisRun?: boolean, campaignVictoryRecorded?: boolean, finalVictoryAchieved?: boolean }} runState
+ * @returns {boolean}
+ */
+export function recordCampaignVictoryIfPending(meta, characterName, runState) {
+    if (!characterName || !runState?.finalBossDefeatedThisRun) return false;
+    if (runState.campaignVictoryRecorded) return false;
+    markCharacterVictory(meta, characterName);
+    runState.campaignVictoryRecorded = true;
+    runState.finalVictoryAchieved = true;
+    return true;
 }
 
 /**
@@ -70,6 +137,7 @@ export function updateCharacterRecord(meta, run) {
 
     if (better) {
         meta.characterRecords[run.character] = {
+            ...prev,
             level: run.level,
             time: run.time,
             kills: run.kills,
@@ -85,6 +153,13 @@ export function updateCharacterRecord(meta, run) {
     }
 
     saveMetaProgress(meta);
+}
+
+/** @param {ReturnType<typeof createDefaultMeta>} meta */
+export function countCharactersBeatGame(meta) {
+    return Object.values(meta?.characterRecords || {})
+        .filter(record => normalizeCharacterRecord(record).beatGame)
+        .length;
 }
 
 /** @param {ReturnType<typeof createDefaultMeta>} meta @param {object} ctx */

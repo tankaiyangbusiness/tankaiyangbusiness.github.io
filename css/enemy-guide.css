@@ -1,9 +1,11 @@
-/* Enemy guide — ! toggle beside top-center meta panel */
+/* Enemy guide — ! toggle to the right of the kills / streak / wave row */
 .enemy-guide-panel {
     position: relative;
     font-family: 'Rajdhani', sans-serif;
     pointer-events: auto;
     flex-shrink: 0;
+    align-self: flex-start;
+    z-index: 36;
 }
 
 .enemy-guide-toggle {
@@ -38,8 +40,7 @@
 .enemy-guide-body {
     display: none;
     position: absolute;
-    top: calc(100% + 8px);
-    right: 0;
+    top: 0;
     width: min(300px, calc(100vw - 24px));
     max-height: 55vh;
     overflow-y: auto;
@@ -49,6 +50,29 @@
     background: rgba(15, 23, 42, 0.96);
     box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
     z-index: 50;
+}
+
+/* Default / preferred: expand to the right of the ! toggle */
+.enemy-guide-panel.placement-right .enemy-guide-body,
+.enemy-guide-panel.expanded:not(.placement-left):not(.placement-center) .enemy-guide-body {
+    left: calc(100% + 8px);
+    right: auto;
+    transform: none;
+}
+
+/* Fallback when the HUD is near the right edge */
+.enemy-guide-panel.placement-left .enemy-guide-body {
+    left: auto;
+    right: calc(100% + 8px);
+    transform: none;
+}
+
+/* Narrow viewports — centered below the toggle */
+.enemy-guide-panel.placement-center .enemy-guide-body {
+    left: 50%;
+    right: auto;
+    top: calc(100% + 8px);
+    transform: translateX(-50%);
 }
 
 .enemy-guide-panel.expanded .enemy-guide-body {

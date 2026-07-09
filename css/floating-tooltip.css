@@ -1,0 +1,41 @@
+/* Shared floating hover boxes — gear items, character select, etc. */
+
+.floating-tooltip {
+    position: fixed;
+    z-index: 220;
+    pointer-events: none;
+    min-width: 180px;
+    max-width: min(320px, 92vw);
+    filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.55));
+}
+
+.floating-tooltip-inner {
+    background: linear-gradient(165deg, rgba(15, 23, 42, 0.98) 0%, rgba(2, 6, 23, 0.98) 100%);
+    border: 1px solid rgba(100, 116, 139, 0.5);
+    border-radius: 10px;
+    padding: 0.65rem 0.75rem;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 0.88rem;
+    color: #cbd5e1;
+    line-height: 1.35;
+}
+
+.floating-tooltip--passive .floating-tooltip-inner--passive {
+    border-color: rgba(251, 191, 36, 0.45);
+    box-shadow: 0 0 14px rgba(251, 191, 36, 0.12);
+}
+
+.floating-tooltip--desc .floating-tooltip-inner--desc {
+    border-color: rgba(56, 189, 248, 0.4);
+}
+
+.floating-tooltip-desc {
+    margin: 0;
+    font-size: 0.86rem;
+    color: #94a3b8;
+}
+
+.floating-tooltip .passive-tip-name,
+.floating-tooltip .passive-tip-desc {
+    display: block;
+}

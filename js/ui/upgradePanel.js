@@ -1,3 +1,5 @@
+import { panelsStartCollapsed } from '../utils/viewport.js';
+
 /**
  * Collapsible in-game upgrade panel — spend banked level-ups without pausing.
  */
@@ -11,7 +13,7 @@ export class UpgradePanel {
         this.onSelect = onSelect;
         this.onCategorySelect = onCategorySelect;
         this.onToggle = onToggle;
-        this.expanded = true;
+        this.expanded = !panelsStartCollapsed();
         this._view = 'categories';
 
         this.els = {
@@ -190,7 +192,7 @@ export class UpgradePanel {
     }
 
     reset() {
-        this.expanded = true;
+        this.expanded = !panelsStartCollapsed();
         this._view = 'categories';
         this._applyExpandedClasses();
         this.els.panel?.classList.remove('upgrade-panel-has-pending');

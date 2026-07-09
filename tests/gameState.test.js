@@ -23,6 +23,19 @@ describe('GameState cleanup', () => {
         expect(state.abilityLevelThreshold.length).toBe(30);
     });
 
+    it('initForCharacter clears pause and elapsed state for a fresh run', () => {
+        const state = new GameState();
+        state.gamePaused = true;
+        state.elapsedSeconds = 42;
+        state.initForCharacter({
+            hp: 100, maxHp: 100, buffList: {},
+            skills: { fireball: 0, iceNova: 0, lightningArc: 0 }
+        });
+        expect(state.gamePaused).toBe(false);
+        expect(state.elapsedSeconds).toBe(0);
+        expect(state.pauseTime).toBe(0);
+    });
+
     it('clears enemies and bullets on fullCleanup', () => {
         const state = new GameState();
         const fakeEl = { remove: () => {} };
@@ -120,6 +133,12 @@ describe('buildEnemyStats', () => {
         const grunt = buildEnemyStats('grunt', 'normal', 0);
         const swarm = buildEnemyStats('swarm', 'normal', 0);
         expect(swarm.stats.exp).toBeLessThan(grunt.stats.exp);
+    });
+
+    it('does not use runtime global enemy damage multipliers', () => {
+        expect(BALANCE.enemyDamageGlobalMultiplier).toBeUndefined();
+        const grunt = buildEnemyStats('grunt', 'normal', 0);
+        expect(grunt.stats.physicalDamage).toBeGreaterThan(0);
     });
 });
 

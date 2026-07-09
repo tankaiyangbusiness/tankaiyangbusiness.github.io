@@ -1,5 +1,15 @@
 /** @typedef {'fireball' | 'iceNova' | 'lightningArc' | 'poisonBottle' | 'healingWave' | 'frostbolt' | 'righteousFire' | 'spark' | 'illusion' | 'poisonDagger' | 'hammerSweep' | 'throwSpear'} SkillId */
 
+import {
+    skillLevelDamageMult,
+    skillLevelDamagePercent
+} from './skillScaling.js';
+
+/** Spark cooldown tuning — higher = longer cooldown between casts. */
+export const SPARK_COOLDOWN_BASE_MS = 3600;
+export const SPARK_COOLDOWN_FLOOR_MS = 2000;
+export const SPARK_COOLDOWN_PER_LEVEL_MS = 240;
+
 export const SKILL_IDS = /** @type {const} */ ([
     'fireball', 'iceNova', 'lightningArc', 'poisonBottle', 'healingWave',
     'frostbolt', 'righteousFire', 'spark', 'illusion',
@@ -229,10 +239,10 @@ export function getFireballConfig(level) {
     return {
         cooldown: Math.max(1200, 2500 - level * 200),
         castRange: 160 + level * 35,
-        directDamageMult: 0.75 + level * 0.1,
+        directDamageMult: skillLevelDamageMult(level, 0.75, 0.1),
         splashRadius: 85 + level * 15,
-        splashDamageMult: 0.32 + level * 0.06,
-        burnTotalMult: 0.12 + level * 0.05,
+        splashDamageMult: skillLevelDamageMult(level, 0.32, 0.06),
+        burnTotalMult: skillLevelDamageMult(level, 0.12, 0.05),
         burnDuration: 3500,
         projectileSpeed: 0.95 + level * 0.06,
         /** No pierce — first hit explodes */
@@ -247,7 +257,7 @@ export function getIceNovaConfig(level) {
     return {
         cooldown: Math.max(2000, 4000 - level * 300),
         radius: 70 + level * 22,
-        damageMult: 0.48 + level * 0.11,
+        damageMult: skillLevelDamageMult(level, 0.48, 0.11),
         slowPercent: 18 + level * 6,
         slowDuration: 2200 + level * 200,
         freezeDuration: level >= 3 ? (level - 2) * 550 : 0
@@ -262,7 +272,7 @@ export function getLightningArcConfig(level) {
         cooldown: Math.max(900, 1800 - level * 150),
         castRange: 200 + level * 30,
         chainCount: level,
-        damageMult: 0.5 + level * 0.09,
+        damageMult: skillLevelDamageMult(level, 0.5, 0.09),
         chainRange: 190 + level * 28
     };
 }
@@ -274,11 +284,11 @@ export function getPoisonBottleConfig(level) {
     return {
         cooldown: Math.max(2200, 3800 - level * 280),
         castRange: 180 + level * 32,
-        directDamageMult: 0.35 + level * 0.08,
+        directDamageMult: skillLevelDamageMult(level, 0.35, 0.08),
         poolRadius: 55 + level * 14,
         poolDuration: 4500 + level * 600,
         tickInterval: Math.max(280, 450 - level * 30),
-        tickDamageMult: 0.07 + level * 0.035,
+        tickDamageMult: skillLevelDamageMult(level, 0.07, 0.035),
         projectileSpeed: 0.75 + level * 0.05
     };
 }
@@ -300,7 +310,7 @@ export function getFrostboltConfig(level) {
     return {
         cooldown: Math.max(2800, 4800 - level * 320),
         castRange: 200 + level * 35,
-        damageMult: 0.55 + level * 0.1,
+        damageMult: skillLevelDamageMult(level, 0.55, 0.1),
         projectileSpeed: 0.55 + level * 0.05,
         maxTravel: 55 + level * 8,
         /** Unlimited pierce — travel distance ends the bolt */
@@ -316,8 +326,8 @@ export function getRighteousFireConfig(level) {
     const baseRadius = 55 + level * 18;
     return {
         radius: Math.round(baseRadius * 1.5),
-        /** Lv.1 = 12%, then +2.5% per level */
-        tickDamageMult: 0.095 + level * 0.025,
+        /** Lv.1 ≈ 9.6% tick, steep ramp per level (see skillScaling.js) */
+        tickDamageMult: skillLevelDamageMult(level, 0.095, 0.025),
         tickInterval: Math.max(400, 650 - level * 40)
     };
 }
@@ -327,10 +337,10 @@ export function getSparkConfig(level) {
         return { cooldown: Infinity, sparkCount: 0, damageMult: 0, duration: 0, speed: 0, hitRadiusVw: 0, maxPierce: 0 };
     }
     return {
-        cooldown: Math.max(1600, 3000 - level * 240),
+        cooldown: Math.max(SPARK_COOLDOWN_FLOOR_MS, SPARK_COOLDOWN_BASE_MS - level * SPARK_COOLDOWN_PER_LEVEL_MS),
         /** PoE-style swarm from center */
         sparkCount: 4 + level,
-        damageMult: 0.28 + level * 0.06,
+        damageMult: skillLevelDamageMult(level, 0.28, 0.06),
         duration: 2800 + level * 400,
         /** Slowish spider crawl */
         speed: 0.42 + level * 0.045,
@@ -351,8 +361,8 @@ export function getIllusionConfig(level) {
         /** Faster resummon — ~9.8s at Lv.1 down to 5s floor at Lv.5 */
         cooldown: Math.max(5000, 11000 - level * 1200),
         duration: 4500 + level * 900,
-        /** 30% at Lv.1 → 60% at Lv.5 */
-        damagePercent: 30 + (level - 1) * 7.5,
+        /** 24% at Lv.1 → 99% at Lv.5 (see skillScaling.js) */
+        damagePercent: skillLevelDamagePercent(level, 30, 7.5),
         offsetVw: 4.5
     };
 }
@@ -367,10 +377,10 @@ export function getPoisonDaggerConfig(level) {
     return {
         cooldown: Math.max(1400, 2800 - level * 220),
         castRange: 190 + level * 30,
-        damageMult: 0.5 + level * 0.09,
+        damageMult: skillLevelDamageMult(level, 0.5, 0.09),
         /** Primary dagger forks into this many secondary blades on first hit */
         forkCount: 1 + level,
-        forkDamageMult: 0.32 + level * 0.06,
+        forkDamageMult: skillLevelDamageMult(level, 0.32, 0.06),
         forkSpreadRad: 0.55,
         projectileSpeed: 0.85 + level * 0.05,
         maxTravel: 48 + level * 6,
@@ -386,8 +396,8 @@ export function getHammerSweepConfig(level) {
     return {
         cooldown: Math.max(1800, 3600 - level * 280),
         radius: 75 + level * 20,
-        /** Lv.1 = 96%, then +12% per level */
-        damageMult: 0.84 + level * 0.12
+        /** Lv.1 ≈ 76.8% damage, steep ramp per level (see skillScaling.js) */
+        damageMult: skillLevelDamageMult(level, 0.84, 0.12)
     };
 }
 
@@ -398,7 +408,7 @@ export function getThrowSpearConfig(level) {
     return {
         cooldown: Math.max(1600, 3200 - level * 250),
         castRange: 220 + level * 35,
-        damageMult: 0.62 + level * 0.1,
+        damageMult: skillLevelDamageMult(level, 0.62, 0.1),
         projectileSpeed: 0.72 + level * 0.05,
         maxTravel: 58 + level * 8,
         hitRadiusVw: 2.6 + level * 0.2,

@@ -1,7 +1,7 @@
 import { GEAR_STAT_MULTIPLIER, gearIlvlMultiplier, boostGearStatValue } from '../config/gearBalance.js';
 import { GEAR_SLOTS, getBaseForSlot } from '../config/gearSlots.js';
-import { TIERED_PREFIXES, TIERED_SUFFIXES, pickTieredAffix, rollBaseStatsWithTiers } from '../config/gearAffixTiers.js';
-import { getUniqueById } from '../config/gearUniques.js';
+import { TIERED_PREFIXES, TIERED_SUFFIXES, pickTieredAffix, pickTieredAffixAllowDuplicate, rollBaseStatsWithTiers } from '../config/gearAffixTiers.js';
+import { getUniqueById, UNIQUE_ITEMS, UNIQUE_BOSS_DROP_CONFIG } from '../config/gearUniques.js';
 import { rollAffixCount, rarityFromAffixCount, RARITY_CONFIG } from '../config/gearRarity.js';
 
 let _itemCounter = 0;
@@ -41,13 +41,26 @@ export function computeDropIlvl(playerLevel, difficulty = 0) {
  * @param {string} slot
  * @param {number} ilvl
  * @param {number} affixCount 0–8
+ * @param {{ guaranteeCount?: boolean }} [options]
  */
-export function rollAffixesForItem(slot, ilvl, affixCount) {
+export function rollAffixesForItem(slot, ilvl, affixCount, options = {}) {
     const prefixes = [];
     const suffixes = [];
     const used = new Set();
     let remaining = Math.min(8, Math.max(0, affixCount));
     const maxPerSide = 4;
+    const guaranteeCount = Boolean(options.guaranteeCount);
+
+    const pickFromPool = (pool, tryPrefix) => {
+        let affix = pickTieredAffix(pool, slot, used, ilvl);
+        if (!affix && guaranteeCount) {
+            affix = pickTieredAffixAllowDuplicate(pool, slot, used, ilvl);
+        }
+        if (!affix) return false;
+        if (tryPrefix) prefixes.push(affix);
+        else suffixes.push(affix);
+        return true;
+    };
 
     while (remaining > 0 && (prefixes.length < maxPerSide || suffixes.length < maxPerSide)) {
         const canPre = prefixes.length < maxPerSide;
@@ -56,13 +69,15 @@ export function rollAffixesForItem(slot, ilvl, affixCount) {
 
         const tryPrefix = canPre && (canSuf ? Math.random() < 0.5 : true);
         if (tryPrefix) {
-            const a = pickTieredAffix(TIERED_PREFIXES, slot, used, ilvl);
-            if (a) { prefixes.push(a); remaining--; continue; }
+            if (pickFromPool(TIERED_PREFIXES, true)) { remaining--; continue; }
         }
         if (canSuf) {
-            const a = pickTieredAffix(TIERED_SUFFIXES, slot, used, ilvl);
-            if (a) { suffixes.push(a); remaining--; continue; }
+            if (pickFromPool(TIERED_SUFFIXES, false)) { remaining--; continue; }
         }
+        if (!guaranteeCount) break;
+        // Guaranteed boss drops — try the opposite side before giving up.
+        if (tryPrefix && canSuf && pickFromPool(TIERED_SUFFIXES, false)) { remaining--; continue; }
+        if (!tryPrefix && canPre && pickFromPool(TIERED_PREFIXES, true)) { remaining--; continue; }
         break;
     }
 
@@ -73,12 +88,14 @@ export function rollAffixesForItem(slot, ilvl, affixCount) {
  * Generate gear from slot + item level. Rarity follows affix count rules.
  * @param {string} slot
  * @param {number} ilvl
- * @param {{ affixCount?: number, uniqueId?: string }} [options]
+ * @param {{ affixCount?: number, uniqueId?: string, guaranteeAffixCount?: boolean, affixRollIlvl?: number }} [options]
  */
 export function generateGearItem(slot, ilvl = 1, options = {}) {
     const base = getBaseForSlot(slot);
     const affixCount = options.affixCount ?? 0;
-    const { prefixes, suffixes } = rollAffixesForItem(slot, ilvl, affixCount);
+    const rollIlvl = options.affixRollIlvl ?? ilvl;
+    const affixOpts = options.guaranteeAffixCount ? { guaranteeCount: true } : {};
+    const { prefixes, suffixes } = rollAffixesForItem(slot, rollIlvl, affixCount, affixOpts);
     const totalAffixes = prefixes.length + suffixes.length;
     const { stats: baseStats, rolls: baseStatRolls } = rollBaseStatsWithTiers(base.stats, ilvl);
 
@@ -107,8 +124,8 @@ export function generateGearItem(slot, ilvl = 1, options = {}) {
             item.baseStats = rolled.stats;
             item.baseStatRolls = rolled.rolls;
             item.slot = unique.slot;
-            item.prefixes = [];
-            item.suffixes = [];
+            item.prefixes = prefixes;
+            item.suffixes = suffixes;
             return item;
         }
     }
@@ -145,6 +162,27 @@ export function buildItemName(item) {
 function buildUniqueStyleName(item) {
     const pre = item.prefixes[0]?.label || 'Exalted';
     return `${pre} ${item.baseLabel}`;
+}
+
+/** @returns {number} bonus affix count for milestone boss unique drops */
+export function rollBossBonusAffixCount() {
+    const cfg = UNIQUE_BOSS_DROP_CONFIG;
+    const min = cfg.bonusAffixCountMin ?? cfg.bonusAffixCount ?? 7;
+    const max = cfg.bonusAffixCountMax ?? min;
+    if (max <= min) return min;
+    return min + Math.floor(Math.random() * (max - min + 1));
+}
+
+/** @param {number} ilvl @returns {object} guaranteed unique gear item */
+export function rollGuaranteedUniqueDrop(ilvl = 1) {
+    const unique = UNIQUE_ITEMS[Math.floor(Math.random() * UNIQUE_ITEMS.length)];
+    const affixIlvl = Math.max(ilvl, UNIQUE_BOSS_DROP_CONFIG.minAffixIlvl ?? 48);
+    return generateGearItem(unique.slot, ilvl, {
+        uniqueId: unique.id,
+        affixCount: rollBossBonusAffixCount(),
+        guaranteeAffixCount: true,
+        affixRollIlvl: affixIlvl
+    });
 }
 
 /** @param {string} enemyRarity @param {number} ilvl */

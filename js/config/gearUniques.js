@@ -44,6 +44,18 @@ export const UNIQUE_ITEMS = [
     }
 ];
 
+/**
+ * Boss milestone unique drops — bonus rolled affixes on top of each unique's fixed base stats.
+ * Tunable here so drop power stays centralized.
+ */
+export const UNIQUE_BOSS_DROP_CONFIG = {
+    /** Rolled affixes on top of each unique's fixed base stats (7–8 total). */
+    bonusAffixCountMin: 7,
+    bonusAffixCountMax: 8,
+    /** Minimum ilvl used when rolling boss bonus affix tiers (display ilvl unchanged). */
+    minAffixIlvl: 48
+};
+
 /** @param {string} slot */
 export function pickUniqueForSlot(slot) {
     const pool = UNIQUE_ITEMS.filter(u => u.slot === slot);

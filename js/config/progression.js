@@ -1,3 +1,5 @@
+import { buildAbilityProgression } from './abilityCombatScaling.js';
+
 export function createDefaultStatsList() {
     return {
         'Upgrade Damage': { level: 0, maxLevel: 1000 },
@@ -15,8 +17,8 @@ export function createDefaultStatsList() {
 export function createDefaultAbilityList() {
     return {
         Reflect: {
-            text: 'Return ??%(25%) of damage taken to the attacker',
-            progression: ['5', '10', '15', '20', '25'],
+            text: 'Return ??%(50%) of enemy hit damage to the attacker. Ignores enemy armour.',
+            progression: buildAbilityProgression('reflect'),
             level: 0, maxLevel: 5
         },
         Bounce: {
@@ -25,18 +27,18 @@ export function createDefaultAbilityList() {
             level: 0, maxLevel: 5
         },
         'Attack Speed Buff': {
-            text: 'Grant ??%(80%) attack speed for 5s, cooldown 10s',
-            progression: ['16', '32', '48', '64', '80'],
+            text: 'Grant ??%(100%) attack speed for 5s, cooldown 10s',
+            progression: buildAbilityProgression('attackSpeedBuff'),
             level: 0, maxLevel: 5
         },
         'Damage Reduction': {
-            text: 'Grant ??%(60%) damage reduction',
-            progression: ['12', '24', '36', '48', '60'],
+            text: 'Grant ??%(50%) damage reduction',
+            progression: buildAbilityProgression('damageReduction'),
             level: 0, maxLevel: 5
         },
         Lifesteal: {
-            text: 'Grant ??%(75%) lifesteal',
-            progression: ['15', '30', '45', '60', '75'],
+            text: 'Grant ??%(25%) lifesteal',
+            progression: buildAbilityProgression('lifesteal'),
             level: 0, maxLevel: 5
         },
         'HP To Damage': {

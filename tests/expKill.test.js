@@ -17,8 +17,8 @@ describe('calculateExpFromKill', () => {
         expect(gained).toBe(1);
     });
 
-    it('uses full enemy exp stat with grant ratio 1.0', () => {
-        expect(calculateExpFromKill(5, 1, 0, { waveIndex: 20, enemyType: 'grunt' })).toBe(5);
+    it('uses grant ratio and wave-tier reduction', () => {
+        expect(calculateExpFromKill(5, 1, 0, { waveIndex: 20, enemyType: 'grunt' })).toBe(4);
     });
 });
 

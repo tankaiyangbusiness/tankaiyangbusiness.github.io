@@ -12,6 +12,10 @@ body, html {
     height: 100vh;
 }
 
+.mobile-menu-btn {
+    display: none;
+}
+
 kbd {
     background: rgba(56, 189, 248, 0.15);
     border: 1px solid rgba(56, 189, 248, 0.4);
@@ -108,22 +112,15 @@ kbd {
 }
 
 .character-card {
-    display: flex;
-    flex-direction: row;
-    align-items: flex-start;
-    gap: 0.85rem;
     padding: 1rem 1.1rem;
     background: rgba(30, 41, 59, 0.88);
     border: 1px solid rgba(56, 189, 248, 0.3);
     border-radius: 12px;
-    cursor: pointer;
-    text-align: left;
     color: inherit;
     font-family: inherit;
     transition: all 0.2s ease;
     backdrop-filter: blur(8px);
     position: relative;
-    min-height: 132px;
 }
 
 .character-card:hover {
@@ -154,8 +151,8 @@ kbd {
 }
 
 .character-card--champion .character-best-run.has-record {
-    color: #fde68a;
-    font-weight: 700;
+    color: #e2e8f0;
+    font-weight: 600;
 }
 
 .character-index {
@@ -258,6 +255,10 @@ kbd {
     color: #64748b;
     font-size: 0.9rem;
     margin: 0;
+}
+
+.controls-hint--mobile {
+    display: none;
 }
 
 /* ===== Game Container ===== */
@@ -402,7 +403,7 @@ kbd {
 
 @keyframes melee-sword-sweep {
     0% { transform: scaleX(0.15); opacity: 0.12; }
-    40% { transform: scaleX(1.05); opacity: 0.3; }
+    40% { transform: scaleX(1.05); opacity: 0.4; }
     100% { transform: scaleX(1); opacity: 0; }
 }
 
@@ -635,6 +636,37 @@ kbd {
     box-shadow: inset 0 0 6px rgba(255, 255, 255, 0.35);
 }
 
+/* Wave 50 / Wave 100 milestone bosses — larger than regular boss bars */
+.enemy-health-bar--milestone {
+    bottom: 138%;
+    width: 220%;
+    height: 14px;
+    border-radius: 5px;
+    border-width: 2px;
+    box-shadow:
+        0 0 18px rgba(251, 191, 36, 0.75),
+        0 0 32px rgba(239, 68, 68, 0.45);
+}
+
+.enemy-health-bar--milestone .enemy-health-bar-fill {
+    border-radius: 3px;
+}
+
+.enemy-health-bar--milestone .enemy-boss-label {
+    font-size: 0.68rem;
+    bottom: calc(100% + 3px);
+    letter-spacing: 0.14em;
+}
+
+.enemy-milestone-boss {
+    filter: drop-shadow(0 0 12px rgba(239, 68, 68, 0.55));
+    z-index: 8;
+}
+
+.enemy-milestone-boss .enemy-model-25d {
+    transform: translate(-50%, -50%) scale(1.18);
+}
+
 .enemy-boss-label {
     position: absolute;
     left: 50%;
@@ -793,6 +825,7 @@ kbd {
 .hit-effect-cold { background: radial-gradient(circle, rgba(125,211,252,0.9), transparent); }
 .hit-effect-lightning { background: radial-gradient(circle, rgba(250,204,21,0.9), transparent); }
 .hit-effect-chaos { background: radial-gradient(circle, rgba(192,132,252,0.9), transparent); }
+.hit-effect-reflect { background: radial-gradient(circle, rgba(251,191,36,0.95), rgba(245,158,11,0.35), transparent); }
 
 @keyframes hit-burst {
     0% { transform: translate(-50%, -50%) scale(0.3); opacity: 1; }
@@ -863,10 +896,11 @@ kbd {
 
 /* Element damage number colors */
 .damage-physical { color: #f8fafc; text-shadow: 0 0 4px rgba(255,255,255,0.35); }
+.damage-reflect { color: #fbbf24; text-shadow: 0 0 8px rgba(251,191,36,0.65), 0 0 2px rgba(245,158,11,0.9); font-weight: 700; }
 .damage-fire { color: #ef4444; text-shadow: 0 0 6px rgba(239,68,68,0.55); }
 .damage-cold { color: #7dd3fc; text-shadow: 0 0 6px rgba(125,211,252,0.55); }
 .damage-lightning { color: #facc15; text-shadow: 0 0 6px #eab308; }
-.damage-chaos { color: #c084fc; text-shadow: 0 0 8px rgba(168,85,247,0.65); }
+.damage-chaos { color: #f3e8ff; text-shadow: 0 0 6px #fff, 0 0 12px rgba(233, 213, 255, 1), 0 0 22px rgba(192, 132, 252, 0.95); }
 .damage-poison { color: #c084fc; text-shadow: 0 0 8px rgba(168,85,247,0.65); }
 .damage-heal { color: #4ade80; text-shadow: 0 0 8px #22c55e; }
 
@@ -909,6 +943,42 @@ kbd {
 .hud-timer-wrap {
     justify-self: end;
     padding-right: 3.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.35rem;
+    pointer-events: auto;
+}
+
+.game-speed-controls {
+    display: flex;
+    gap: 0.25rem;
+}
+
+.game-speed-btn {
+    min-width: 2.1rem;
+    height: 1.65rem;
+    padding: 0 0.35rem;
+    border-radius: 6px;
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    background: rgba(15, 23, 42, 0.88);
+    color: #94a3b8;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.72rem;
+    cursor: pointer;
+    touch-action: manipulation;
+}
+
+.game-speed-btn:hover {
+    border-color: #38bdf8;
+    color: #e2e8f0;
+}
+
+.game-speed-btn-active {
+    border-color: #38bdf8;
+    background: rgba(56, 189, 248, 0.18);
+    color: #7dd3fc;
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.25);
 }
 
 .stats-panel {
@@ -920,6 +990,41 @@ kbd {
     min-width: 268px;
     overflow: visible;
     pointer-events: auto;
+    position: relative;
+}
+
+.stats-detail-toggle {
+    display: none;
+    position: absolute;
+    top: 0.45rem;
+    right: 0.45rem;
+    align-items: center;
+    gap: 0.2rem;
+    padding: 0.15rem 0.35rem;
+    border-radius: 6px;
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    background: rgba(30, 41, 59, 0.85);
+    color: #7dd3fc;
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    cursor: pointer;
+    touch-action: manipulation;
+}
+
+.stats-detail-toggle-icon {
+    font-size: 0.7rem;
+    line-height: 1;
+    transition: transform 0.2s ease;
+}
+
+.stats-panel--detail-collapsed .stats-grid {
+    display: none;
+}
+
+.stats-panel--detail-collapsed .stats-detail-toggle-icon {
+    transform: rotate(-90deg);
 }
 
 .stat-level {
@@ -1803,20 +1908,4 @@ kbd {
 .choice-text { flex: 1; }
 .choice-level { font-size: 0.85rem; color: #94a3b8; }
 
-/* ===== Responsive ===== */
-@media (max-width: 600px) {
-    .hud-top {
-        grid-template-columns: 1fr;
-        justify-items: stretch;
-    }
-    .hud-meta-center { justify-self: center; order: -1; }
-    .hud-timer-wrap { justify-self: center; }
-    .hud-stats-wrap { width: 100%; }
-    .stats-panel { flex: 1; min-width: 0; }
-    #character-list { grid-template-columns: 1fr; }
-    .hud-skill-dock {
-        width: calc(100% - 1rem);
-        left: 50%;
-    }
-    .skill-bar { flex-wrap: wrap; justify-content: center; }
-}
+/* Responsive tweaks for narrow desktop windows live in css/mobile.css (max-width: 768px). */

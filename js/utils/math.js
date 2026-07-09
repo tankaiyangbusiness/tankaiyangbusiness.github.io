@@ -10,6 +10,25 @@ export function clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
 }
 
+/**
+ * Shortest distance from point (px, py) to segment (x1,y1)-(x2,y2) in pixel space.
+ * @param {number} px
+ * @param {number} py
+ * @param {number} x1
+ * @param {number} y1
+ * @param {number} x2
+ * @param {number} y2
+ * @returns {number}
+ */
+export function distancePointToSegmentPx(px, py, x1, y1, x2, y2) {
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const lenSq = dx * dx + dy * dy;
+    if (lenSq === 0) return Math.hypot(px - x1, py - y1);
+    const t = clamp(((px - x1) * dx + (py - y1) * dy) / lenSq, 0, 1);
+    return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
+}
+
 /** @param {number} chancePercent @returns {boolean} */
 export function rollChance(chancePercent) {
     return Math.random() < chancePercent / 100;

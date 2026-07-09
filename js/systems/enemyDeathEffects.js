@@ -61,6 +61,5 @@ export function triggerBomberExplosion(game, enemy, ex, ey) {
         elapsedSeconds: s.elapsedSeconds
     });
 
-    s.stats.hp -= game.characterPassives?.absorbDamage(dealt) ?? dealt;
-    game._onPlayerDamaged();
+    game.dealPlayerDamage(dealt);
 }

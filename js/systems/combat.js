@@ -1,5 +1,13 @@
 import { rollChance } from '../utils/math.js';
 import { scaleEnemyAttackDamageForElapsed } from '../config/balance.js';
+import { getAbilityPercent } from '../config/abilityCombatScaling.js';
+import {
+    computeLevelUpDamageBonus,
+    computeUpgradeDamageIncrement,
+    computeLevelUpHpGain,
+    computeLevelUpMaxHpGain,
+    computeArmourUpgradeIncrement
+} from '../config/playerProgression.js';
 
 /** Armour constant for diminishing-returns formula — higher = less reduction per point. */
 export const ARMOUR_MITIGATION_K = 40;
@@ -61,13 +69,44 @@ export function calculatePlayerDamage(params) {
 }
 
 /**
- * Return-damage (Reflect) = % of damage the player just took.
- * @param {number} damageTaken
- * @param {number} reflectLevel 1–5 → 5%–25%
+ * Pre-mitigation enemy hit strength — basis for Reflect (not player armour / DR).
+ * @param {object} params
+ * @param {number} params.enemyDamage Base enemy physical damage stat
+ * @param {number} [params.elapsedSeconds] Time-based attack scaling
+ * @returns {number}
  */
-export function calculateReflectDamage(damageTaken, reflectLevel) {
-    if (reflectLevel <= 0 || damageTaken <= 0) return 0;
-    return Math.max(1, Math.floor(damageTaken * reflectLevel * 5 / 100));
+export function calculateEnemyHitDamageForReflect({ enemyDamage, elapsedSeconds }) {
+    let scaled = enemyDamage;
+    if (typeof elapsedSeconds === 'number') {
+        scaled = scaleEnemyAttackDamageForElapsed(enemyDamage, elapsedSeconds);
+    }
+    return Math.max(1, Math.floor(scaled));
+}
+
+/**
+ * Return-damage (Reflect) = % of the enemy's pre-mitigation hit (true damage to HP).
+ * @param {number} hitDamage Pre-mitigation enemy attack damage
+ * @param {number} reflectLevel 1–5 → 10%–50%
+ */
+export function calculateReflectDamage(hitDamage, reflectLevel) {
+    if (reflectLevel <= 0 || hitDamage <= 0) return 0;
+    const pct = getAbilityPercent('reflect', reflectLevel) / 100;
+    return Math.max(1, Math.floor(hitDamage * pct));
+}
+
+/**
+ * Apply return-damage to a single attacker — true damage; ignores enemy armour.
+ * @param {number} hitDamage Pre-mitigation enemy attack damage for this hit
+ * @param {number} reflectLevel Reflect ability level (1–5)
+ * @param {number} attackerHp Current attacker HP before reflect
+ * @returns {{ reflected: number, remainingHp: number }}
+ */
+export function applyReflectDamageToAttacker(hitDamage, reflectLevel, attackerHp) {
+    const hp = Math.max(0, Number(attackerHp) || 0);
+    if (hp <= 0) return { reflected: 0, remainingHp: 0 };
+    const reflected = calculateReflectDamage(hitDamage, reflectLevel);
+    if (reflected <= 0) return { reflected: 0, remainingHp: hp };
+    return { reflected, remainingHp: hp - reflected };
 }
 
 /**
@@ -95,7 +134,7 @@ export function calculatePlayerIncomingDamage(params) {
     let damage = scaledDamage * (1 - mitigation);
 
     if (damageReductionLevel > 0) {
-        damage *= (1 - damageReductionLevel * 0.04);
+        damage *= (1 - getAbilityPercent('damageReduction', damageReductionLevel) / 100);
     }
 
     return Math.max(1, Math.floor(damage));
@@ -114,7 +153,7 @@ export function rollEnemyEvade(evadeChance) {
 export function calculateLifesteal(params) {
     const { damage, lifestealLevel } = params;
     if (lifestealLevel <= 0) return 0;
-    return Math.floor(damage * lifestealLevel * 5 / 100);
+    return Math.floor(damage * getAbilityPercent('lifesteal', lifestealLevel) / 100);
 }
 
 /**
@@ -129,7 +168,7 @@ export function applyStatUpgrade(statName, stats, originalStats, statsList) {
 
     switch (statName) {
         case 'Upgrade Damage':
-            stats.physicalDamage += Math.floor(1 + originalStats.physicalDamage / 4 + statLevel);
+            stats.physicalDamage += computeUpgradeDamageIncrement(statLevel, originalStats.physicalDamage);
             break;
         case 'Upgrade AoE':
             stats.attackRange += 15;
@@ -148,7 +187,7 @@ export function applyStatUpgrade(statName, stats, originalStats, statsList) {
             stats.hpRegen += Math.floor(2 + statLevel * 2 + originalStats.hpRegen / 20);
             break;
         case 'Upgrade Armour':
-            stats.armour += Math.floor(1 + statLevel / 2 + originalStats.armour / 40);
+            stats.armour += computeArmourUpgradeIncrement(statLevel, originalStats.armour);
             break;
         case 'Upgrade Crit Chance':
             stats.critChance += 2.5;
@@ -168,9 +207,9 @@ export function applyStatUpgrade(statName, stats, originalStats, statsList) {
  */
 export function applyLevelUpBonuses(stats, originalStats) {
     stats.level += 1;
-    stats.physicalDamage += Math.floor(1 + stats.level / 3 + originalStats.physicalDamage / 5);
+    stats.physicalDamage += computeLevelUpDamageBonus(stats.level - 1, originalStats.physicalDamage);
     stats.armour += Math.floor(1 + stats.level / 8 + originalStats.armour / 40);
     stats.hpRegen += Math.floor(1 + stats.level / 15 + originalStats.hpRegen / 25);
-    stats.hp += Math.floor(5 + stats.level + originalStats.hp / 150);
-    stats.maxHp += Math.floor(5 + 1.5 * stats.level + originalStats.maxHp / 150);
+    stats.hp += computeLevelUpHpGain(stats.level, originalStats.hp);
+    stats.maxHp += computeLevelUpMaxHpGain(stats.level, originalStats.maxHp);
 }

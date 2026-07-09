@@ -1,4 +1,6 @@
-import { BALANCE } from '../config/balance.js';
+import { BALANCE, getWaveSpawnDensityMultiplier } from '../config/balance.js';
+import { getRuntimeBudgets } from './runtimeBudget.js';
+import { isMilestoneBossEnemy } from '../config/milestoneBosses.js';
 
 /**
  * Limits on-screen enemies and throttles spawns during warmup.
@@ -11,7 +13,7 @@ export class EnemyPopulationManager {
     }
 
     get maxEnemies() {
-        return BALANCE.maxEnemiesOnScreen;
+        return getRuntimeBudgets().maxEnemies;
     }
 
     isAtCap() {
@@ -36,7 +38,13 @@ export class EnemyPopulationManager {
         const excess = s.enemies.length - this.maxEnemies;
 
         const sorted = [...s.enemies]
-            .filter(e => e.rarity === 'normal' && !e.isTreasure && !e.isSplitFragment && !e.isSplitMinion)
+            .filter(e =>
+                e.rarity === 'normal' &&
+                !e.isTreasure &&
+                !e.isSplitFragment &&
+                !e.isSplitMinion &&
+                !isMilestoneBossEnemy(e)
+            )
             .map(e => ({
                 enemy: e,
                 dist: Math.hypot(
@@ -77,7 +85,9 @@ export class EnemyPopulationManager {
     /** Whether a spawn tick should fire this frame. @param {number} now */
     shouldSpawnNow(category, elapsedSeconds, lastSpawn, intervalMs, now = Date.now()) {
         if (!this.canSpawn()) return false;
-        const mult = this.getSpawnMultiplier(elapsedSeconds);
+        const warmupMult = this.getSpawnMultiplier(elapsedSeconds);
+        const waveMult = getWaveSpawnDensityMultiplier(this.state.currentWave ?? 1);
+        const mult = warmupMult * waveMult;
         const adjustedInterval = intervalMs / Math.max(0.35, mult);
         return now - lastSpawn >= adjustedInterval;
     }

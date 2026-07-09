@@ -7,7 +7,11 @@ import {
     loadMetaProgress,
     clearMetaProgress,
     markCharacterVictory,
+    recordCampaignVictoryIfPending,
     hasCharacterBeatGame,
+    getCharacterVictoryCount,
+    countCharactersBeatGame,
+    normalizeCharacterRecord,
     META_STORAGE_KEY
 } from '../js/systems/metaProgress.js';
 
@@ -46,12 +50,65 @@ describe('character records', () => {
         expect(getCharacterRecord(meta, 'Ranger').level).toBe(20);
     });
 
+    it('counts characters that beat the campaign', () => {
+        const meta = createDefaultMeta();
+        expect(countCharactersBeatGame(meta)).toBe(0);
+        markCharacterVictory(meta, 'Warrior');
+        markCharacterVictory(meta, 'Ranger');
+        expect(countCharactersBeatGame(meta)).toBe(2);
+    });
+
     it('marks and reads per-character campaign victory', () => {
         const meta = createDefaultMeta();
         expect(hasCharacterBeatGame(meta, 'Warrior')).toBe(false);
         markCharacterVictory(meta, 'Warrior');
         expect(hasCharacterBeatGame(meta, 'Warrior')).toBe(true);
         expect(getCharacterRecord(meta, 'Warrior').beatGame).toBe(true);
+        expect(getCharacterVictoryCount(meta, 'Warrior')).toBe(1);
+    });
+
+    it('increments victory count on each Wave 100 boss defeat', () => {
+        const meta = createDefaultMeta();
+        markCharacterVictory(meta, 'Ranger');
+        markCharacterVictory(meta, 'Ranger');
+        expect(getCharacterVictoryCount(meta, 'Ranger')).toBe(2);
+    });
+
+    it('records campaign victory on manual quit after final boss defeat', () => {
+        const meta = createDefaultMeta();
+        const runState = {
+            finalBossDefeatedThisRun: true,
+            campaignVictoryRecorded: false,
+            finalVictoryAchieved: false
+        };
+        expect(recordCampaignVictoryIfPending(meta, 'Warrior', runState)).toBe(true);
+        expect(getCharacterVictoryCount(meta, 'Warrior')).toBe(1);
+        expect(runState.campaignVictoryRecorded).toBe(true);
+        expect(runState.finalVictoryAchieved).toBe(true);
+        expect(recordCampaignVictoryIfPending(meta, 'Warrior', runState)).toBe(false);
+    });
+
+    it('preserves beatGame and victoryCount when updating best run', () => {
+        const meta = createDefaultMeta();
+        markCharacterVictory(meta, 'Warrior');
+        updateCharacterRecord(meta, {
+            character: 'Warrior',
+            level: 25,
+            time: 800,
+            kills: 200,
+            wave: 60
+        });
+        const rec = getCharacterRecord(meta, 'Warrior');
+        expect(rec.beatGame).toBe(true);
+        expect(rec.victoryCount).toBe(1);
+        expect(rec.level).toBe(25);
+        expect(rec.wave).toBe(60);
+    });
+
+    it('normalizes legacy records without victoryCount', () => {
+        const rec = normalizeCharacterRecord({ beatGame: true, level: 10, wave: 100, kills: 50, time: 100 });
+        expect(rec.victoryCount).toBe(0);
+        expect(rec.beatGame).toBe(true);
     });
 });
 

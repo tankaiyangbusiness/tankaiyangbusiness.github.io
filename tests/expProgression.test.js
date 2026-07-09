@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
     EXP_CONFIG,
+    EXP_KILL_WAVE_MODIFIERS,
+    getExpKillWaveMultiplier,
     calculateExpThreshold,
     totalExpToReachLevel,
     calculateExpFromKill,
@@ -23,8 +25,18 @@ describe('calculateExpFromKill', () => {
     it('applies player exp gain and streak bonus', () => {
         const base = calculateExpFromKill(10, 1, 0, { waveIndex: 20, enemyType: 'grunt' });
         const boosted = calculateExpFromKill(10, 1, 0.2, { waveIndex: 20, enemyType: 'grunt' });
-        expect(base).toBe(10);
-        expect(boosted).toBe(12);
+        expect(base).toBe(9);
+        expect(boosted).toBe(11);
+    });
+
+    it('applies wave-tier EXP reduction without global multipliers', () => {
+        expect(getExpKillWaveMultiplier(0)).toBeCloseTo(EXP_KILL_WAVE_MODIFIERS.baseline, 5);
+        expect(getExpKillWaveMultiplier(49)).toBeCloseTo(0.95, 5);
+        expect(getExpKillWaveMultiplier(50)).toBeCloseTo(0.95 * 0.95, 5);
+        expect(getExpKillWaveMultiplier(100)).toBeCloseTo(0.95 * 0.95 * 0.90, 5);
+        expect(calculateExpFromKill(10, 1, 0, { waveIndex: 0, enemyType: 'grunt' })).toBe(9);
+        expect(calculateExpFromKill(10, 1, 0, { waveIndex: 50, enemyType: 'grunt' })).toBe(9);
+        expect(calculateExpFromKill(10, 1, 0, { waveIndex: 100, enemyType: 'grunt' })).toBe(8);
     });
 });
 

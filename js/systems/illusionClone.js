@@ -2,62 +2,75 @@
 import { getIllusionConfig } from '../config/skills.js';
 import { buildCompanionModelHtml } from '../ui/entityModels.js';
 import { companionAiStep } from '../utils/companionAi.js';
+import { scaledRealTimeoutMs } from './gameClock.js';
 
 export { getIllusionConfig };
 
 /**
- * Manages a single invulnerable illusion clone beside the player.
- * Skill clones stay glued to the player flank; Ranger roam clones chase like a ranged bot.
+ * @typedef {object} IllusionCloneState
+ * @property {HTMLElement} el
+ * @property {number} expiresAt
+ * @property {number} lastAttackTime
+ * @property {number} damagePercent
+ * @property {boolean} roam
+ * @property {number} [x]
+ * @property {number} [y]
+ * @property {number} [speedVw]
+ * @property {number} [leashVw]
+ * @property {number} [homeOffsetX]
+ * @property {number} [homeOffsetY]
+ */
+
+/**
+ * Manages illusion clones — Ranger passive (roaming) and Illusion skill (flank) are independent slots.
  */
 export class IllusionCloneManager {
     /** @param {object} game */
     constructor(game) {
         this.game = game;
-        /** @type {{
-         *   el: HTMLElement,
-         *   expiresAt: number,
-         *   lastAttackTime: number,
-         *   damagePercent: number,
-         *   roam?: boolean,
-         *   x?: number,
-         *   y?: number,
-         *   speedVw?: number,
-         *   leashVw?: number,
-         *   homeOffsetX?: number,
-         *   homeOffsetY?: number
-         * }|null} */
-        this.clone = null;
+        /** @type {IllusionCloneState|null} Ranger passive companion */
+        this.roamClone = null;
+        /** @type {IllusionCloneState|null} Illusion skill summon */
+        this.skillClone = null;
     }
 
     /** @param {number} now */
     tick(now) {
-        if (!this.clone) return;
-        if (now >= this.clone.expiresAt) {
-            this.dismiss();
-            return;
-        }
-        if (this.clone.roam) {
-            this._tickRoamMovement();
-        } else {
-            this._syncPosition();
-        }
-        this._tickCloneAttacks(now);
+        this._tickSlot(this.skillClone, now, { allowExpiry: true });
+        this._tickSlot(this.roamClone, now, { allowExpiry: false });
     }
 
     /**
-     * Permanent roaming companion (Ranger passive) — never expires.
+     * @param {IllusionCloneState|null} clone
+     * @param {number} now
+     * @param {{ allowExpiry: boolean }} opts
+     */
+    _tickSlot(clone, now, opts) {
+        if (!clone) return;
+        if (opts.allowExpiry && now >= clone.expiresAt) {
+            this._removeSkillClone();
+            return;
+        }
+        if (clone.roam) {
+            this._tickRoamMovement(clone);
+        } else {
+            this._syncSkillPosition(clone);
+        }
+        this._tickCloneAttacks(clone, now);
+    }
+
+    /**
+     * Permanent roaming companion (Ranger passive) — never expires; does not block the Illusion skill.
      * @param {number} now
      * @param {{ damagePercent: number, speedVw?: number, leashVw?: number }} opts
      */
     ensureRoamingCompanion(now, opts) {
-        if (this.clone?.roam) {
-            // Keep damage in sync if passive params change mid-run
-            this.clone.damagePercent = opts.damagePercent ?? this.clone.damagePercent;
-            if (opts.speedVw != null) this.clone.speedVw = opts.speedVw;
-            if (opts.leashVw != null) this.clone.leashVw = opts.leashVw;
+        if (this.roamClone) {
+            this.roamClone.damagePercent = opts.damagePercent ?? this.roamClone.damagePercent;
+            if (opts.speedVw != null) this.roamClone.speedVw = opts.speedVw;
+            if (opts.leashVw != null) this.roamClone.leashVw = opts.leashVw;
             return;
         }
-        this.dismiss();
 
         const { x, y } = this.game.ui.getPlayerPosition();
         const homeX = x + 3.2;
@@ -70,7 +83,7 @@ export class IllusionCloneManager {
         el.style.top = `${homeY}vh`;
         this.game.ui.els.gameContainer.appendChild(el);
 
-        this.clone = {
+        this.roamClone = {
             el,
             x: homeX,
             y: homeY,
@@ -87,15 +100,15 @@ export class IllusionCloneManager {
 
     /** External roam step — move clone to new vw position. */
     setRoamPosition(x, y) {
-        if (!this.clone?.roam) return;
-        this.clone.x = x;
-        this.clone.y = y;
-        this.clone.el.style.left = `${x}vw`;
-        this.clone.el.style.top = `${y}vh`;
+        if (!this.roamClone) return;
+        this.roamClone.x = x;
+        this.roamClone.y = y;
+        this.roamClone.el.style.left = `${x}vw`;
+        this.roamClone.el.style.top = `${y}vh`;
     }
 
     /**
-     * Summon if off cooldown and no active clone.
+     * Summon skill clone if off cooldown — coexists with the Ranger roam companion.
      * @param {number} level
      * @param {number} now
      * @returns {boolean}
@@ -103,22 +116,22 @@ export class IllusionCloneManager {
     trySummon(level, now) {
         const s = this.game.state;
         const cfg = getIllusionConfig(level);
-        if (level <= 0 || this.clone) return false;
+        if (level <= 0 || this.skillClone) return false;
         if (now - (s.skillCooldowns.illusion || 0) < cfg.cooldown) return false;
 
         s.skillCooldowns.illusion = now;
-        this._spawn(now, cfg);
+        this._spawnSkillClone(now, cfg);
         this.game.audio?.playSkillSfx?.('illusion');
         this.game.effects?.spawnCastFlash(
-            parseFloat(this.clone.el.style.left),
-            parseFloat(this.clone.el.style.top),
+            parseFloat(this.skillClone.el.style.left),
+            parseFloat(this.skillClone.el.style.top),
             'arcane'
         );
         return true;
     }
 
     /** @param {number} now @param {ReturnType<typeof getIllusionConfig>} cfg */
-    _spawn(now, cfg) {
+    _spawnSkillClone(now, cfg) {
         const { x, y } = this.game.ui.getPlayerPosition();
         const el = document.createElement('div');
         el.className = 'illusion-clone';
@@ -128,7 +141,7 @@ export class IllusionCloneManager {
         el.style.top = `${y}vh`;
         this.game.ui.els.gameContainer.appendChild(el);
 
-        this.clone = {
+        this.skillClone = {
             el,
             x: x + cfg.offsetVw,
             y,
@@ -139,20 +152,19 @@ export class IllusionCloneManager {
         };
 
         el.classList.add('illusion-spawn-in');
-        setTimeout(() => el.classList.remove('illusion-spawn-in'), 500);
+        const spawnMs = scaledRealTimeoutMs(this.game.state, 500);
+        this.game.state.trackTimeout(setTimeout(() => {
+            el.classList.remove('illusion-spawn-in');
+        }, spawnMs));
     }
 
-    /** Ranger passive: ranged bot chase within leash. */
-    _tickRoamMovement() {
-        const clone = this.clone;
-        if (!clone?.roam) return;
-
+    /** @param {IllusionCloneState} clone */
+    _tickRoamMovement(clone) {
         const { x: px, y: py } = this.game.ui.getPlayerPosition();
         const iw = window.innerWidth;
         const ih = window.innerHeight;
         const attackRangePx = this.game.state.stats.attackRange;
 
-        // Prefer stored coords so attack animations can't jitter pathing
         const ax = Number.isFinite(clone.x) ? clone.x : parseFloat(clone.el.style.left);
         const ay = Number.isFinite(clone.y) ? clone.y : parseFloat(clone.el.style.top);
 
@@ -172,52 +184,63 @@ export class IllusionCloneManager {
                 innerHeight: ih
             }
         );
-        this.setRoamPosition(step.x, step.y);
+        clone.x = step.x;
+        clone.y = step.y;
+        clone.el.style.left = `${step.x}vw`;
+        clone.el.style.top = `${step.y}vh`;
     }
 
-    _syncPosition() {
-        if (!this.clone || this.clone.roam) return;
+    /** @param {IllusionCloneState} clone */
+    _syncSkillPosition(clone) {
         const cfg = getIllusionConfig(this.game.state.skillList.illusion?.level || 1);
         const { x, y } = this.game.ui.getPlayerPosition();
-        this.clone.x = x + cfg.offsetVw;
-        this.clone.y = y;
-        this.clone.el.style.left = `${this.clone.x}vw`;
-        this.clone.el.style.top = `${this.clone.y}vh`;
+        clone.x = x + cfg.offsetVw;
+        clone.y = y;
+        clone.el.style.left = `${clone.x}vw`;
+        clone.el.style.top = `${clone.y}vh`;
     }
 
-    _tickCloneAttacks(now) {
+    /** @param {IllusionCloneState} clone @param {number} now */
+    _tickCloneAttacks(clone, now) {
         const s = this.game.state;
-        if (!this.clone || s.gamePaused || s.gameOver) return;
+        if (!clone || s.gamePaused || s.gameOver) return;
 
         const interval = 1000 / s.stats.attackSpeed;
-        if (now - this.clone.lastAttackTime < interval) return;
+        if (now - clone.lastAttackTime < interval) return;
 
-        const x = Number.isFinite(this.clone.x)
-            ? this.clone.x
-            : parseFloat(this.clone.el.style.left);
-        const y = Number.isFinite(this.clone.y)
-            ? this.clone.y
-            : parseFloat(this.clone.el.style.top);
+        const x = Number.isFinite(clone.x) ? clone.x : parseFloat(clone.el.style.left);
+        const y = Number.isFinite(clone.y) ? clone.y : parseFloat(clone.el.style.top);
         const { x: px, y: py } = this.game.ui.getPlayerPosition();
-        this.clone.lastAttackTime = now;
+        clone.lastAttackTime = now;
 
-        this.clone.el.classList.remove('illusion-attacking');
-        void this.clone.el.offsetWidth;
-        this.clone.el.classList.add('illusion-attacking');
+        clone.el.classList.remove('illusion-attacking');
+        void clone.el.offsetWidth;
+        clone.el.classList.add('illusion-attacking');
 
         this.game._attackNearestEnemy(x, y, null, null, {
             rangeCenterX: px,
             rangeCenterY: py,
-            damageMultiplier: this.clone.damagePercent / 100,
+            damageMultiplier: clone.damagePercent / 100,
             skipPlayerAnim: true,
             projectileClass: 'projectile-illusion'
         });
     }
 
+    _removeSkillClone() {
+        if (!this.skillClone) return;
+        this.skillClone.el.remove();
+        this.skillClone = null;
+    }
+
+    _removeRoamClone() {
+        if (!this.roamClone) return;
+        this.roamClone.el.remove();
+        this.roamClone = null;
+    }
+
     dismiss() {
-        if (!this.clone) return;
-        this.clone.el.remove();
-        this.clone = null;
+        this._removeSkillClone();
+        this._removeRoamClone();
     }
 
     cleanup() {
@@ -225,6 +248,11 @@ export class IllusionCloneManager {
     }
 
     isActive() {
-        return Boolean(this.clone);
+        return Boolean(this.roamClone || this.skillClone);
+    }
+
+    /** @deprecated Prefer roamClone / skillClone — legacy alias for tests. */
+    get clone() {
+        return this.skillClone || this.roamClone;
     }
 }

@@ -2,14 +2,17 @@ import { describe, it, expect } from 'vitest';
 import {
     calculatePlayerDamage,
     calculatePlayerIncomingDamage,
+    calculateEnemyHitDamageForReflect,
     calculateArmourMitigation,
     calculateLifesteal,
     calculateReflectDamage,
+    applyReflectDamageToAttacker,
     applyStatUpgrade,
     applyLevelUpBonuses,
     ARMOUR_MITIGATION_CAP,
     rollEnemyEvade
 } from '../js/systems/combat.js';
+import { getAbilityPercent } from '../js/config/abilityCombatScaling.js';
 
 describe('calculatePlayerDamage', () => {
     const base = {
@@ -61,15 +64,52 @@ describe('calculatePlayerDamage', () => {
 });
 
 describe('calculateReflectDamage', () => {
-    it('returns percent of damage taken (5% per level)', () => {
+    it('returns percent of pre-mitigation hit damage (10% per level)', () => {
         expect(calculateReflectDamage(100, 0)).toBe(0);
-        expect(calculateReflectDamage(100, 1)).toBe(5);
-        expect(calculateReflectDamage(100, 5)).toBe(25);
+        expect(calculateReflectDamage(100, 1)).toBe(10);
+        expect(calculateReflectDamage(100, 5)).toBe(50);
         expect(calculateReflectDamage(0, 3)).toBe(0);
     });
 
-    it('never returns zero for positive taken damage when leveled', () => {
+    it('never returns zero for positive hit damage when leveled', () => {
         expect(calculateReflectDamage(1, 1)).toBe(1);
+    });
+
+    it('scales from enemy hit basis, not post-mitigation player damage', () => {
+        const dealtToPlayer = calculatePlayerIncomingDamage({
+            enemyDamage: 12,
+            playerArmour: 200,
+            damageReductionLevel: 5,
+            elapsedSeconds: 480
+        });
+        expect(dealtToPlayer).toBe(1);
+
+        const hitBasis = calculateEnemyHitDamageForReflect({
+            enemyDamage: 12,
+            elapsedSeconds: 480
+        });
+        expect(hitBasis).toBe(12);
+        expect(calculateReflectDamage(hitBasis, 5)).toBe(6);
+    });
+
+    it('reflects independently for each attacker in a swarm', () => {
+        const reflectLevel = 5;
+        const hitDamage = 20;
+        const attackers = Array.from({ length: 100 }, (_, i) => ({ id: i, hp: 50 }));
+
+        attackers.forEach(attacker => {
+            const result = applyReflectDamageToAttacker(hitDamage, reflectLevel, attacker.hp);
+            expect(result.reflected).toBe(10);
+            attacker.hp = result.remainingHp;
+        });
+
+        expect(attackers.every(a => a.hp === 40)).toBe(true);
+    });
+
+    it('reflect damage ignores enemy armour (true damage to HP)', () => {
+        const { reflected, remainingHp } = applyReflectDamageToAttacker(100, 5, 200);
+        expect(reflected).toBe(50);
+        expect(remainingHp).toBe(150);
     });
 });
 
@@ -113,7 +153,7 @@ describe('calculatePlayerIncomingDamage', () => {
             playerArmour: 0,
             damageReductionLevel: 5
         });
-        expect(reduced).toBe(Math.max(1, Math.floor(base * (1 - 5 * 0.04))));
+        expect(reduced).toBe(Math.max(1, Math.floor(base * (1 - getAbilityPercent('damageReduction', 5) / 100))));
     });
 
     it('never grants full immunity at extreme armour', () => {
@@ -200,6 +240,16 @@ describe('applyStatUpgrade', () => {
         applyStatUpgrade('Upgrade AoE', stats, {}, statsList);
         expect(stats.attackRange).toBe(165);
     });
+
+    it('increases armour more on Upgrade Armour picks', () => {
+        const stats = { armour: 48 };
+        const originalStats = { armour: 48 };
+        const statsList = { 'Upgrade Armour': { level: 0, maxLevel: 1000 } };
+
+        applyStatUpgrade('Upgrade Armour', stats, originalStats, statsList);
+        expect(stats.armour).toBeGreaterThan(50);
+        expect(statsList['Upgrade Armour'].level).toBe(1);
+    });
 });
 
 describe('applyLevelUpBonuses', () => {
@@ -215,6 +265,7 @@ describe('applyLevelUpBonuses', () => {
         applyLevelUpBonuses(stats, original);
         expect(stats.level).toBe(2);
         expect(stats.physicalDamage).toBeGreaterThan(30);
-        expect(stats.maxHp).toBeGreaterThan(100);
+        expect(stats.maxHp).toBe(118);
+        expect(stats.hp).toBe(114);
     });
 });

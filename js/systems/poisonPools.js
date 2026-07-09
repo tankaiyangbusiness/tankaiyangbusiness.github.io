@@ -3,11 +3,12 @@ import {
     computePoisonTickDamage,
     findEnemiesInRadius
 } from '../config/skills.js';
+import { getProjectedSimMs, scaledRealTimeoutMs } from './gameClock.js';
 
 let nextPoolId = 0;
 
 /**
- * Manages poison ground pools — persistent AoE damage zones.
+ * Manages poison ground pools — persistent AoE damage zones (sim-time driven).
  */
 export class PoisonPoolManager {
     /** @param {import('../game/game.js').Game} game */
@@ -19,6 +20,7 @@ export class PoisonPoolManager {
     /** @param {number} x @param {number} y @param {number} level @param {number} baseDamage */
     createPool(x, y, level, baseDamage) {
         const cfg = getPoisonBottleConfig(level);
+        const simNow = getProjectedSimMs(this.game.state);
         const el = document.createElement('div');
         el.className = 'poison-pool';
         el.style.left = `${x}vw`;
@@ -36,8 +38,8 @@ export class PoisonPoolManager {
             level,
             tickDamage: computePoisonTickDamage(baseDamage, level),
             tickInterval: cfg.tickInterval,
-            endTime: Date.now() + cfg.poolDuration,
-            lastTick: Date.now()
+            endTime: simNow + cfg.poolDuration,
+            lastTick: simNow
         };
 
         this.pools.push(pool);
@@ -46,21 +48,22 @@ export class PoisonPoolManager {
         return pool;
     }
 
-    /** @param {number} now */
-    tick(now) {
+    /** @param {number} simNow Simulated milliseconds from the game clock */
+    tick(simNow) {
         const s = this.game.state;
         if (s.gamePaused || s.gameOver) return;
 
         this.pools = this.pools.filter(pool => {
-            if (now >= pool.endTime) {
+            if (simNow >= pool.endTime) {
                 pool.element.classList.add('poison-pool-fade');
-                const t = setTimeout(() => pool.element.remove(), 500);
+                const fadeMs = scaledRealTimeoutMs(s, 500);
+                const t = setTimeout(() => pool.element.remove(), fadeMs);
                 s.trackTimeout(t);
                 return false;
             }
 
-            if (now - pool.lastTick >= pool.tickInterval) {
-                pool.lastTick = now;
+            if (simNow - pool.lastTick >= pool.tickInterval) {
+                pool.lastTick = simNow;
                 this._damageEnemiesInPool(pool);
             }
             return true;

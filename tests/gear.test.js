@@ -7,6 +7,7 @@ import {
     buildItemTooltipHtml,
     buildGearCompareTooltipHtml,
     rollLootDrop,
+    rollGuaranteedUniqueDrop,
     scaleBaseStatsForIlvl,
     computeDropIlvl,
     countItemAffixes,
@@ -96,6 +97,24 @@ describe('generateGearItem', () => {
         const item = generateGearItemByRarity('unique', 'weapon', 1, 'survivors_blade');
         expect(item.name).toBe("Survivor's Blade");
         expect(item.rarity).toBe('unique');
+    });
+
+    it('rolls a guaranteed unique drop for milestone bosses with 7–8 affixes', () => {
+        const item = rollGuaranteedUniqueDrop(30);
+        expect(item.rarity).toBe('unique');
+        expect(item.uniqueId).toBeTruthy();
+        expect(item.ilvl).toBe(30);
+        expect(countItemAffixes(item)).toBeGreaterThanOrEqual(7);
+        expect(countItemAffixes(item)).toBeLessThanOrEqual(8);
+        expect(Object.keys(item.baseStats).length).toBeGreaterThanOrEqual(2);
+    });
+
+    it('keeps bonus affixes on named unique items', () => {
+        const item = generateGearItem('weapon', 20, { uniqueId: 'survivors_blade', affixCount: 7 });
+        expect(item.name).toBe("Survivor's Blade");
+        expect(item.rarity).toBe('unique');
+        expect(countItemAffixes(item)).toBeGreaterThanOrEqual(7);
+        expect(item.baseStats.physicalDamage).toBeGreaterThan(0);
     });
 });
 

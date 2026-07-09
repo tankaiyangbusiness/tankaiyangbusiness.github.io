@@ -43,6 +43,9 @@ export class GameState {
         this.elapsedSeconds = 0;
         this.timerStart = 0;
         this.pauseTime = 0;
+        this.timeScale = 1;
+        this.simulatedMs = 0;
+        this.lastRealTickMs = 0;
         this.currentDifficultyLevel = 0;
         this.currentWave = 1;
         this.maxWaveReached = 1;
@@ -54,7 +57,11 @@ export class GameState {
         this.elitesKilled = 0;
         this.bossesKilled = 0;
         this.maxHpReached = 0;
+        this.runStatPeaks = null;
         this.finalVictoryAchieved = false;
+        this.finalBossDefeatedThisRun = false;
+        this.campaignVictoryRecorded = false;
+        this.milestoneBossReinforceTime = 0;
         this.selectedCharacterName = '';
         this.selectedModelClass = '';
 
@@ -79,6 +86,8 @@ export class GameState {
     initForCharacter(characterStats) {
         this.reset();
         this.characterSelection = false;
+        this.gamePaused = false;
+        this.gameOver = false;
         this.originalStats = deepClone(characterStats);
         this.stats = deepClone(characterStats);
         this.originalEnemyStats = deepClone(this.enemyStats);
@@ -86,13 +95,21 @@ export class GameState {
         this.originalAbilityList = deepClone(this.abilityList);
         this.originalSkillList = deepClone(this.skillList);
         this.timerStart = Date.now();
-        this.pauseTime = Date.now();
-        this.healthRegenTime = Date.now();
-        this.normalSpawnTime = Date.now();
-        this.rareEnemySpawnTime = Date.now();
-        this.eliteSpawnTime = Date.now();
-        this.bossSpawnTime = Date.now();
-        this.attackSpeedBuffTime = Date.now();
+        this.pauseTime = 0;
+        this.elapsedSeconds = 0;
+        this.healthRegenTime = 0;
+        this.normalSpawnTime = 0;
+        this.rareEnemySpawnTime = 0;
+        this.eliteSpawnTime = 0;
+        this.bossSpawnTime = 0;
+        this.milestoneBossReinforceTime = 0;
+        this.attackSpeedBuffTime = 0;
+        this.lastAttackTime = 0;
+        this.timeScale = 1;
+        this.simulatedMs = 0;
+        this.lastRealTickMs = 0;
+        this.runStatPeaks = null;
+        this.maxHpReached = 0;
     }
 
     trackTimeout(id) {

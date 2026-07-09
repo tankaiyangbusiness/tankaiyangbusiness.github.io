@@ -62,4 +62,10 @@ describe('early-game swarm gating', () => {
         for (let i = 0; i < 200; i++) types.add(pickEnemyType(SWARM_UNLOCK_DIFFICULTY + 1));
         expect(types.has('swarm')).toBe(true);
     });
+
+    it('includes archers at the same difficulty regardless of game speed', () => {
+        const types = new Set();
+        for (let i = 0; i < 300; i++) types.add(pickEnemyType(8));
+        expect(types.has('archer')).toBe(true);
+    });
 });
