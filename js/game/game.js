@@ -452,7 +452,11 @@ export class Game {
             this.state.gameLoopId = null;
         }
         const loop = () => {
-            this._tick();
+            try {
+                this._tick();
+            } catch (err) {
+                console.error('[Game] tick failed — loop continues', err);
+            }
             const prev = this.state.gameLoopId;
             this.state.gameLoopId = requestAnimationFrame(loop);
             this.state.trackAnimation(this.state.gameLoopId, prev);
@@ -487,7 +491,7 @@ export class Game {
         this._tickSpawns(simNow);
         this._tickEnemyAttacks(simNow);
         this._tickStatusEffects(simNow);
-        this.skillExecutor?.tick(simNow);
+        this.skillExecutor?.tick(simNow, simDeltaMs);
         this.characterPassives?.tick(simNow);
         this.illusionClone?.tick(simNow);
         this.poisonPools?.tick(simNow);

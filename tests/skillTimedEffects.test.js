@@ -82,10 +82,10 @@ describe('SkillExecutor timed effects', () => {
         executor.castSpark(50, 50, 3);
         expect(executor._activeSparks).toHaveLength(cfg.sparkCount);
 
-        executor._tickSparks(simNow + cfg.duration - 1);
+        executor._tickSparks(simNow + cfg.duration - 1, 16);
         expect(executor._activeSparks.length).toBeGreaterThan(0);
 
-        executor._tickSparks(simNow + cfg.duration);
+        executor._tickSparks(simNow + cfg.duration, 16);
         expect(executor._activeSparks).toHaveLength(0);
     });
 });

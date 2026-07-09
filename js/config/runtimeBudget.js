@@ -18,6 +18,8 @@ export const RUNTIME_BUDGET = {
     damageNumberBudgetWindowMs: 80,
     /** Cap simultaneous skill spark projectiles. */
     maxActiveSparks: 24,
+    /** Max spark damage applications per game tick (prevents 4× freeze in swarms). */
+    maxSparkHitApplicationsPerTick: 12,
     /** Projectile travel speed in viewport widths per simulated second. */
     enemyProjectileSpeedVwPerSec: 52,
     /** Max vw moved per sub-step — prevents tunneling through the player at 4× sim deltas. */

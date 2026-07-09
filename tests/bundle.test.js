@@ -27,6 +27,8 @@ describe('browser bundle', () => {
         expect(bundle).toContain('character-stats-grid');
         expect(bundle).toContain('_beginActiveRun');
         expect(bundle).not.toContain('_trackMaxHp');
+        expect(bundle).toContain('tickSparkProjectiles');
+        expect(bundle).toContain('projectilePointHitsEnemy');
     });
 
     it('index.html references the bundle and mobile stylesheet', () => {

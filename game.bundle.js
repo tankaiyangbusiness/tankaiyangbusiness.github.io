@@ -3445,6 +3445,8 @@
     damageNumberBudgetWindowMs: 80,
     /** Cap simultaneous skill spark projectiles. */
     maxActiveSparks: 24,
+    /** Max spark damage applications per game tick (prevents 4× freeze in swarms). */
+    maxSparkHitApplicationsPerTick: 12,
     /** Projectile travel speed in viewport widths per simulated second. */
     enemyProjectileSpeedVwPerSec: 52,
     /** Max vw moved per sub-step — prevents tunneling through the player at 4× sim deltas. */
@@ -4025,6 +4027,149 @@
     }
   };
 
+  // js/utils/projectileCollision.js
+  function getEnemyHitRadiusVw(enemy, innerWidth) {
+    const sizePx = enemy.typeConfig?.size || enemy.element?.offsetWidth || 40;
+    return sizePx / Math.max(innerWidth, 1) * 100 * 0.55;
+  }
+  function projectilePointHitsEnemy(px, py, enemy, innerWidth, innerHeight, extraRadiusVw = 0) {
+    const ex = parseFloat(enemy.element.style.left);
+    const ey = parseFloat(enemy.element.style.top);
+    const r = getEnemyHitRadiusVw(enemy, innerWidth) + extraRadiusVw;
+    const dx = (px - ex) * innerWidth / 100;
+    const dy = (py - ey) * innerHeight / 100;
+    return Math.hypot(dx, dy) <= r * innerWidth / 100;
+  }
+  function projectileSegmentHitsEnemy(x0, y0, x1, y1, enemy, innerWidth, innerHeight, extraRadiusVw = 1.2) {
+    const ex = parseFloat(enemy.element.style.left);
+    const ey = parseFloat(enemy.element.style.top);
+    const r = getEnemyHitRadiusVw(enemy, innerWidth) + extraRadiusVw;
+    const ax = x0 * innerWidth / 100;
+    const ay = y0 * innerHeight / 100;
+    const bx = x1 * innerWidth / 100;
+    const by = y1 * innerHeight / 100;
+    const cx = ex * innerWidth / 100;
+    const cy = ey * innerHeight / 100;
+    const radiusPx = r * innerWidth / 100;
+    const dx = bx - ax;
+    const dy = by - ay;
+    const lenSq = dx * dx + dy * dy;
+    if (lenSq <= 1e-4) {
+      return Math.hypot(cx - ax, cy - ay) <= radiusPx;
+    }
+    const t = Math.max(0, Math.min(1, ((cx - ax) * dx + (cy - ay) * dy) / lenSq));
+    const closestX = ax + t * dx;
+    const closestY = ay + t * dy;
+    return Math.hypot(cx - closestX, cy - closestY) <= radiusPx;
+  }
+  function hasExhaustedPierce(hitCount, maxPierce) {
+    if (maxPierce == null || maxPierce === Infinity) return false;
+    return hitCount > maxPierce;
+  }
+
+  // js/systems/sparkProjectiles.js
+  var SPARK_FRAME_MS = 1e3 / 60;
+  function mapEnemiesForRadiusQuery(enemies) {
+    return enemies.map((e) => ({
+      id: e.id,
+      x: parseFloat(e.element.style.left),
+      y: parseFloat(e.element.style.top),
+      hp: e.stats?.hp ?? 0,
+      ref: e
+    }));
+  }
+  function tickSparkProjectiles(sparks, ctx) {
+    const {
+      simNow,
+      simDeltaMs,
+      gamePaused,
+      gameOver,
+      enemies,
+      innerWidth,
+      innerHeight,
+      onHit
+    } = ctx;
+    if (gamePaused || gameOver || sparks.length === 0) {
+      return sparks.filter((spark) => {
+        if (gamePaused || gameOver) {
+          spark.el?.remove();
+          return false;
+        }
+        return true;
+      });
+    }
+    const stepScale = Math.max(0.25, simDeltaMs / SPARK_FRAME_MS);
+    const maxHits = RUNTIME_BUDGET.maxSparkHitApplicationsPerTick ?? 12;
+    let hitsThisTick = 0;
+    const remaining = [];
+    for (const spark of sparks) {
+      if (simNow >= spark.expires) {
+        spark.el.remove();
+        continue;
+      }
+      if (Math.random() < spark.wanderChance) {
+        const turn = (Math.random() - 0.5) * spark.wanderTurn;
+        const speed = Math.hypot(spark.vx, spark.vy) || 0.42;
+        const angle = Math.atan2(spark.vy, spark.vx) + turn;
+        spark.vx = Math.cos(angle) * speed;
+        spark.vy = Math.sin(angle) * speed;
+      }
+      const prevBx = spark.bx;
+      const prevBy = spark.by;
+      spark.bx += spark.vx * stepScale;
+      spark.by += spark.vy * stepScale;
+      spark.el.style.left = `${spark.bx}vw`;
+      spark.el.style.top = `${spark.by}vh`;
+      const marginVw = (spark.hitRadiusVw ?? 3.2) + 3;
+      const midX = (prevBx + spark.bx) * 0.5;
+      const midY = (prevBy + spark.by) * 0.5;
+      const radiusPx = marginVw * innerWidth / 100;
+      const candidates = findEnemiesInRadius(
+        mapEnemiesForRadiusQuery(enemies),
+        midX,
+        midY,
+        radiusPx,
+        innerWidth,
+        innerHeight
+      );
+      let removeSpark = false;
+      for (const target of candidates) {
+        if (hitsThisTick >= maxHits) break;
+        const enemy = target.ref;
+        if (!enemy || enemy.stats.hp <= 0 || spark.hitIds.has(enemy.id)) continue;
+        const hitRadius = spark.hitRadiusVw ?? 3.2;
+        const hit = projectileSegmentHitsEnemy(
+          prevBx,
+          prevBy,
+          spark.bx,
+          spark.by,
+          enemy,
+          innerWidth,
+          innerHeight,
+          hitRadius
+        ) || projectilePointHitsEnemy(
+          spark.bx,
+          spark.by,
+          enemy,
+          innerWidth,
+          innerHeight,
+          hitRadius
+        );
+        if (!hit) continue;
+        spark.hitIds.add(enemy.id);
+        onHit(enemy, spark.damage);
+        hitsThisTick += 1;
+        if (hasExhaustedPierce(spark.hitIds.size, spark.maxPierce ?? 1)) {
+          spark.el.remove();
+          removeSpark = true;
+          break;
+        }
+      }
+      if (!removeSpark) remaining.push(spark);
+    }
+    return remaining;
+  }
+
   // js/systems/skillExecutor.js
   var SkillExecutor = class {
     /** @param {import('../game/game.js').Game} game */
@@ -4058,14 +4203,14 @@
         dispose
       };
     }
-    /** @param {number} now */
-    tick(now) {
+    /** @param {number} now @param {number} [simDeltaMs] */
+    tick(now, simDeltaMs = 0) {
       const s = this.game.state;
       if (s.gamePaused || s.gameOver) return;
       this._transientDom.purgeExpired();
       const rfLevel = s.skillList.righteousFire?.level || 0;
       if (rfLevel > 0) this._tickRighteousFire(now, rfLevel);
-      this._tickSparks(now);
+      this._tickSparks(now, simDeltaMs);
       const illusionLevel = s.skillList.illusion?.level || 0;
       if (illusionLevel > 0) {
         this.game.illusionClone?.trySummon(illusionLevel, now);
@@ -4097,7 +4242,7 @@
         } else if (skillId === "spark") {
           s.skillCooldowns[skillId] = now;
           this.game.audio?.playSkillSfx?.("spark");
-          this.castSpark(px, py, level);
+          this.castSpark(px, py, level, now);
         } else if (hasTarget) {
           s.skillCooldowns[skillId] = now;
           this.game.audio?.playSkillSfx?.(skillId);
@@ -4703,9 +4848,8 @@
         }
       });
     }
-    castSpark(px, py, level) {
+    castSpark(px, py, level, simNow = getProjectedSimMs(this.game.state)) {
       const s = this.game.state;
-      const simNow = getProjectedSimMs(s);
       const cfg = getSparkConfig(level);
       const damage = computeSkillDamage(s.stats.physicalDamage, "spark", level);
       const iw = window.innerWidth;
@@ -4717,7 +4861,7 @@
       origin.style.left = `${px}vw`;
       origin.style.top = `${py}vh`;
       this.game.ui.els.gameContainer.appendChild(origin);
-      s.trackTimeout(setTimeout(() => origin.remove(), 420));
+      this._transientDom.track(origin, () => origin.remove());
       const count = cfg.sparkCount;
       const maxSparks = RUNTIME_BUDGET.maxActiveSparks ?? 24;
       const baseAngle = Math.random() * Math.PI * 2;
@@ -4759,39 +4903,19 @@
         this._activeSparks.push(spark);
       }
     }
-    _tickSparks(now) {
+    _tickSparks(now, simDeltaMs) {
       const s = this.game.state;
-      this._activeSparks = this._activeSparks.filter((spark) => {
-        if (now >= spark.expires || s.gamePaused || s.gameOver) {
-          spark.el.remove();
-          if (spark.animId) s.cancelAnimation(spark.animId);
-          return false;
+      this._activeSparks = tickSparkProjectiles(this._activeSparks, {
+        simNow: now,
+        simDeltaMs,
+        gamePaused: s.gamePaused,
+        gameOver: s.gameOver,
+        enemies: s.enemies,
+        innerWidth: window.innerWidth,
+        innerHeight: window.innerHeight,
+        onHit: (enemy, damage) => {
+          this.game._dealSkillDamageToEnemy(enemy, damage, "lightning", false, "spark");
         }
-        if (Math.random() < spark.wanderChance) {
-          const turn = (Math.random() - 0.5) * spark.wanderTurn;
-          const speed = Math.hypot(spark.vx, spark.vy) || 0.42;
-          const angle = Math.atan2(spark.vy, spark.vx) + turn;
-          spark.vx = Math.cos(angle) * speed;
-          spark.vy = Math.sin(angle) * speed;
-        }
-        spark.bx += spark.vx;
-        spark.by += spark.vy;
-        spark.el.style.left = `${spark.bx}vw`;
-        spark.el.style.top = `${spark.by}vh`;
-        const innerWidth = window.innerWidth;
-        const innerHeight = window.innerHeight;
-        for (const enemy of s.enemies) {
-          if (enemy.stats.hp <= 0 || spark.hitIds.has(enemy.id)) continue;
-          if (projectilePointHitsEnemy(spark.bx, spark.by, enemy, innerWidth, innerHeight, spark.hitRadiusVw ?? 3.2)) {
-            spark.hitIds.add(enemy.id);
-            this.game._dealSkillDamageToEnemy(enemy, spark.damage, "lightning", false, "spark");
-            if (hasExhaustedPierce(spark.hitIds.size, spark.maxPierce ?? 1)) {
-              spark.el.remove();
-              return false;
-            }
-          }
-        }
-        return true;
       });
     }
     cleanup() {
@@ -9358,7 +9482,11 @@
         this.state.gameLoopId = null;
       }
       const loop = () => {
-        this._tick();
+        try {
+          this._tick();
+        } catch (err) {
+          console.error("[Game] tick failed \u2014 loop continues", err);
+        }
         const prev = this.state.gameLoopId;
         this.state.gameLoopId = requestAnimationFrame(loop);
         this.state.trackAnimation(this.state.gameLoopId, prev);
@@ -9389,7 +9517,7 @@
       this._tickSpawns(simNow);
       this._tickEnemyAttacks(simNow);
       this._tickStatusEffects(simNow);
-      this.skillExecutor?.tick(simNow);
+      this.skillExecutor?.tick(simNow, simDeltaMs);
       this.characterPassives?.tick(simNow);
       this.illusionClone?.tick(simNow);
       this.poisonPools?.tick(simNow);

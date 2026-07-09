@@ -26,6 +26,12 @@ import { getProjectedSimMs } from './gameClock.js';
 import { flashPlayerSprite } from '../ui/playerVisuals.js';
 import { RUNTIME_BUDGET } from '../config/runtimeBudget.js';
 import { TransientDomRegistry } from '../utils/transientDomRegistry.js';
+import {
+    projectilePointHitsEnemy,
+    projectileSegmentHitsEnemy,
+    hasExhaustedPierce
+} from '../utils/projectileCollision.js';
+import { tickSparkProjectiles } from './sparkProjectiles.js';
 
 export class SkillExecutor {
     /** @param {import('../game/game.js').Game} game */
@@ -59,8 +65,8 @@ export class SkillExecutor {
         };
     }
 
-    /** @param {number} now */
-    tick(now) {
+    /** @param {number} now @param {number} [simDeltaMs] */
+    tick(now, simDeltaMs = 0) {
         const s = this.game.state;
         if (s.gamePaused || s.gameOver) return;
 
@@ -69,7 +75,7 @@ export class SkillExecutor {
         const rfLevel = s.skillList.righteousFire?.level || 0;
         if (rfLevel > 0) this._tickRighteousFire(now, rfLevel);
 
-        this._tickSparks(now);
+        this._tickSparks(now, simDeltaMs);
 
         const illusionLevel = s.skillList.illusion?.level || 0;
         if (illusionLevel > 0) {
@@ -106,7 +112,7 @@ export class SkillExecutor {
             } else if (skillId === 'spark') {
                 s.skillCooldowns[skillId] = now;
                 this.game.audio?.playSkillSfx?.('spark');
-                this.castSpark(px, py, level);
+                this.castSpark(px, py, level, now);
             } else if (hasTarget) {
                 s.skillCooldowns[skillId] = now;
                 this.game.audio?.playSkillSfx?.(skillId);
@@ -765,9 +771,8 @@ export class SkillExecutor {
         });
     }
 
-    castSpark(px, py, level) {
+    castSpark(px, py, level, simNow = getProjectedSimMs(this.game.state)) {
         const s = this.game.state;
-        const simNow = getProjectedSimMs(s);
         const cfg = getSparkConfig(level);
         const damage = computeSkillDamage(s.stats.physicalDamage, 'spark', level);
         const iw = window.innerWidth;
@@ -776,17 +781,15 @@ export class SkillExecutor {
         this.game.skillRanges?.flash('spark');
         this.game.effects.spawnCastFlash(px, py, 'spark');
 
-        // Spawn burst ring at player center — PoE-like origin flash
         const origin = document.createElement('div');
         origin.className = 'spark-origin-burst';
         origin.style.left = `${px}vw`;
         origin.style.top = `${py}vh`;
         this.game.ui.els.gameContainer.appendChild(origin);
-        s.trackTimeout(setTimeout(() => origin.remove(), 420));
+        this._transientDom.track(origin, () => origin.remove());
 
         const count = cfg.sparkCount;
         const maxSparks = RUNTIME_BUDGET.maxActiveSparks ?? 24;
-        // Even spider spokes + random jitter so directions fill around the player
         const baseAngle = Math.random() * Math.PI * 2;
         for (let i = 0; i < count; i++) {
             if (this._activeSparks.length >= maxSparks) break;
@@ -829,43 +832,19 @@ export class SkillExecutor {
         }
     }
 
-    _tickSparks(now) {
+    _tickSparks(now, simDeltaMs) {
         const s = this.game.state;
-        this._activeSparks = this._activeSparks.filter(spark => {
-            if (now >= spark.expires || s.gamePaused || s.gameOver) {
-                spark.el.remove();
-                if (spark.animId) s.cancelAnimation(spark.animId);
-                return false;
+        this._activeSparks = tickSparkProjectiles(this._activeSparks, {
+            simNow: now,
+            simDeltaMs,
+            gamePaused: s.gamePaused,
+            gameOver: s.gameOver,
+            enemies: s.enemies,
+            innerWidth: window.innerWidth,
+            innerHeight: window.innerHeight,
+            onHit: (enemy, damage) => {
+                this.game._dealSkillDamageToEnemy(enemy, damage, 'lightning', false, 'spark');
             }
-
-            if (Math.random() < spark.wanderChance) {
-                const turn = (Math.random() - 0.5) * spark.wanderTurn;
-                const speed = Math.hypot(spark.vx, spark.vy) || 0.42;
-                const angle = Math.atan2(spark.vy, spark.vx) + turn;
-                spark.vx = Math.cos(angle) * speed;
-                spark.vy = Math.sin(angle) * speed;
-            }
-
-            spark.bx += spark.vx;
-            spark.by += spark.vy;
-            spark.el.style.left = `${spark.bx}vw`;
-            spark.el.style.top = `${spark.by}vh`;
-
-            const innerWidth = window.innerWidth;
-            const innerHeight = window.innerHeight;
-            for (const enemy of s.enemies) {
-                if (enemy.stats.hp <= 0 || spark.hitIds.has(enemy.id)) continue;
-                if (projectilePointHitsEnemy(spark.bx, spark.by, enemy, innerWidth, innerHeight, spark.hitRadiusVw ?? 3.2)) {
-                    spark.hitIds.add(enemy.id);
-                    this.game._dealSkillDamageToEnemy(enemy, spark.damage, 'lightning', false, 'spark');
-                    if (hasExhaustedPierce(spark.hitIds.size, spark.maxPierce ?? 1)) {
-                        spark.el.remove();
-                        return false;
-                    }
-                }
-            }
-
-            return true;
         });
     }
 
